@@ -1,0 +1,9 @@
+{
+  "source_dirs": [
+    "components/eam/src/chemistry/aerosol",
+    "components/eam/src/chemistry/modal_aero",
+    "components/eam/src/chemistry/mozart",
+    "components/eam/src/chemistry/pp_linoz_mam4_resus_mom_soag",
+    "components/eam/src/chemistry/utils"
+  ]
+}

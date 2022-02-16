@@ -1,3 +1,5 @@
+include(GNUInstallDirs)
+
 add_library (cldera-profiling)
 
 target_sources (cldera-profiling
@@ -6,7 +8,21 @@ target_sources (cldera-profiling
 )
 
 target_link_libraries (cldera-profiling PUBLIC ekat)
+
 target_include_directories (cldera-profiling
   PUBLIC
-    ${CLDERA_SOURCE_DIR}/src
-    ${CLDERA_BINARY_DIR}/src) # For cldera_config.h
+  "$<BUILD_INTERFACE:${CLDERA_SOURCE_DIR}/src;${CLDERA_BINARY_DIR}/src>"
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+
+set (CLDERA_PROFILING_HEADERS
+  cldera_profiling_session.hpp
+)
+
+install (TARGETS cldera-profiling
+  LIBRARY       DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE       DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+install (FILES ${CLDERA_PROFILING_HEADERS}
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})

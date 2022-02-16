@@ -5,6 +5,7 @@ add_library (cldera-profiling)
 target_sources (cldera-profiling
   PUBLIC
     cldera_profiling_session.cpp
+    cldera_profiling_archive.cpp
 )
 
 target_link_libraries (cldera-profiling PUBLIC ekat)
@@ -17,6 +18,7 @@ target_include_directories (cldera-profiling
 
 set (CLDERA_PROFILING_HEADERS
   cldera_profiling_session.hpp
+  cldera_profiling_archive.hpp
 )
 
 install (TARGETS cldera-profiling

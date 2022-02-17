@@ -6,6 +6,10 @@ target_sources (cldera-profiling
   PUBLIC
     cldera_profiling_session.cpp
     cldera_profiling_archive.cpp
+    stats/cldera_compute_max.cpp
+    stats/cldera_compute_min.cpp
+    stats/cldera_compute_avg.cpp
+    stats/cldera_compute_sum.cpp
 )
 
 target_link_libraries (cldera-profiling PUBLIC ekat)

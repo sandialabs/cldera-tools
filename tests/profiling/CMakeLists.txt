@@ -10,3 +10,7 @@ EkatCreateUnitTest (session session.cpp
 # Test ProfilingArchive
 EkatCreateUnitTest (archive archive.cpp
   LIBS cldera-profiling ekat)
+
+# Test functions to compute stats
+EkatCreateUnitTest (compute_stats compute_stats.cpp
+  LIBS cldera-profiling ekat)

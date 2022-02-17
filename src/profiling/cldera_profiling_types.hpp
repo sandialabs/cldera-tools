@@ -18,6 +18,13 @@ struct Field {
   std::vector<int>  dims;
 
   int rank () const { return dims.size(); };
+  int size () const {
+    int s = 1;
+    for (auto d : dims) {
+      s *= d;
+    }
+    return s;
+  }
 };
 
 // Type of statistics to be tracked on a Field

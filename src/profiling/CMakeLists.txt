@@ -6,6 +6,7 @@ target_sources (cldera-profiling
   PUBLIC
     cldera_profiling_session.cpp
     cldera_profiling_archive.cpp
+    cldera_profiling_interface.cpp
     stats/cldera_compute_max.cpp
     stats/cldera_compute_min.cpp
     stats/cldera_compute_avg.cpp
@@ -23,6 +24,8 @@ target_include_directories (cldera-profiling
 set (CLDERA_PROFILING_HEADERS
   cldera_profiling_session.hpp
   cldera_profiling_archive.hpp
+  cldera_profiling_interface.hpp
+  stats/cldera_compute_stat.hpp
 )
 
 install (TARGETS cldera-profiling

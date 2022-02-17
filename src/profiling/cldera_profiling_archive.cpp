@@ -4,6 +4,11 @@
 
 namespace cldera {
 
+ProfilingArchive::~ProfilingArchive()
+{
+  clean_up();
+}
+
 void ProfilingArchive::
 clean_up () {
   m_fields.clear();
@@ -49,9 +54,9 @@ get_field (const std::string& name) const
   return it->second;
 }
 
-const ProfilingArchive::stats_history_t&
+ProfilingArchive::stats_history_t&
 ProfilingArchive::
-get_all_stats_history (const std::string& name) const
+get_all_stats_history (const std::string& name)
 {
   auto it = m_field_stats.find(name);
   EKAT_REQUIRE_MSG (it!=m_field_stats.end(),
@@ -60,9 +65,9 @@ get_all_stats_history (const std::string& name) const
   return it->second;
 }
 
-const History&
+History&
 ProfilingArchive::
-get_stat_history (const std::string& name, const StatType stat) const
+get_stat_history (const std::string& name, const StatType stat)
 {
   return get_all_stats_history(name).at(stat);
 }

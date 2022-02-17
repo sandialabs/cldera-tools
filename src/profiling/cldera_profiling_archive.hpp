@@ -23,6 +23,8 @@ class ProfilingArchive
 public:
   using stats_history_t = std::map<StatType,History>;
 
+  ~ProfilingArchive ();
+
   void clean_up ();
 
   // Setters
@@ -40,8 +42,8 @@ public:
 
   // Getters
   const Field& get_field (const std::string& name) const;
-  const stats_history_t& get_all_stats_history (const std::string& name) const;
-  const History& get_stat_history (const std::string& name, const StatType stat) const;
+  stats_history_t& get_all_stats_history (const std::string& name);
+  History& get_stat_history (const std::string& name, const StatType stat);
 
 private:
 

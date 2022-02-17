@@ -3,6 +3,8 @@
 #include "profiling/cldera_profiling_session.hpp"
 #include "cldera_config.h"
 
+#include "profiling/cldera_profiling_types.hpp"
+
 TEST_CASE ("session") {
   using namespace cldera;
 
@@ -17,19 +19,22 @@ TEST_CASE ("session") {
 
   s.init (comm);
 
-  ekat::any foo,bar;
-
   // Create a simple 'any', set it in the session
-  foo.reset<double>(1.0);
-  s.set_data("foo",foo);
+  s.create<double>("foo",1.0);
 
   // Cannot overwrite.
-  REQUIRE_THROWS (s.set_data("foo",foo));
+  REQUIRE_THROWS (s.create<double>("foo",1.0));
 
-  // Check data is in there, has correct type, and correct value
-  REQUIRE_NOTHROW( bar = s.get_data("foo") );
-  REQUIRE_NOTHROW (ekat::any_cast<double>(bar));
-  REQUIRE (ekat::any_cast<double>(bar)==1.0);
+  // But you can use create_or_get
+  REQUIRE_NOTHROW (s.create_or_get<double>("foo"));
+
+  // Cannot get/remove what's not there
+  REQUIRE_THROWS (s.get<int>("bar"));
+  REQUIRE_THROWS (s.remove("bar"));
+
+  // Check data is stored, has correct type, and correct value
+  REQUIRE_THROWS ( s.get<int>("foo") );
+  REQUIRE (s.get<double>("foo")==1.0);
 
 #ifdef CLDERA_DEBUG
   // Cannot double init

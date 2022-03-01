@@ -1,9 +1,6 @@
 include(GNUInstallDirs)
 
-add_library (cldera-profiling)
-
-target_sources (cldera-profiling
-  PUBLIC
+add_library (cldera-profiling
     cldera_profiling_session.cpp
     cldera_profiling_archive.cpp
     cldera_profiling_interface.cpp
@@ -25,6 +22,7 @@ set (CLDERA_PROFILING_HEADERS
   cldera_profiling_session.hpp
   cldera_profiling_archive.hpp
   cldera_profiling_interface.hpp
+  cldera_profiling_types.hpp
   stats/cldera_compute_stat.hpp
 )
 

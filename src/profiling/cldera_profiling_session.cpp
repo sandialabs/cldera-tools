@@ -17,7 +17,7 @@ clean_up ()
 {
   EKAT_REQUIRE_MSG (inited(), "Error! ProfilingSession was not yet inited.\n");
 
-  m_comm.reset_mpi_comm(MPI_COMM_NULL);
+  m_comm.reset_mpi_comm(MPI_COMM_SELF);
   m_data.clear();
 
   m_inited = false;

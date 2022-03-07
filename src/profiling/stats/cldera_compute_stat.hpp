@@ -1,6 +1,7 @@
 #ifndef CLDERA_COMPUTE_STAT_HPP
 #define CLDERA_COMPUTE_STAT_HPP
 
+#include "profiling/stats/cldera_stats_utils.hpp"
 #include "profiling/cldera_profiling_types.hpp"
 
 namespace cldera {

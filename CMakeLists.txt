@@ -4,6 +4,10 @@ cmake_minimum_required (VERSION 3.18)
 # PROJECT is mainly in C++, with C hooks for C/Fortran
 project (CLDERA C CXX)
 
+set (CLDERA_VERSION_MAJOR 0)
+set (CLDERA_VERSION_MINOR 1)
+set (CLDERA_VERSION_PATCH 0)
+
 ##############################
 #        Build EKAT          #
 ##############################
@@ -45,3 +49,32 @@ if (CLDERA_ENABLE_TESTS)
   # System tests
   add_subdirectory (tests)
 endif()
+
+###########################################
+###   Package CLDERA as a CMake package   ###
+###########################################
+
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
+configure_package_config_file(
+  cmake/ClderaConfig.cmake.in
+  "${CLDERA_BINARY_DIR}/ClderaConfig.cmake"
+  INSTALL_DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/cmake)
+
+write_basic_package_version_file(
+  "${CLDERA_BINARY_DIR}/ClderaConfigVersion.cmake"
+  VERSION ${CLDERA_VERSION_MAJOR}.${CLDERA_VERSION_MINOR}.${CLDERA_VERSION_PATCH}.
+  COMPATIBILITY SameMajorVersion)
+
+
+# Install the ClderaConfig*.cmake files
+install(FILES
+  "${CLDERA_BINARY_DIR}/ClderaConfig.cmake"
+  "${CLDERA_BINARY_DIR}/ClderaConfigVersion.cmake"
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/cldera)
+
+# Install cmake targets
+install(EXPORT ClderaTargets
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/cldera)
+

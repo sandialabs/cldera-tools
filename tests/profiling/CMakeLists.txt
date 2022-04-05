@@ -7,6 +7,10 @@ EkatCreateUnitTest (session session.cpp
   MPI_EXEC_NAME ${CLDERA_TESTS_MPI_EXEC_NAME}
   MPI_NP_FLAG ${CLDERA_TESTS_MPI_NP_FLAG})
 
+# Test Field
+EkatCreateUnitTest (field field.cpp
+  LIBS cldera-profiling ekat)
+
 # Test ProfilingArchive
 EkatCreateUnitTest (archive archive.cpp
   LIBS cldera-profiling ekat)

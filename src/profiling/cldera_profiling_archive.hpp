@@ -2,6 +2,7 @@
 #define CLDERA_PROFILING_ARCHIVE_HPP
 
 #include "cldera_profiling_types.hpp"
+#include "cldera_field.hpp"
 
 #include <map>
 
@@ -27,24 +28,19 @@ public:
 
   void clean_up ();
 
-  // Setters
-  void add_field (const std::string& name,
-                  const Real* const data,
-                  const std::vector<int>& dims);
+  // Fields
+  void add_field (const Field& field);
 
-  void add_field (const std::string& name,
-                  const Field& field);
+  void commit_all_fields ();
 
-  void store_stat (const std::string& name,
-                   const StatType     stat_type,
-                   const Real         time,
-                   const Real         value);
-
-  // Getters
+  bool has_field (const std::string& name) const {
+    return m_fields.find(name)!=m_fields.end();
+  }
   const Field& get_field (const std::string& name) const;
-  stats_history_t& get_all_stats_history (const std::string& name);
-  History& get_stat_history (const std::string& name, const StatType stat);
+        Field& get_field (const std::string& name);
 
+  // Stats
+  History& get_stat_history (const std::string& name, const StatType stat);
 private:
 
   std::map<std::string,Field>             m_fields;

@@ -3,6 +3,7 @@
 
 #include "profiling/stats/cldera_stats_utils.hpp"
 #include "profiling/cldera_profiling_types.hpp"
+#include "profiling/cldera_field.hpp"
 
 namespace cldera {
 

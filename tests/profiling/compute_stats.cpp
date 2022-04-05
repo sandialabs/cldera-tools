@@ -21,7 +21,9 @@ TEST_CASE ("stats") {
     raw_data[i] = i;
   }
 
-  Field f {raw_data,{dim0,dim1}};
+  Field f;
+  f.data = raw_data;
+  f.dims = {dim0,dim1};
   std::map<StatType,History> hist;
 
   // Compute all supported stats

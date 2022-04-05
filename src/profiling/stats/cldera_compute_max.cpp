@@ -1,4 +1,5 @@
 #include "profiling/cldera_profiling_types.hpp"
+#include "profiling/cldera_field.hpp"
 
 #include <limits>
 
@@ -10,8 +11,12 @@ void compute_max (const Field& f, History& hist)
       "Error! The type cldera::Real is not capable of representing infinity.\n");
 
   Real max = -std::numeric_limits<Real>::infinity();
-  for (int i=0; i<f.size(); ++i) {
-    max = std::max(max,f.data[i]);
+  for (int p=0; p<f.nparts(); ++p) {
+    const auto& pl = f.part_layout(p);
+    const auto& data = f.get_part_data(p);
+    for (int i=0; i<pl.size(); ++i) {
+      max = std::max(max,data[i]);
+    }
   }
 
   hist.values.push_back(max);

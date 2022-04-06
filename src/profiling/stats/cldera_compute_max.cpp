@@ -1,11 +1,10 @@
-#include "profiling/cldera_profiling_types.hpp"
 #include "profiling/cldera_field.hpp"
 
 #include <limits>
 
 namespace cldera {
 
-void compute_max (const Field& f, History& hist)
+Real compute_max (const Field& f)
 {
   EKAT_REQUIRE_MSG (std::numeric_limits<Real>::has_infinity,
       "Error! The type cldera::Real is not capable of representing infinity.\n");
@@ -18,8 +17,7 @@ void compute_max (const Field& f, History& hist)
       max = std::max(max,data[i]);
     }
   }
-
-  hist.values.push_back(max);
+  return max;
 }
 
 } // namespace cldera

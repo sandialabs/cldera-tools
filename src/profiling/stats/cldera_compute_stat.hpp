@@ -7,27 +7,29 @@
 
 namespace cldera {
 
-void compute_max (const Field& f, History& hist);
-void compute_min (const Field& f, History& hist);
-void compute_sum (const Field& f, History& hist);
-void compute_avg (const Field& f, History& hist);
+Real compute_max (const Field& f);
+Real compute_min (const Field& f);
+Real compute_sum (const Field& f);
+Real compute_avg (const Field& f);
 
 inline void compute_stat (const Real time, const Field& f, const StatType s, History& hist)
 {
+  Real stat;
   switch (s) {
     case StatType::Max:
-      compute_max (f,hist); break;
+      stat = compute_max (f); break;
     case StatType::Min:
-      compute_min (f,hist); break;
+      stat = compute_min (f); break;
     case StatType::Sum:
-      compute_sum (f,hist); break;
+      stat = compute_sum (f); break;
     case StatType::Avg:
-      compute_avg (f,hist); break;
+      stat = compute_avg (f); break;
     default:
       EKAT_ERROR_MSG ("[compute_stat] Error! Stat '" + e2str(s) + "' not yet supported.\n");
   }
-  // Update the times
-  hist.times.push_back(time);
+
+  // Update the history
+  hist.store(time,stat);
 }
 
 } // namespace cldera

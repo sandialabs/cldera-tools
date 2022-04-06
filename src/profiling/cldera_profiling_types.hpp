@@ -22,9 +22,21 @@ enum class StatType {
 // NOTE: a std;:pair would do too, but times/values are more meaningful
 //       names than first/second. Besides, we can expand the struct,
 //       without having to change downstream code.
-struct History {
-  std::vector<Real>   times;
-  std::vector<Real>   values;
+class History {
+public:
+  int size () const { return m_times.size(); }
+
+  void store (const Real t, const Real v) {
+    m_times.push_back(t);
+    m_values.push_back(v);
+  }
+
+  const std::vector<Real>& times  () const { return m_times ; }
+  const std::vector<Real>& values () const { return m_values; }
+
+private:
+  std::vector<Real>   m_times;
+  std::vector<Real>   m_values;
 };
 
 } // namespace cldera

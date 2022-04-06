@@ -1,10 +1,8 @@
-#include "profiling/cldera_profiling_types.hpp"
-#include "profiling/stats/cldera_compute_stat.hpp"
 #include "profiling/cldera_field.hpp"
 
 namespace cldera {
 
-void compute_sum (const Field& f, History& hist)
+Real compute_sum (const Field& f)
 {
   // Note: use Kahan summation to increase accuracy
   Real sum = 0;
@@ -20,7 +18,8 @@ void compute_sum (const Field& f, History& hist)
       sum = temp;
     }
   }
-  hist.values.push_back(sum);
+
+  return sum;
 }
 
 } // namespace cldera

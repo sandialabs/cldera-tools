@@ -1,12 +1,12 @@
-#include "profiling/stats/cldera_compute_stat.hpp"
 #include "profiling/cldera_field.hpp"
 
 namespace cldera {
 
-void compute_avg (const Field& f, History& hist)
+Real compute_sum (const Field& f);
+
+Real compute_avg (const Field& f)
 {
-  compute_sum (f,hist);
-  hist.values.back() /= f.layout().size();
+  return compute_sum (f) / f.layout().size();
 }
 
 } // namespace cldera

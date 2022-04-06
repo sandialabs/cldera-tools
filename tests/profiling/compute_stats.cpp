@@ -21,9 +21,8 @@ TEST_CASE ("stats") {
     raw_data[i] = i;
   }
 
-  Field f;
-  f.data = raw_data;
-  f.dims = {dim0,dim1};
+  Field f("f",{dim0,dim1});
+  f.set_data(raw_data);
   std::map<StatType,History> hist;
 
   // Compute all supported stats
@@ -39,7 +38,7 @@ TEST_CASE ("stats") {
   expected[Avg] = {15.0/6};
 
   for (auto stat : stats) {
-    REQUIRE (hist[stat].times==std::vector<Real>{1});
-    REQUIRE (hist[stat].values==expected[stat]);
+    REQUIRE (hist[stat].times()==std::vector<Real>{1});
+    REQUIRE (hist[stat].values()==expected[stat]);
   }
 }

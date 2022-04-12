@@ -2,7 +2,7 @@
 cmake_minimum_required (VERSION 3.18)
 
 # PROJECT is mainly in C++, with C hooks for C/Fortran
-project (CLDERA C CXX)
+project (CLDERA C CXX Fortran)
 
 set (CLDERA_VERSION_MAJOR 0)
 set (CLDERA_VERSION_MINOR 1)

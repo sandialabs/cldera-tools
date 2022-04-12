@@ -11,7 +11,7 @@
 
 extern "C" {
 
-void cldera_profiling_init (const MPI_Fint& fcomm)
+void cldera_init_c (const MPI_Fint fcomm)
 {
   // Convert F90 comm to C comm, create ekat::Comm, and init session
   MPI_Comm mpiComm = MPI_Comm_f2c(fcomm);
@@ -30,7 +30,7 @@ void cldera_profiling_init (const MPI_Fint& fcomm)
   }
 }
 
-void cldera_profiling_clean_up ()
+void cldera_clean_up_c ()
 {
   auto& s = cldera::ProfilingSession::instance();
   if (s.get_comm().am_i_root()) {
@@ -40,19 +40,19 @@ void cldera_profiling_clean_up ()
   s.clean_up();
 }
 
-void cldera_add_field (const char* name,
-                       const int& rank,
-                       const int*& dims)
+void cldera_add_field_c (const char* name,
+                         const int  rank,
+                         const int* dims)
 {
-  cldera_add_partitioned_field(name,rank,dims,1,0);
+  cldera_add_partitioned_field_c(name,rank,dims,1,0);
 }
 
-void cldera_add_partitioned_field (
+void cldera_add_partitioned_field_c (
     const char* name,
-    const int& rank,
-    const int*& dims,
-    const int& num_parts,
-    const int& part_dim)
+    const int  rank,
+    const int* dims,
+    const int  num_parts,
+    const int  part_dim)
 {
   EKAT_REQUIRE_MSG (rank>=0 && rank<=4,
       "Error! Unsupported field rank (" + std::to_string(rank) + "\n");
@@ -78,26 +78,29 @@ void cldera_add_partitioned_field (
   archive.add_field(cldera::Field(name,d,num_parts,part_dim));
 }
 
-void cldera_set_field_partition (
+void cldera_set_field_partition_c (
     const char* name,
-    const int&  part,
-    const int&  part_beg,
-    const cldera::Real*& data)
+    const int   part,
+    const int   part_size,
+    const cldera::Real* data)
 {
   auto& s = cldera::ProfilingSession::instance(true);
   auto& archive = s.get<cldera::ProfilingArchive>("archive");
 
-  archive.get_field(name).set_part_data (part,part_beg,data);
+  archive.get_field(name).set_part_data (part,part_size,data);
 }
 
-void cldera_set_field (
+void cldera_set_field_c (
     const char* name,
-    const cldera::Real*& data)
+    const cldera::Real* data)
 {
-  cldera_set_field_partition(name,0,0,data);
+  auto& s = cldera::ProfilingSession::instance(true);
+  auto& archive = s.get<cldera::ProfilingArchive>("archive");
+
+  archive.get_field(name).set_data (data);
 }
 
-void cldera_commit_field (const char* name)
+void cldera_commit_field_c (const char* name)
 {
   auto& s = cldera::ProfilingSession::instance(true);
   auto& archive = s.get<cldera::ProfilingArchive>("archive");
@@ -105,7 +108,15 @@ void cldera_commit_field (const char* name)
   archive.get_field(name).commit();
 }
 
-void cldera_init_requests ()
+void cldera_commit_all_fields_c ()
+{
+  auto& s = cldera::ProfilingSession::instance(true);
+  auto& archive = s.get<cldera::ProfilingArchive>("archive");
+
+  archive.commit_all_fields();
+}
+
+void cldera_init_requests_c ()
 {
   auto& s = cldera::ProfilingSession::instance(true);
 
@@ -127,7 +138,7 @@ void cldera_init_requests ()
   }
 }
 
-void cldera_compute_stats (const cldera::Real& time)
+void cldera_compute_stats_c (const cldera::Real time)
 {
   auto& s = cldera::ProfilingSession::instance(true);
 

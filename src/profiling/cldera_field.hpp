@@ -10,23 +10,9 @@ namespace cldera
 {
 
 /*
- * A small struct holding data and metadata of a field
+ * A small struct holding extents of a field
  *
- * The basic metadata is given by the 'name' and 'dims' members.
- *
- * The Field is assumed to be potentially partitioned in memory.
- * The partitioning is described by
- *  - nparts: number of partitions
- *  - part_dim: index of dimension along which field is partitioned
- *  - part_beg: where each partition starts along the $part_dim dimension
- *
- * Notice that each partition is stored contiguously in memory.
- * The array part_beg is such that partition i corresponds to indices
- * [part_beg[i], part_beg[i+1]) in the unpartitioned field.
- * The method part_dims allows to get the dimensions of the partition,
- * so that one can safely iterate over the partition.
- *
- * Note: a contiguous/non-partitioned field simply has nparts=1.
+ * It is basically a std::vector<int>, with a few utilities
  */
 
 class FieldLayout {
@@ -41,9 +27,11 @@ public:
 
   const std::vector<int>& dims () const { return m_dims; }
 
+  int operator[]  (const int i) const { return m_dims[i]; }
+
   int rank () const { return dims().size(); }
-  int size () const {
-    int s = 1;
+  long long size () const {
+    long long s = 1;
     for (auto d : dims()) {
       s *= d;
     }
@@ -52,6 +40,24 @@ public:
 private:
   std::vector<int> m_dims;
 };
+
+/*
+ * A small struct holding data and metadata of a field
+ *
+ * The basic metadata is given by the 'name' and 'dims' members.
+ *
+ * The Field is assumed to be potentially partitioned in memory.
+ * The partitioning is described by
+ *  - nparts: number of partitions
+ *  - part_dim: index of dimension along which field is partitioned
+ *  - part_sizes: the size of each partition
+ *
+ * Notice that each partition is stored contiguously in memory.
+ * The method part_layout allows to get the layout of the partition,
+ * so that one can safely iterate over the partition.
+ *
+ * Note: a contiguous/non-partitioned field simply has nparts=1.
+ */
 
 class Field {
 public:
@@ -66,24 +72,17 @@ public:
 
   const FieldLayout& layout () const { return m_layout; }
 
-  FieldLayout part_layout (const int p) const {
-    EKAT_REQUIRE_MSG (m_committed,
-        "Error! Field '" + m_name + "' was not yet committed.\n");
-    check_part_idx(p);
+  FieldLayout part_layout (const int ipart) const;
 
-    std::vector<int> d = m_layout.dims();
-    d[m_part_dim] = m_part_beg[p+1] - m_part_beg[p];
-    return FieldLayout{d};
-  }
+  void set_part_data (const int ipart, const int part_size, const Real* data);
 
-  void set_part_data (const int i, const int beg, const Real* data);
   // Shortcut for single-partition field only
   void set_data (const Real* data);
 
   int nparts () const { return m_nparts; }
   void commit ();
 
-  const Real* get_part_data (const int i) const;
+  const Real* get_part_data (const int ipart) const;
   // Shortcut for single-partition field only
   const Real* get_data () const;
 
@@ -92,23 +91,23 @@ public:
 private:
   void check_part_idx (const int i) const;
 
-  std::string               m_name;
-  FieldLayout               m_layout;
-  int                       m_nparts;
-  int                       m_part_dim;
-  std::vector<int>          m_part_beg;
-  std::vector<const Real*>  m_data;
-  bool                      m_committed = false;
+  std::string                     m_name;
+  FieldLayout                     m_layout;
+  int                             m_nparts;
+  int                             m_part_dim;
+  std::vector<long long>          m_part_sizes;
+  std::vector<const Real*>        m_data;
+  bool                            m_committed = false;
 };
 
 inline const Real*
-Field::get_part_data (const int i) const {
+Field::get_part_data (const int ipart) const {
   EKAT_REQUIRE_MSG (m_committed,
       "Error! Field '" + m_name + "' was not committed yet.\n");
 
-  check_part_idx(i);
+  check_part_idx(ipart);
 
-  return m_data[i];
+  return m_data[ipart];
 }
 
 inline const Real*

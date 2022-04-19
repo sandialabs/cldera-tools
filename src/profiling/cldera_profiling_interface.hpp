@@ -25,7 +25,7 @@ void cldera_clean_up_c ();
 
 // Set a field ptr/metadata in the profiling archive
 void cldera_add_partitioned_field_c (
-    const char* name,
+    const char*& name,
     const int   rank,
     const int*  dims,
     const int   num_parts,
@@ -33,23 +33,23 @@ void cldera_add_partitioned_field_c (
 
 // Shortcut in case of single partition
 void cldera_add_field_c (
-    const char* name,
+    const char*& name,
     const int   rank,
     const int*  dims);
 
 void cldera_set_field_partition_c (
-    const char* name,
+    const char*& name,
     const int   part,
     const int   part_size,
-    const cldera::Real*  data);
+    const cldera::Real*&  data);
 
 // Shortcut in case of single partition
 void cldera_set_field_c (
-    const char* name,
-    const cldera::Real*  data);
+    const char*& name,
+    const cldera::Real*&  data);
 
 void cldera_commit_fields_c ();
-void cldera_commit_field_c (const char* name);
+void cldera_commit_field_c (const char*& name);
 
 // Read from yaml file the list of fields to profile,
 // as well as what statistics to be profiled

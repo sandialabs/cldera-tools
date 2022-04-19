@@ -9,6 +9,8 @@
 #include <ekat/util/ekat_string_utils.hpp>
 #include <ekat/ekat_assert.hpp>
 
+#include <cstring>
+
 extern "C" {
 
 void cldera_init_c (const MPI_Fint fcomm)
@@ -25,6 +27,24 @@ void cldera_init_c (const MPI_Fint fcomm)
 
   auto& s = cldera::ProfilingSession::instance();
   s.init(comm);
+
+  using requests_t = std::map<std::string,std::vector<cldera::StatType>>;
+  using vos_t = std::vector<std::string>;
+
+  //TODO: make the filename configurable
+  std::string filename = "./cldera_profiling_config.yaml";
+  auto& params = s.create<ekat::ParameterList>("params",ekat::parse_yaml_file(filename));
+
+  auto& requests = s.create<requests_t>("requests");
+  const auto& fnames = params.get<vos_t>("Fields To Track");
+  for (const auto& fname : fnames) {
+    const auto& req_pl = params.sublist(fname);
+    auto& req_stats = requests[fname];
+    for (auto stat_str : req_pl.get<vos_t>("Compute Stats")) {
+      req_stats.push_back(cldera::str2stat (stat_str));
+    }
+  }
+
   if (comm.am_i_root()) {
     printf(" -> Initializing cldera profiling session...done!\n");
   }
@@ -40,7 +60,7 @@ void cldera_clean_up_c ()
   s.clean_up();
 }
 
-void cldera_add_field_c (const char* name,
+void cldera_add_field_c (const char*& name,
                          const int  rank,
                          const int* dims)
 {
@@ -48,7 +68,7 @@ void cldera_add_field_c (const char* name,
 }
 
 void cldera_add_partitioned_field_c (
-    const char* name,
+    const char*& name,
     const int  rank,
     const int* dims,
     const int  num_parts,
@@ -79,10 +99,10 @@ void cldera_add_partitioned_field_c (
 }
 
 void cldera_set_field_partition_c (
-    const char* name,
+    const char*& name,
     const int   part,
     const int   part_size,
-    const cldera::Real* data)
+    const cldera::Real*& data)
 {
   auto& s = cldera::ProfilingSession::instance(true);
   auto& archive = s.get<cldera::ProfilingArchive>("archive");
@@ -91,8 +111,8 @@ void cldera_set_field_partition_c (
 }
 
 void cldera_set_field_c (
-    const char* name,
-    const cldera::Real* data)
+    const char*& name,
+    const cldera::Real*& data)
 {
   auto& s = cldera::ProfilingSession::instance(true);
   auto& archive = s.get<cldera::ProfilingArchive>("archive");
@@ -100,7 +120,7 @@ void cldera_set_field_c (
   archive.get_field(name).set_data (data);
 }
 
-void cldera_commit_field_c (const char* name)
+void cldera_commit_field_c (const char*& name)
 {
   auto& s = cldera::ProfilingSession::instance(true);
   auto& archive = s.get<cldera::ProfilingArchive>("archive");
@@ -116,26 +136,24 @@ void cldera_commit_all_fields_c ()
   archive.commit_all_fields();
 }
 
-void cldera_init_requests_c ()
+int cldera_get_num_fields_c ()
 {
-  auto& s = cldera::ProfilingSession::instance(true);
+  const auto& s = cldera::ProfilingSession::instance(true);
+  const auto& p = s.get<ekat::ParameterList>("params");
+  return p.get<std::vector<std::string>>("Fields To Track").size();
+}
 
-  using requests_t = std::map<std::string,std::vector<cldera::StatType>>;
-  auto& requests = s.create<requests_t>("requests");
+void cldera_get_field_name_c (const int i, char*& name)
+{
+  const auto& s = cldera::ProfilingSession::instance(true);
+  const auto& p = s.get<ekat::ParameterList>("params");
+  const auto& names = p.get<std::vector<std::string>>("Fields To Track");
 
-  //TODO: make the filename configurable
-  ekat::ParameterList params = ekat::parse_yaml_file("./cldera_profiling_requests.yaml");
-
-  for (int i=0; i<params.get<int>("Number Of Requests"); ++i) {
-    auto key = ekat::strint("Request",i);
-    const auto& req_pl = params.sublist(key);
-
-    const auto& fname = req_pl.get<std::string>("Field Name");
-    auto& req_stats = requests[fname];
-    for (auto stat_str : req_pl.get<std::vector<std::string>>("Compute Stats")) {
-      req_stats.push_back(cldera::str2stat (stat_str));
-    }
-  }
+  EKAT_REQUIRE_MSG (i>=0 && i<cldera_get_num_fields_c(),
+      "Error! Invalid field index.\n"
+      "  - ifield: " + std::to_string(i) + "\n"
+      "  - num fields: " + std::to_string(cldera_get_num_fields_c()) + "\n");
+  strcpy(name,names[i].data());
 }
 
 void cldera_compute_stats_c (const cldera::Real time)

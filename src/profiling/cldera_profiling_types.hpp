@@ -1,8 +1,10 @@
 #ifndef CLDERA_PROFILING_TYPES_HPP
 #define CLDERA_PROFILING_TYPES_HPP
 
+#include "cldera_config.h"
 #include <ekat/ekat_assert.hpp>
 #include <vector>
+
 namespace cldera {
 
 using Real = double;

@@ -3,6 +3,8 @@
 
 #include "profiling/cldera_profiling_types.hpp"
 
+#include <ekat/util/ekat_string_utils.hpp>
+
 namespace cldera {
 
 inline std::string e2str (const StatType s)
@@ -24,8 +26,10 @@ inline std::string e2str (const StatType s)
 
 inline StatType str2stat (const std::string& str)
 {
+  using ci_string = ekat::CaseInsensitiveString;
+
   for (auto s : {StatType::Max, StatType::Min, StatType::Avg, StatType::Sum}) {
-    if (str==e2str(s)) {
+    if (ci_string(str)==e2str(s)) {
       return s;
     }
   }

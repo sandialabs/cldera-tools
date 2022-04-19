@@ -26,6 +26,19 @@ Field (const std::string& n, const std::vector<int>& d,
  : m_name(n)
  , m_layout(d)
 {
+  auto vi2s = [] (const std::vector<int>& v) -> std::string {
+    if (v.size()==0) {
+      return "";
+    }
+    std::string s;
+    s += "[";
+    for (auto i : v) {
+      s += std::to_string(i) + ",";
+    }
+    s.back() = ']'; // Overwrite last ',' with closing bracket
+    return s;
+  };
+
   EKAT_REQUIRE_MSG (part_dim>=0 && part_dim<m_layout.rank(),
       "Error! Invalid partition dimension.\n"
       "  - Field name: " + m_name + "\n"
@@ -33,10 +46,10 @@ Field (const std::string& n, const std::vector<int>& d,
       "  - Part dim  : " + std::to_string(part_dim) + "\n");
   EKAT_REQUIRE_MSG (nparts>=1 && nparts<=d[part_dim],
       "Error! Invalid number of parts.\n"
-      "  - Field name   : " + m_name + "\n"
-      "  - Num parts    : " + std::to_string(nparts) + "\n"
-      "  - Part dim     : " + std::to_string(part_dim) + "\n"
-      "  - Dim[Part dim]: " + std::to_string(d[part_dim]) + "\n");
+      "  - Field name : " + m_name + "\n"
+      "  - Num parts  : " + std::to_string(nparts) + "\n"
+      "  - Part dim   : " + std::to_string(part_dim) + "\n"
+      "  - Field dims : " + vi2s(d) + "\n");
 
   m_nparts = nparts;
   m_part_dim = part_dim;
@@ -69,7 +82,7 @@ set_part_data (const int ipart, const int part_size, const Real* data)
       "  Error! Invalid part data pointer.\n"
       "    - Field name: " + m_name + "\n"
       "    - Part index: " + std::to_string(ipart) + "\n");
-  EKAT_REQUIRE_MSG (m_part_sizes[ipart]>=0,
+  EKAT_REQUIRE_MSG (part_size>=0,
       "[Field::set_part_data]\n"
       "  Error! Invalid part size.\n"
       "    - Field name: " + m_name + "\n"
@@ -107,10 +120,23 @@ void Field::commit () {
         "    - Part index: " + std::to_string(ipart) + "\n");
     part_sizes_sum += m_part_sizes[ipart];
   }
+  auto vi2s = [] (const std::vector<int>& v) -> std::string {
+    if (v.size()==0) {
+      return "";
+    }
+    std::string s;
+    s += "[";
+    for (auto i : v) {
+      s += std::to_string(i) + ",";
+    }
+    s.back() = ']'; // Overwrite last ',' with closing bracket
+    return s;
+  };
   EKAT_REQUIRE_MSG (part_sizes_sum==m_layout[m_part_dim],
       "[Field::commit]\n"
       "  Error! Partition sizes do not add up to layout dimension.\n"
       "    - Field name     : " + m_name + "\n"
+      "    - Field dims     : " + vi2s(m_layout.dims()) + "\n"
       "    - Part dim       : " + std::to_string(m_part_dim) + "\n"
       "    - Dim[Part dim]  : " + std::to_string(m_layout[m_part_dim]) + "\n"
       "    - Sum(part sizes): " + std::to_string(part_sizes_sum) + "\n");

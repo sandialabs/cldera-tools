@@ -31,6 +31,11 @@ inline bool operator== (const TimeStamp& lhs, const TimeStamp& rhs) {
   return lhs.ymd==rhs.ymd && lhs.tod==rhs.tod;
 }
 
+inline std::ostream& operator<< (std::ostream& out, const TimeStamp& t) {
+  out << std::to_string(t.ymd) << "." << std::to_string(t.tod);
+  return out;
+}
+
 // A small struct, containing history for
 // the statistics of a Field
 // NOTE: a std;:pair would do too, but times/values are more meaningful

@@ -156,7 +156,7 @@ void cldera_get_field_name_c (const int i, char*& name)
   strcpy(name,names[i].data());
 }
 
-void cldera_compute_stats_c (const cldera::Real time)
+void cldera_compute_stats_c (const int ymd, const int tod)
 {
   auto& s = cldera::ProfilingSession::instance(true);
   const auto& comm = s.get_comm();
@@ -172,7 +172,7 @@ void cldera_compute_stats_c (const cldera::Real time)
     const auto& f = archive.get_field(fname);
     for (auto stat : stats) {
       auto& history = archive.get_stat_history(fname,stat);
-      cldera::compute_stat(time,f,stat,history,comm);
+      cldera::compute_stat({ymd,tod},f,stat,history,comm);
     }
   }
 }

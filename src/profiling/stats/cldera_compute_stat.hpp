@@ -15,7 +15,7 @@ Real compute_sum (const Field& f, const ekat::Comm& comm);
 Real compute_avg (const Field& f, const ekat::Comm& comm);
 
 inline void compute_stat (
-    const Real time,
+    const TimeStamp& t,
     const Field& f,
     const StatType s,
     History& hist,
@@ -36,7 +36,7 @@ inline void compute_stat (
   }
 
   // Update the history
-  hist.store(time,stat);
+  hist.store(t,stat);
 }
 
 } // namespace cldera

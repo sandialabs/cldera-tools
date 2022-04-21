@@ -30,9 +30,10 @@ TEST_CASE ("stats") {
   std::map<StatType,History> hist;
 
   // Compute all supported stats
+  TimeStamp t {20220419,43200};
   auto stats = {Max,Min,Avg,Sum};
   for (auto stat : stats) {
-    compute_stat(1.0,f,stat,hist[stat],comm);
+    compute_stat(t,f,stat,hist[stat],comm);
   }
 
   std::map<StatType,std::vector<Real>> expected;
@@ -42,7 +43,7 @@ TEST_CASE ("stats") {
   expected[Avg] = {15.0/6};
 
   for (auto stat : stats) {
-    REQUIRE (hist[stat].times()==std::vector<Real>{1});
+    REQUIRE (hist[stat].times()==std::vector<TimeStamp>(1,t));
     REQUIRE (hist[stat].values()==expected[stat]);
   }
 }

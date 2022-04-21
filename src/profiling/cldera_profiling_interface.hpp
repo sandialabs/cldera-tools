@@ -57,7 +57,7 @@ void cldera_init_requests_c ();
 
 // Compute all the reuqested stats and store results
 // in the profiling archive
-void cldera_compute_stats_c (const cldera::Real  time);
+void cldera_compute_stats_c (const int ymd, const int tod);
 
 #ifdef __cplusplus
 } // extern "C"

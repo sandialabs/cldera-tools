@@ -19,6 +19,18 @@ enum class StatType {
   Bad
 };
 
+// An std::pair would work too, but ymd/tod convey
+// more meaning than first/second.
+struct TimeStamp {
+  int ymd;
+  int tod;
+
+};
+
+inline bool operator== (const TimeStamp& lhs, const TimeStamp& rhs) {
+  return lhs.ymd==rhs.ymd && lhs.tod==rhs.tod;
+}
+
 // A small struct, containing history for
 // the statistics of a Field
 // NOTE: a std;:pair would do too, but times/values are more meaningful
@@ -28,17 +40,22 @@ class History {
 public:
   int size () const { return m_times.size(); }
 
-  void store (const Real t, const Real v) {
+  void store (const int ymd, const int tod, const Real v) {
+    store ({ymd,tod},v);
+  }
+
+  void store (const TimeStamp& t, const Real v) {
     m_times.push_back(t);
     m_values.push_back(v);
   }
 
-  const std::vector<Real>& times  () const { return m_times ; }
-  const std::vector<Real>& values () const { return m_values; }
+  const std::vector<TimeStamp>& times  () const { return m_times ; }
+  const std::vector<Real>&      values () const { return m_values; }
 
 private:
-  std::vector<Real>   m_times;
-  std::vector<Real>   m_values;
+
+  std::vector<TimeStamp>  m_times;
+  std::vector<Real>       m_values;
 };
 
 } // namespace cldera

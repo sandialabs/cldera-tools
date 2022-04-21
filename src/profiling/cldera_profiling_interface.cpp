@@ -5,7 +5,7 @@
 #include "stats/cldera_compute_stat.hpp"
 
 #include <ekat/ekat_parameter_list.hpp>
-#include <ekat/ekat_parse_yaml_file.hpp>
+#include <ekat/io/ekat_yaml.hpp>
 #include <ekat/util/ekat_string_utils.hpp>
 #include <ekat/ekat_assert.hpp>
 
@@ -55,6 +55,13 @@ void cldera_clean_up_c ()
   auto& s = cldera::ProfilingSession::instance();
   if (s.get_comm().am_i_root()) {
     printf(" -> Shutting down cldera profiling session...\n");
+  }
+
+  auto& archive = s.create_or_get<cldera::ProfilingArchive>("archive");
+  const auto& p = s.get<ekat::ParameterList>("params");
+  if (p.isParameter("Stats Output File")) {
+    const auto& ofile = p.get<std::string>("Stats Output File");
+    archive.dump_stats_to_yaml (ofile);
   }
 
   s.clean_up();

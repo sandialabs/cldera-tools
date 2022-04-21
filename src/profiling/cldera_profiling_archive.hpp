@@ -41,6 +41,8 @@ public:
 
   // Stats
   History& get_stat_history (const std::string& name, const StatType stat);
+
+  void dump_stats_to_yaml (const std::string& file_name) const;
 private:
 
   std::map<std::string,Field>             m_fields;

@@ -24,12 +24,12 @@ TEST_CASE ("field") {
 
   // Set data in fields
   bar.set_data(bar_data.data());
-  baz.set_part_data(0,0,baz_data[0].data());
-  baz.set_part_data(2,2,baz_data[2].data());
+  baz.set_part_data(0,1,baz_data[0].data());
+  baz.set_part_data(2,1,baz_data[2].data());
   baz.set_part_data(1,1,baz_data[1].data());
   REQUIRE_THROWS (foo.set_data(foo_data.data())); // Data already set
-  REQUIRE_THROWS (baz.set_part_data(3,0,foo_data.data())); // part idx OOB
-  REQUIRE_THROWS (baz.set_part_data(1,10,foo_data.data())); // part beg OOB
+  REQUIRE_THROWS (baz.set_part_data(3,1,foo_data.data())); // part idx OOB
+  REQUIRE_THROWS (baz.set_part_data(1,10,foo_data.data())); // part size OOB
 
   // Get data
   REQUIRE_THROWS (baz.get_part_data(0)); // Field not yet committed

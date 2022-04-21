@@ -1,8 +1,10 @@
 #include "profiling/cldera_field.hpp"
 
+#include <ekat/mpi/ekat_comm.hpp>
+
 namespace cldera {
 
-Real compute_sum (const Field& f)
+Real compute_sum (const Field& f, const ekat::Comm& comm)
 {
   // Note: use Kahan summation to increase accuracy
   Real sum = 0;
@@ -19,7 +21,10 @@ Real compute_sum (const Field& f)
     }
   }
 
-  return sum;
+  Real global_sum;
+  comm.all_reduce(&sum,&global_sum,1,MPI_SUM);
+
+  return global_sum;
 }
 
 } // namespace cldera

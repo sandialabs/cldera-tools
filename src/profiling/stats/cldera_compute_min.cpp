@@ -1,10 +1,12 @@
 #include "profiling/cldera_field.hpp"
 
+#include <ekat/mpi/ekat_comm.hpp>
+
 #include <limits>
 
 namespace cldera {
 
-Real compute_min (const Field& f)
+Real compute_min (const Field& f, const ekat::Comm& comm)
 {
   EKAT_REQUIRE_MSG (std::numeric_limits<Real>::has_infinity,
       "Error! The type cldera::Real is not capable of representing infinity.\n");
@@ -18,7 +20,10 @@ Real compute_min (const Field& f)
     }
   }
 
-  return min;
+  Real global_min;
+  comm.all_reduce(&min,&global_min,1,MPI_MIN);
+
+  return global_min;
 }
 
 } // namespace cldera

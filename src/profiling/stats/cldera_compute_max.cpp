@@ -1,10 +1,12 @@
 #include "profiling/cldera_field.hpp"
 
+#include <ekat/mpi/ekat_comm.hpp>
+
 #include <limits>
 
 namespace cldera {
 
-Real compute_max (const Field& f)
+Real compute_max (const Field& f, const ekat::Comm& comm)
 {
   EKAT_REQUIRE_MSG (std::numeric_limits<Real>::has_infinity,
       "Error! The type cldera::Real is not capable of representing infinity.\n");
@@ -17,7 +19,11 @@ Real compute_max (const Field& f)
       max = std::max(max,data[i]);
     }
   }
-  return max;
+
+  Real global_max;
+  comm.all_reduce(&max,&global_max,1,MPI_MAX);
+
+  return global_max;
 }
 
 } // namespace cldera

@@ -159,6 +159,7 @@ void cldera_get_field_name_c (const int i, char*& name)
 void cldera_compute_stats_c (const cldera::Real time)
 {
   auto& s = cldera::ProfilingSession::instance(true);
+  const auto& comm = s.get_comm();
 
   using requests_t = std::map<std::string,std::vector<cldera::StatType>>;
   auto& requests = s.get<requests_t>("requests");
@@ -171,7 +172,7 @@ void cldera_compute_stats_c (const cldera::Real time)
     const auto& f = archive.get_field(fname);
     for (auto stat : stats) {
       auto& history = archive.get_stat_history(fname,stat);
-      cldera::compute_stat(time,f,stat,history);
+      cldera::compute_stat(time,f,stat,history,comm);
     }
   }
 }

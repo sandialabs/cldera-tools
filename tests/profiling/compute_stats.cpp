@@ -1,11 +1,15 @@
 #include "profiling/stats/cldera_compute_stat.hpp"
 
+#include <ekat/mpi/ekat_comm.hpp>
+
 #include <catch2/catch.hpp>
 
 #include <map>
 
 TEST_CASE ("stats") {
   using namespace cldera;
+
+  ekat::Comm comm(MPI_COMM_WORLD);
 
   constexpr auto Max = StatType::Max;
   constexpr auto Min = StatType::Min;
@@ -28,7 +32,7 @@ TEST_CASE ("stats") {
   // Compute all supported stats
   auto stats = {Max,Min,Avg,Sum};
   for (auto stat : stats) {
-    compute_stat(1.0,f,stat,hist[stat]);
+    compute_stat(1.0,f,stat,hist[stat],comm);
   }
 
   std::map<StatType,std::vector<Real>> expected;

@@ -8,7 +8,7 @@ module cldera_interface_mod
   integer, parameter, public :: max_str_len = CLDERA_MAX_NAME_LEN
 
   interface f2c
-    module procedure string_f2c, int_f2c, aint_f2c
+    module procedure string_f2c, int_f2c, real_f2c, aint_f2c
   end interface f2c
   interface c2f
     module procedure string_c2f
@@ -113,12 +113,24 @@ contains
     call cldera_commit_all_fields_c()
   end subroutine cldera_commit_all_fields
 
+  ! Compute all stats
+  subroutine cldera_compute_stats (ymd, tod)
+    use cldera_interface_f2c_mod, only: cldera_compute_stats_c
+    integer, intent(in) :: ymd, tod
+
+    call cldera_compute_stats_c(f2c(ymd),f2c(tod))
+  end subroutine cldera_compute_stats
+
   ! Finalize any pending op (e.g., I/O) and clean up the cldera session
   subroutine cldera_clean_up ()
     use cldera_interface_f2c_mod, only: cldera_clean_up_c
 
     call cldera_clean_up_c()
   end subroutine cldera_clean_up
+
+!--------------------------------------------------------!
+!                   INTENRAL FUNCTIONS                   !
+!--------------------------------------------------------!
 
   function string_f2c (f_string) result(c_string)
     use iso_c_binding, only: c_char, c_null_char
@@ -147,6 +159,14 @@ contains
 
     int_c = int_f
   end function int_f2c
+
+  function real_f2c (real_f) result(real_c)
+    use iso_c_binding, only: c_double
+    real, intent(in) :: real_f
+    real(kind=c_double) :: real_c
+
+    real_c = real_f
+  end function real_f2c
 
   function aint_f2c (aint_f) result(aint_c)
     use iso_c_binding, only: c_int

@@ -41,6 +41,12 @@ module cldera_interface_f2c_mod
       type(c_ptr), intent(in) :: fname
     end subroutine cldera_get_field_name_c
 
+    ! Compute requested stats
+    subroutine cldera_compute_stats_c (ymd,tod) bind(c)
+      use iso_c_binding, only: c_int
+      integer(kind=c_int), intent(in), value :: ymd, tod
+    end subroutine cldera_compute_stats_c
+
     ! Finalize any pending op (e.g., I/O) and clean up the cldera session
     subroutine cldera_clean_up_c () bind(c)
     end subroutine cldera_clean_up_c

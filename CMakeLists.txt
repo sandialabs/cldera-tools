@@ -2,7 +2,7 @@
 cmake_minimum_required (VERSION 3.18)
 
 # PROJECT is mainly in C++, with C hooks for C/Fortran
-project (CLDERA C CXX)
+project (CLDERA C CXX Fortran)
 
 set (CLDERA_VERSION_MAJOR 0)
 set (CLDERA_VERSION_MINOR 1)
@@ -35,9 +35,10 @@ list (APPEND CMAKE_MODULE_PATH
 # Get all CLDERA cmake config options
 include (cldera_options)
 
-#  Use EKAT's utils to set CLDERA_DEBUG
+#  Use EKAT's utils to set a default for CLDERA_DEBUG
 include (EkatUtils)
-IsDebugBuild(CLDERA_DEBUG)
+IsDebugBuild(CLDERA_DEBUG_DEFAULT)
+option (CLDERA_DEBUG "Turn on some debug features in CLDERA" ${CLDERA_DEBUG_DEFAULT})
 
 # Libraries/tools
 add_subdirectory (src)

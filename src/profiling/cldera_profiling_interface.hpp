@@ -20,22 +20,44 @@ extern "C" {
  */
 
 // Initialize/finalize the cldera profiling session
-void cldera_profiling_init (const MPI_Fint& fcomm);
-void cldera_profiling_clean_up ();
+void cldera_init_c (const MPI_Fint fcomm);
+void cldera_clean_up_c ();
 
 // Set a field ptr/metadata in the profiling archive
-void cldera_add_field (const char* name,
-                       const cldera::Real*& data,
-                       const int& rank,
-                       const int*& dims);
+void cldera_add_partitioned_field_c (
+    const char*& name,
+    const int   rank,
+    const int*  dims,
+    const int   num_parts,
+    const int   part_dim);
+
+// Shortcut in case of single partition
+void cldera_add_field_c (
+    const char*& name,
+    const int   rank,
+    const int*  dims);
+
+void cldera_set_field_partition_c (
+    const char*& name,
+    const int   part,
+    const int   part_size,
+    const cldera::Real*&  data);
+
+// Shortcut in case of single partition
+void cldera_set_field_c (
+    const char*& name,
+    const cldera::Real*&  data);
+
+void cldera_commit_fields_c ();
+void cldera_commit_field_c (const char*& name);
 
 // Read from yaml file the list of fields to profile,
 // as well as what statistics to be profiled
-void cldera_init_requests ();
+void cldera_init_requests_c ();
 
 // Compute all the reuqested stats and store results
 // in the profiling archive
-void cldera_compute_stats (const cldera::Real& time);
+void cldera_compute_stats_c (const int ymd, const int tod);
 
 #ifdef __cplusplus
 } // extern "C"

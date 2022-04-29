@@ -3,30 +3,40 @@
 
 #include "profiling/stats/cldera_stats_utils.hpp"
 #include "profiling/cldera_profiling_types.hpp"
+#include "profiling/cldera_field.hpp"
+
+#include <ekat/mpi/ekat_comm.hpp>
 
 namespace cldera {
 
-void compute_max (const Field& f, History& hist);
-void compute_min (const Field& f, History& hist);
-void compute_sum (const Field& f, History& hist);
-void compute_avg (const Field& f, History& hist);
+Real compute_max (const Field& f, const ekat::Comm& comm);
+Real compute_min (const Field& f, const ekat::Comm& comm);
+Real compute_sum (const Field& f, const ekat::Comm& comm);
+Real compute_avg (const Field& f, const ekat::Comm& comm);
 
-inline void compute_stat (const Real time, const Field& f, const StatType s, History& hist)
+inline void compute_stat (
+    const TimeStamp& t,
+    const Field& f,
+    const StatType s,
+    History& hist,
+    const ekat::Comm& comm)
 {
+  Real stat;
   switch (s) {
     case StatType::Max:
-      compute_max (f,hist); break;
+      stat = compute_max (f,comm); break;
     case StatType::Min:
-      compute_min (f,hist); break;
+      stat = compute_min (f,comm); break;
     case StatType::Sum:
-      compute_sum (f,hist); break;
+      stat = compute_sum (f,comm); break;
     case StatType::Avg:
-      compute_avg (f,hist); break;
+      stat = compute_avg (f,comm); break;
     default:
       EKAT_ERROR_MSG ("[compute_stat] Error! Stat '" + e2str(s) + "' not yet supported.\n");
   }
-  // Update the times
-  hist.times.push_back(time);
+
+  // Update the history
+  hist.store(t,stat);
 }
 
 } // namespace cldera

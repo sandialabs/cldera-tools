@@ -1,11 +1,15 @@
 #include "profiling/stats/cldera_compute_stat.hpp"
 
+#include <ekat/mpi/ekat_comm.hpp>
+
 #include <catch2/catch.hpp>
 
 #include <map>
 
 TEST_CASE ("stats") {
   using namespace cldera;
+
+  ekat::Comm comm(MPI_COMM_WORLD);
 
   constexpr auto Max = StatType::Max;
   constexpr auto Min = StatType::Min;
@@ -21,13 +25,15 @@ TEST_CASE ("stats") {
     raw_data[i] = i;
   }
 
-  Field f {raw_data,{dim0,dim1}};
+  Field f("f",{dim0,dim1});
+  f.set_data(raw_data);
   std::map<StatType,History> hist;
 
   // Compute all supported stats
+  TimeStamp t {20220419,43200};
   auto stats = {Max,Min,Avg,Sum};
   for (auto stat : stats) {
-    compute_stat(1.0,f,stat,hist[stat]);
+    compute_stat(t,f,stat,hist[stat],comm);
   }
 
   std::map<StatType,std::vector<Real>> expected;
@@ -37,7 +43,7 @@ TEST_CASE ("stats") {
   expected[Avg] = {15.0/6};
 
   for (auto stat : stats) {
-    REQUIRE (hist[stat].times==std::vector<Real>{1});
-    REQUIRE (hist[stat].values==expected[stat]);
+    REQUIRE (hist[stat].times()==std::vector<TimeStamp>(1,t));
+    REQUIRE (hist[stat].values()==expected[stat]);
   }
 }

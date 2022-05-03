@@ -10,6 +10,7 @@
 #include <ekat/ekat_assert.hpp>
 
 #include <cstring>
+#include <fstream>
 
 extern "C" {
 
@@ -33,16 +34,29 @@ void cldera_init_c (const MPI_Fint fcomm)
 
   //TODO: make the filename configurable
   std::string filename = "./cldera_profiling_config.yaml";
-  auto& params = s.create<ekat::ParameterList>("params",ekat::parse_yaml_file(filename));
+  if (std::ifstream(filename).good()) {
+    auto& params = s.create<ekat::ParameterList>("params",ekat::parse_yaml_file(filename));
 
-  auto& requests = s.create<requests_t>("requests");
-  const auto& fnames = params.get<vos_t>("Fields To Track");
-  for (const auto& fname : fnames) {
-    const auto& req_pl = params.sublist(fname);
-    auto& req_stats = requests[fname];
-    for (auto stat_str : req_pl.get<vos_t>("Compute Stats")) {
-      req_stats.push_back(cldera::str2stat (stat_str));
+    auto& requests = s.create<requests_t>("requests");
+    const auto& fnames = params.get<vos_t>("Fields To Track");
+    for (const auto& fname : fnames) {
+      const auto& req_pl = params.sublist(fname);
+      auto& req_stats = requests[fname];
+      for (auto stat_str : req_pl.get<vos_t>("Compute Stats")) {
+        req_stats.push_back(cldera::str2stat (stat_str));
+      }
     }
+  } else {
+    if (comm.am_i_root()) {
+      printf(" -> WARNING: no 'cdlera_profiling_config.yaml' file found.\n"
+             "    CLDERA profiling tools will do nothing.\n");
+    }
+
+    // Create entries, since they will be queried later.
+    // Since they're empty, all ops will be trivial/no-ops.
+    auto& params = s.create<ekat::ParameterList>("params");
+    params.set<std::vector<std::string>>("Fields To Track",{});
+    s.create<requests_t>("requests");
   }
 
   if (comm.am_i_root()) {
@@ -65,6 +79,9 @@ void cldera_clean_up_c ()
   }
 
   s.clean_up();
+  if (s.get_comm().am_i_root()) {
+    printf(" -> Shutting down cldera profiling session...done!\n");
+  }
 }
 
 void cldera_add_field_c (const char*& name,
@@ -138,7 +155,7 @@ void cldera_commit_field_c (const char*& name)
 void cldera_commit_all_fields_c ()
 {
   auto& s = cldera::ProfilingSession::instance(true);
-  auto& archive = s.get<cldera::ProfilingArchive>("archive");
+  auto& archive = s.create_or_get<cldera::ProfilingArchive>("archive");
 
   archive.commit_all_fields();
 }

@@ -48,7 +48,7 @@ void cldera_init_c (const MPI_Fint fcomm)
     }
   } else {
     if (comm.am_i_root()) {
-      printf(" -> WARNING: no 'cdlera_profiling_config.yaml' file found.\n"
+      printf(" -> WARNING: no 'cldera_profiling_config.yaml' file found.\n"
              "    CLDERA profiling tools will do nothing.\n");
     }
 

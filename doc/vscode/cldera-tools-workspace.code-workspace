@@ -1,0 +1,54 @@
+{
+  "folders": [
+    {
+      "path": "/home/jwatkin/CLDERA/cldera-tools"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/.git*":true,
+      "**/build*":true,
+      "**/doc":true,
+    },
+    "files.watcherExclude": {
+      "**/.git*":true,
+      "**/build*":true,
+      "**/doc":true,
+    },
+    "editor.tabSize": 2,
+    "vim.hlsearch": true,
+    "clangd.arguments": [
+      "-j=4",
+      "--background-index",
+      "--pch-storage=memory",
+      "--header-insertion=never",
+      "--compile-commands-dir=${workspaceFolder}",
+      "-clang-tidy=0"
+    ],
+    "clangd.path": "/home/jwatkin/bin/clangd",
+    "editor.semanticHighlighting.enabled": true,
+    "[cpp]": {
+      "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
+    },
+    "git.ignoreLimitWarning": true,
+    "git.ignoreLegacyWarning": true,
+    "gitlens.advanced.messages": {
+      "suppressGitVersionWarning": true
+    },
+    "gitlens.advanced.telemetry.enabled": false,
+    "gitlens.blame.ignoreWhitespace": true,
+    "gitlens.currentLine.enabled": false,
+    "gitlens.hovers.currentLine.over": "line",
+    "C_Cpp.intelliSenseEngine": "Disabled",
+    "C/C++ Include Guard.Macro Type": "Filepath",
+    "C/C++ Include Guard.Remove Extension": false,
+    "C/C++ Include Guard.Suffix": "_",
+    "workbench.editor.enablePreview": true,
+    "search.useIgnoreFiles": false,
+    "search.useIgnoreFilesByDefault": false,
+    "editor.rulers": [132],
+    "fortran.ignoreWarning.fortls": true,
+    "fortran-ls.executablePath": "/home/jwatkin/.local/bin/fortls",
+    "fortran-ls.notifyInit": true
+  },
+}

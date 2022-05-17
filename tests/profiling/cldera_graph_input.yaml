@@ -1,0 +1,20 @@
+%YAML 1.0
+---
+Fields To Track: [A, B, C, D]
+
+DAG:
+  A:
+    Affects: B
+    Activation Threshold: 5.0
+    Deactivation Threshold: 1.0
+  B:
+    Affects: [C,D]
+    Activation Threshold: 2.0
+    Deactivation Threshold: 0.0
+  C:
+    Activation Threshold: 0.0
+    Deactivation Threshold: -1.0
+  D:
+    Activation Threshold: 0.9
+    Deactivation Threshold: 0.1
+...

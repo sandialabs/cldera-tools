@@ -12,7 +12,6 @@ size_t Graph::get_num_edges() const
   return count;
 }
 
-
 void Graph::generate_dot_graph(std::ostream& out) const
 {
   out << "digraph graphname {\n";
@@ -26,6 +25,5 @@ void Graph::generate_dot_graph(std::ostream& out) const
   }
   out << "}\n";
 }
-
 
 } // namespace cldera

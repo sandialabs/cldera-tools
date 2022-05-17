@@ -1,7 +1,6 @@
 #ifndef CLDERA_GRAPH_HPP
 #define CLDERA_GRAPH_HPP
 
-#include "cldera_profiling_types.hpp"
 #include "cldera_graph_vertex.hpp"
 
 #include <iostream>

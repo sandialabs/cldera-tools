@@ -13,21 +13,18 @@ size_t Graph::get_num_edges() const
 }
 
 
-void Graph::generate_dot_graph() const
+void Graph::generate_dot_graph(std::ostream& out) const
 {
-  std::cout << "digraph graphname {" << std::endl;
+  out << "digraph graphname {\n";
 
   for(auto& pair : m_edges)
   {
-    for (size_t i = 0; i < pair.second.size(); ++i)
+    for (const auto& dst : pair.second)
     {
-      std::cout << pair.first
-                << " -> "
-                << pair.second[i]
-                << std::endl;
+      out << pair.first << " -> " << dst << "\n";
     }
   }
-  std::cout << "}" << std::endl;
+  out << "}\n";
 }
 
 

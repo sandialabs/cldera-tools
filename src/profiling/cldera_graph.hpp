@@ -9,7 +9,6 @@
 #include <string>
 #include <memory>  // for std::shared_ptr
 #include <map>     // for std::map
-#include <utility> // for std::pair
 
 namespace cldera
 {
@@ -28,7 +27,7 @@ public:
   {}
 
   // Print a dot graph structure to stdout which can then be used to
-  void generate_dot_graph() const;
+  void generate_dot_graph(std::ostream& out = std::cout) const;
 
 
   // Setters

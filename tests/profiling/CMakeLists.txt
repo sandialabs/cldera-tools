@@ -15,6 +15,12 @@ EkatCreateUnitTest (field field.cpp
 EkatCreateUnitTest (archive archive.cpp
   LIBS cldera-profiling ekat)
 
+# Test Graph
+EkatCreateUnitTest (graph graph.cpp
+  LIBS cldera-profiling ekat)
+
 # Test functions to compute stats
 EkatCreateUnitTest (compute_stats compute_stats.cpp
   LIBS cldera-profiling ekat)
+
+FILE(COPY cldera_graph_input.yaml DESTINATION ${CMAKE_CURRENT_BINARY_DIR})

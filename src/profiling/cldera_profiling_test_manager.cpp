@@ -34,4 +34,13 @@ run_field_test(const std::string& field_test_name, const ekat::Comm& comm) const
   return m_field_tests.at(field_test_name)->test(comm);
 }
 
+std::map<std::string, bool> ProfilingTestManager::
+run_all_field_tests(const ekat::Comm& comm) const
+{
+  std::map<std::string, bool> results;
+  for (const auto& field_test : m_field_tests)
+    results[field_test.first] = field_test.second->test(comm);
+  return results;
+}
+
 } // namespace cldera

@@ -25,7 +25,9 @@ public:
   bool has_field_test(const std::string& field_test_name) const;
 
   // True if test passes, false if test fails
+  //// TODO: Determine which method is more useful
   bool run_field_test(const std::string& field_test_name, const ekat::Comm& comm) const;
+  std::map<std::string, bool> run_all_field_tests(const ekat::Comm& comm) const;
 
 private:
   std::map<std::string, std::shared_ptr<FieldTest>> m_field_tests;

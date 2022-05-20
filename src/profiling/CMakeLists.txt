@@ -1,6 +1,7 @@
 include(GNUInstallDirs)
 
 add_library (cldera-profiling
+    cldera_bounds_field_test.cpp
     cldera_field.cpp
     cldera_graph_vertex.cpp
     cldera_graph.cpp
@@ -8,6 +9,7 @@ add_library (cldera-profiling
     cldera_profiling_session.cpp
     cldera_profiling_archive.cpp
     cldera_profiling_interface.cpp
+    cldera_profiling_test_manager.cpp
     cldera_interface_mod.F90
     cldera_interface_f2c_mod.F90
     stats/cldera_compute_max.cpp
@@ -31,6 +33,7 @@ set (CLDERA_PROFILING_HEADERS
   cldera_profiling_session.hpp
   cldera_profiling_archive.hpp
   cldera_profiling_interface.hpp
+  cldera_profiling_test_manager.hpp
   cldera_profiling_types.hpp
   stats/cldera_compute_stat.hpp
 )

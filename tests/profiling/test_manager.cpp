@@ -31,7 +31,7 @@ TEST_CASE ("test_manager") {
 
   // Test add field test to test manager
   REQUIRE_THROWS(test_manager.add_field_test(nullptr)); // Throw on nullptr
-  REQUIRE_NOTHROW(test_manager.add_field_test(field_test));
+  test_manager.add_field_test(field_test);
   REQUIRE_THROWS(test_manager.add_field_test(field_test)); // Throw if field_test already exists
   test_manager.add_field_test(field_test2);
   

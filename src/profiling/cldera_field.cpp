@@ -82,7 +82,7 @@ set_part_data (const int ipart, const int part_size, const Real* data)
       "  Error! Invalid part data pointer.\n"
       "    - Field name: " + m_name + "\n"
       "    - Part index: " + std::to_string(ipart) + "\n");
-  EKAT_REQUIRE_MSG (part_size>=0,
+  EKAT_REQUIRE_MSG (part_size>=0 && part_size<=m_layout[m_part_dim],
       "[Field::set_part_data]\n"
       "  Error! Invalid part size.\n"
       "    - Field name: " + m_name + "\n"

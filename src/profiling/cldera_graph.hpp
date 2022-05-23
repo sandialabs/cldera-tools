@@ -28,6 +28,8 @@ public:
   // Print a dot graph structure to stdout which can then be used to
   void generate_dot_graph(std::ostream& out = std::cout) const;
 
+  // Compute whether the graph is cyclic or not
+  bool is_cyclic();
 
   // Setters
 
@@ -38,6 +40,15 @@ public:
 
   // Get the vertex at index i
   std::shared_ptr<GraphVertex> get_vertex(const std::string& name) { return m_vertices[name]; }
+
+  // Get the children of a given node of the graph
+  std::vector<std::string> get_children(const std::string& name) { return m_edges[name]; }
+
+  // Get the children of a given node by traversing a given recursion depth
+  std::vector<std::string> get_children_recursive(const std::string& name, const int recursion_depth = -1);
+
+  // Get the parents of a given node by looping over all vertices and checking O(n)
+  std::vector<std::string> get_parents(const std::string& name);
 
   // Return the size of m_vertices
   size_t get_num_vertices() const { return m_vertices.size(); }

@@ -34,6 +34,7 @@ void Graph::generate_dot_graph(std::ostream& out) const
  */
 std::vector<std::string> Graph::get_children_recursive(const std::string& name, const int recursion_depth)
 {
+  EKAT_REQUIRE_MSG (recursion_depth >= -1, "Error! Graph.get_children_recursive: recursion_depth must be -1 or greater!\n");
   std::vector<std::string> children;
 
   int depth = 0;

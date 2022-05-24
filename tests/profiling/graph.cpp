@@ -41,6 +41,8 @@ TEST_CASE ("graph") {
     REQUIRE(graph.get_parents("A")[0] == "B");
     REQUIRE(graph.get_children("B")[0] == "A");
     REQUIRE(graph.get_parents("B")[0] == "A");
+    REQUIRE(graph.get_children("L").size() == 0);
+    REQUIRE(graph.get_parents("L").size() == 0);
   }
 
   // A graph with a cycle A->B, B->C, C->A,D
@@ -61,6 +63,8 @@ TEST_CASE ("graph") {
     REQUIRE(graph.get_parents("B")[0] == "A");
     REQUIRE(graph.get_children_recursive("A",-1).size() == 4);
     REQUIRE(graph.get_children_recursive("A",1).size() == 1);
+    REQUIRE(graph.get_children("L").size() == 0);
+    REQUIRE(graph.get_parents("L").size() == 0);
   }
 
 }

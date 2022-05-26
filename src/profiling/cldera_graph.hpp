@@ -39,10 +39,10 @@ public:
   // Getters
 
   // Get the vertex object keyed by the string name
-  std::shared_ptr<GraphVertex> get_vertex(const std::string& name) { return m_vertices[name]; }
+  std::shared_ptr<GraphVertex> get_vertex(const std::string& name);
 
   // Get the names of children of a node keyed by the string name
-  std::vector<std::string> get_children(const std::string& name) { return m_edges[name]; }
+  std::vector<std::string> get_children(const std::string& name);
 
   // Get the names of children of a node keyed by the string name by traversing a given depth
   std::vector<std::string> get_children_recursive(const std::string& name, const int recursion_depth = -1);

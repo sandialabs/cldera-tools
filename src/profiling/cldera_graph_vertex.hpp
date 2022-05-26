@@ -35,10 +35,10 @@ public:
 
   // Getters
 
-  // Return m_name
+  // Return string m_name
   std::string get_name() const { return m_name; }
 
-  // Return m_is_active
+  // Return bool m_is_active
   bool get_is_active() const { return m_is_active; }
 
 private:

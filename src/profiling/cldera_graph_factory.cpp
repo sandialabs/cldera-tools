@@ -28,14 +28,6 @@ std::shared_ptr<Graph> GraphFactory::build_graph(std::ostream& out) const
 
     const auto& species_list = dag_list.sublist(name);
 
-    double activation_threshold = 0.0;
-    if(species_list.isParameter("Activation Threshold"))
-      activation_threshold = species_list.get<double>("Activation Threshold");
-
-    double deactivation_threshold = 0.0;
-    if(species_list.isParameter("Deactivation Threshold")) 
-      deactivation_threshold = species_list.get<double>("Deactivation Threshold");
-
     GraphVertex vertex(name);
     vertices[name] = std::make_shared<GraphVertex>(vertex);
 

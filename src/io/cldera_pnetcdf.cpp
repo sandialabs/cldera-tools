@@ -1,11 +1,90 @@
 #include "io/cldera_pnetcdf.hpp"
+#include "cldera_config.h"
 
+#include <ekat/ekat_assert.hpp>
 #include "ekat/std_meta/ekat_std_utils.hpp"
 #include "ekat/ekat_assert.hpp"
 
 #include <pnetcdf.h>
 
 namespace cldera {
+
+// If you add support for other types, add specializations of these functions
+template<typename T>
+std::string get_io_dtype_name ();
+template<typename T>
+MPI_Datatype get_io_mpi_dtype ();
+
+template<>
+std::string get_io_dtype_name<int> () { return "int"; }
+template<>
+std::string get_io_dtype_name<long long> () { return "long long"; }
+template<>
+std::string get_io_dtype_name<float> () { return "float"; }
+template<>
+std::string get_io_dtype_name<double> () { return "double"; }
+
+template<>
+MPI_Datatype get_io_mpi_dtype<int> () { return MPI_INT; }
+template<>
+MPI_Datatype get_io_mpi_dtype<long long> () { return MPI_LONG_LONG_INT; }
+template<>
+MPI_Datatype get_io_mpi_dtype<float> () { return MPI_FLOAT; }
+template<>
+MPI_Datatype get_io_mpi_dtype<double> () { return MPI_DOUBLE; }
+
+// ======================== TYPES ======================== //
+
+// ==================== QUERY OPS =================== //
+
+bool has_dim (const NCFile& file, const std::string& dname)
+{
+  return file.dims.find(dname)!=file.dims.end();
+}
+
+bool has_var (const NCFile& file,const std::string& vname)
+{
+  return file.vars.find(vname)!=file.vars.end();
+}
+
+bool has_dim (const NCVar& var, const std::string& dname)
+{
+  for (auto d : var.dims) {
+    if (d->name==dname) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Helper function
+void compute_var_chunk_len (NCVar& var)
+{
+  // Useful for error messages
+  std::string var_dims_str;
+  for (const auto& d : var.dims) {
+    var_dims_str += d->name;
+    var_dims_str += " ";
+  }
+
+  const int dim_start = var.dims[0]->name=="time" ? 1 : 0;
+  const int dim_end   = var.dims.size();
+
+  var.chunk_len = 1;
+  for (int pos=dim_start; pos<dim_end; ++pos) {
+    const auto& dim = var.dims[pos];
+
+    if (dim->decomp) {
+      EKAT_REQUIRE_MSG (pos==dim_start,
+          "Error! Decomposition allowed only on the first non-time dimension.\n"
+          "  - var name : " + var.name + "\n"
+          "  - dim name : " + dim->name + "\n"
+          "  - var dims : " + var_dims_str + "\n");
+    } else {
+      var.chunk_len *= dim->len;
+    }
+  }
+}
 
 // ==================== FILE OPS ==================== //
 
@@ -99,7 +178,7 @@ open_file (const std::string& fname, const ekat::Comm& comm, const IOMode mode)
       } else if (dtype==NC_INT) {
         var->dtype = "int";
       } else if (dtype==NC_INT64) {
-        var->dtype = "int64";
+        var->dtype = "long long";
       } else {
         EKAT_ERROR_MSG ("Error! Unrecognized/unsupported data type: " + std::to_string(dtype) + "\n");
       }
@@ -107,9 +186,17 @@ open_file (const std::string& fname, const ekat::Comm& comm, const IOMode mode)
         auto dname = file->dim_id2name.at(var_dimids[idim]);
         var->dims.push_back(file->dims.at(dname));
       }
+      compute_var_chunk_len(*var);
+
+      if (var->dims[0]->name=="time") {
+        var->nrecords = file->dims.at("time")->len;
+      }
 
       file->vars.emplace(name,var);
     }
+  } else {
+    // Add time unlimited dim
+    add_dim (*file,"time",NC_UNLIMITED);
   }
 
   return file;
@@ -129,7 +216,6 @@ void close_file (NCFile& file)
   file.name = "";
   file.dims.clear();
   file.vars.clear();
-  file.decomps.clear();
   file.dim_id2name.clear();
 }
 
@@ -151,8 +237,6 @@ void redef   (const NCFile& file)
       "   - file name: " + file.name + "\n"
       "   - err code : " + std::to_string(ret) + "\n");
 }
-
-// =================== DIM OPS =================== //
 
 void add_dim (NCFile& file, const std::string& dname, const int len)
 {
@@ -176,27 +260,72 @@ void add_dim (NCFile& file, const std::string& dname, const int len)
   file.dims[dname] = dim;
 }
 
-bool has_dim (const NCFile& file, const std::string& dname)
+void add_decomp (      NCFile& file, 
+                 const std::string& dim_name,
+                 const std::vector<int>& entries)
 {
-  return file.dims.find(dname)!=file.dims.end();
+  // Useful for error messages
+  std::string file_dims_str;
+  for (const auto& d : file.dims) {
+    file_dims_str += d.first;
+    file_dims_str += " ";
+  }
+
+  const auto& comm = file.comm;
+  const int rank = comm.rank();
+
+  // Sanity checks
+  auto dim_it = file.dims.find(dim_name);
+  EKAT_REQUIRE_MSG (dim_it!=file.dims.end(),
+      "Error! Invalid decomp dimension.\n"
+      "   - file name  : " + file.name + "\n"
+      "   - file dims  : " + file_dims_str + "\n"
+      "   - decomp dim : " + dim_name + "\n");
+  auto dim = dim_it->second;
+
+  EKAT_REQUIRE_MSG (not dim->decomp,
+      "Error! Decomposition was already added for this dimension.\n"
+      "   - file name : " + file.name + "\n"
+      "   - dim name  : " + dim_name + "\n");
+
+  int count = entries.size();
+  int gcount;
+  comm.all_reduce(&count,&gcount,1,MPI_SUM);
+  EKAT_REQUIRE_MSG (count>=0 && gcount==dim->len,
+      "Error! Invalid local count for decomposition.\n"
+      "   - file name    : " + file.name + "\n"
+      "   - decomp dim   : " + dim_name + "\n"
+      "   - rank         : " + std::to_string(rank) + "\n"
+      "   - local count  : " + std::to_string(count) + "\n"
+      "   - global count : " + std::to_string(gcount) + "\n"
+      "   - dim length   : " + std::to_string(dim->len) + "\n");
+
+  // Ensure indices are 1-based (for netcdf)
+  int min = *std::min_element(entries.begin(),entries.end());
+  comm.all_reduce(&min,1,MPI_MIN);
+  EKAT_REQUIRE_MSG (min==0,
+      "Error! Invalid index base for dim decomp enries.\n"
+      "   - file name  : " + file.name + "\n"
+      "   - decomp dim : " + dim_name + "\n"
+      "   - min entry  : " + std::to_string(min) + "\n");
+
+  dim->decomp = true;
+  dim->entries = entries;
+
+  // If vars are already registered, set the decomp (if needed)
+  for (const auto& it : file.vars) {
+    auto& var = *it.second;
+    if (has_dim(var,dim_name)) {
+      compute_var_chunk_len (var);
+    }
+  }
 }
-
-int get_dim_len (const NCFile& file, const std::string& dname)
-{
-  EKAT_REQUIRE_MSG (has_dim(file,dname),
-      "Error! Dimension not found in NC file.\n"
-      "   - file name: " + file.name + "\n"
-      "   - dim name : " + dname + "\n");
-
-  return file.dims.at(dname)->len;
-}
-
-// ====================== VAR OPS ===================== //
 
 void add_var (      NCFile& file,
               const std::string& vname,
               const std::string& dtype,
-              const std::vector<std::string>& dims)
+                    std::vector<std::string> dims,
+              const bool time_dep)
 {
   // Useful for error messages
   std::string var_dims_str;
@@ -216,11 +345,17 @@ void add_var (      NCFile& file,
       "   - var name : " + vname + "\n"
       "   - var dims : " + var_dims_str + "\n");
 
+  // Add time dimension if needed
+  if (time_dep && dims[0]!="time") {
+    dims.insert(dims.begin(),"time");
+  }
+
   auto var = std::make_shared<NCVar>();
   var->name = vname;
   var->dtype = dtype;
+  var->nrecords = 0;
   std::vector<int> dims_ids;
-  dims_ids.reserve(dims.size());
+
   for (const auto& d : dims) {
     EKAT_REQUIRE_MSG (has_dim(file,d),
         "Error! Could add variable to NC file. Variable dimension not in file.\n"
@@ -240,7 +375,7 @@ void add_var (      NCFile& file,
     nc_dtype = NC_FLOAT;
   } else if (dtype=="int") {
     nc_dtype = NC_INT;
-  } else if (dtype=="int64") {
+  } else if (dtype=="long long") {
     nc_dtype = NC_INT64;
   } else {
     EKAT_ERROR_MSG ("Error! Unrecognized/unsupported data type: " + dtype + "\n");
@@ -252,81 +387,247 @@ void add_var (      NCFile& file,
       "   - var name : " + vname + "\n"
       "   - err code : " + std::to_string(ret) + "\n");
 
+  compute_var_chunk_len(*var);
+
   file.vars[vname] = var;
 }
 
-void add_decomp (      NCFile& file, 
-                 const std::string& dim_name,
-                 const int count)
+// ================== READ OPS ================ //
+
+template<typename T>
+void read_var_impl (const NCFile& file, const std::string& vname,
+                          T* const  data, const int record)
 {
+  EKAT_REQUIRE_MSG (file.vars.find(vname)!=file.vars.end(),
+      "Error! Variable not found in output NC file.\n"
+      "  - file name : " + file.name + "\n"
+      "  - var name  : " + vname + "\n");
+
+  auto var = file.vars.at(vname);
+  EKAT_REQUIRE_MSG (var->dtype==get_io_dtype_name<T>(),
+      "Error! Incorrect data type.\n"
+      "  - file name : " + file.name + "\n"
+      "  - var name   : " + var->name + "\n"
+      "  - var dtype  : " + var->dtype + "\n"
+      "  - input type : " + get_io_dtype_name<T>() + "\n");
+
   // Useful for error messages
-  std::string file_dims_str;
-  for (const auto& d : file.dims) {
-    file_dims_str += d.first;
-    file_dims_str += " ";
+  std::string var_dims_str;
+  for (const auto& d : var->dims) {
+    var_dims_str += d->name;
+    var_dims_str += " ";
   }
 
-  const auto& comm = file.comm;
-  const int rank = comm.rank();
+  auto vdata = reinterpret_cast<T*>(var->data);
 
-  // Sanity checks
-  auto dim_it = file.dims.find(dim_name);
-  EKAT_REQUIRE_MSG (dim_it!=file.dims.end(),
-      "Error! Invalid decomp dimension.\n"
-      "   - file name  : " + file.name + "\n"
-      "   - file dims  : " + file_dims_str + "\n"
-      "   - decomp dim : " + dim_name + "\n");
-  EKAT_REQUIRE_MSG (file.decomps.find(dim_name)==file.decomps.end(),
-      "Error! Decomposition was already added.\n"
-      "   - file name  : " + file.name + "\n"
-      "   - decomp dim : " + dim_name + "\n");
+  std::vector<MPI_Offset> start(var->dims.size()), count(var->dims.size());
+  const bool has_time = has_dim(*var,"time");
+  EKAT_REQUIRE_MSG (record<=0 || has_time,
+      "Error! Record specified for non-time dependent variable.\n"
+      "  - file name : " + file.name + "\n"
+      "  - var name  : " + var->name + "\n"
+      "  - var dims  : " + var_dims_str + "\n"
+      "  - record    : " + std::to_string(record) + "\n");
 
-  auto dim = dim_it->second;
-  int gcount;
-  comm.all_reduce(&count,&gcount,1,MPI_SUM);
+  int first_non_time_idx = has_time ? 1 : 0;
+  if (has_time) {
+    start[0] = record>=0 ? record : var->nrecords-1;
+    count[0] = 1;
+  }
+  for (size_t idim=first_non_time_idx; idim<var->dims.size(); ++idim) {
+    start[idim] = 0;
+    count[idim] = var->dims[idim]->len;
+  }
 
-  EKAT_REQUIRE_MSG (count>=0 && gcount==dim->len,
-      "Error! Invalid local start/count for decomposition.\n"
-      "   - file name    : " + file.name + "\n"
-      "   - decomp dim   : " + dim_name + "\n"
-      "   - rank         : " + std::to_string(rank) + "\n"
-      "   - local count  : " + std::to_string(count) + "\n"
-      "   - global count : " + std::to_string(gcount) + "\n"
-      "   - dim length   : " + std::to_string(dim->len) + "\n");
+  int ret;
 
-  std::vector<int> end (comm.size());
-  end[rank] = count;
-  comm.scan(end.data(),1,MPI_SUM);
+  auto mpi_dtype = get_io_mpi_dtype<T>();
+  // If partitioned, write one decomposed-dim entry at a time
+  auto first_non_time_dim = var->dims[first_non_time_idx];
+  if (first_non_time_dim->decomp) {
+    // Correct start/count for partitioned dimension
+    count[first_non_time_idx] = 1;
+    ret = ncmpi_begin_indep_data(file.ncid);
+    EKAT_REQUIRE_MSG (ret==NC_NOERR,
+        "Error! Could not begin independent data mode for read.\n"
+        "  - file name : " + file.name + "\n"
+        "  - var name  : " + var->name + "\n"
+        "  - err code : " + std::to_string(ret) + "\n");
+    for (size_t i=0; i<first_non_time_dim->entries.size(); ++i) {
+      const int entry = first_non_time_dim->entries[i];
+      // Correct start for partitioned dimension
+      start[first_non_time_idx] = entry;
+      auto pt_data = data+i*var->chunk_len;
+      ret = ncmpi_get_vara(file.ncid,var->ncid,
+                           start.data(),count.data(),
+                           pt_data,var->chunk_len,mpi_dtype);
+#ifdef CLDERA_DEBUG
+      EKAT_REQUIRE_MSG (ret==NC_NOERR,
+          "Error! Could not read decomposed variable.\n"
+          "  - file name : " + file.name + "\n"
+          "  - var name  : " + var->name + "\n"
+          "  - point idx : " + std::to_string(entry) + "\n"
+          "  - err code : " + std::to_string(ret) + "\n");
+#endif
+    }
+    ret = ncmpi_end_indep_data(file.ncid);
+    EKAT_REQUIRE_MSG (ret==NC_NOERR,
+        "Error! Could not end independent data mode for read.\n"
+        "  - file name : " + file.name + "\n"
+        "  - var name  : " + var->name + "\n"
+        "  - err code : " + std::to_string(ret) + "\n");
+  } else {
+    ret = ncmpi_get_vara_all(file.ncid,var->ncid,
+                             start.data(),count.data(),
+                             data,var->chunk_len,mpi_dtype);
+#ifdef CLDERA_DEBUG
+      EKAT_REQUIRE_MSG (ret==NC_NOERR,
+          "Error! Could not read non-decomposed variable.\n"
+          "  - file name : " + file.name + "\n"
+          "  - var name  : " + var->name + "\n"
+          "  - err code : " + std::to_string(ret) + "\n");
+#endif
+  }
 
-  auto decomp = std::make_shared<NCDecomp>();
-  decomp->dim = file.dims.at(dim_name);
-  decomp->start = end[rank] - count;
-  decomp->count = count;
-
-  file.decomps[dim_name] = decomp;
+  // Update number of records
+  ++var->nrecords;
 }
 
-bool has_var (const NCFile& file,const std::string& vname)
+template<>
+void read_var<int> (const NCFile& file, const std::string& vname,
+                          int* const data, const int record)
 {
-  return file.vars.find(vname)!=file.vars.end();
+  read_var_impl(file,vname,data,record);
+}
+template<>
+void read_var<long long> (const NCFile& file, const std::string& vname,
+                                long long* const data, const int record)
+{
+  read_var_impl(file,vname,data,record);
+}
+template<>
+void read_var<float> (const NCFile& file, const std::string& vname,
+                            float* const data, const int record)
+{
+  read_var_impl(file,vname,data,record);
+}
+template<>
+void read_var<double> (const NCFile& file, const std::string& vname,
+                             double* const data, const int record)
+{
+  read_var_impl(file,vname,data,record);
 }
 
-// template<>
-// void write_var<int> (const NCFile& file,const std::string& vname,
-//                      const int* const  data)
-// {
-//   const auto& var = file.vars.at(vname);
-//   EKAT_REQUIRE_MSG (var.dtype=="int",
-//       "Error! Input data type differs from declared var data.\n"
-//       "   - file name   : " + file.name + "\n"
-//       "   - var name    : " + vname + "\n"
-//       "   - var dtype   : " + var.dtype + "\n"
-//       "   - input dtype : int\n");
+// ====================== WRITE OPS ==================== //
 
-// }
-// template<typename T>
-// void read_var (const NCFile& file,
-//                const std::string& vname,
-//                T* const data);
+template<typename T>
+void write_var_impl (const NCFile& file,const std::string& vname,
+                     const T* const  data)
+{
+  EKAT_REQUIRE_MSG (file.vars.find(vname)!=file.vars.end(),
+      "Error! Variable not found in output NC file.\n"
+      "  - file name : " + file.name + "\n"
+      "  - var name  : " + vname + "\n");
+
+  auto var = file.vars.at(vname);
+  EKAT_REQUIRE_MSG (var->dtype==get_io_dtype_name<T>(),
+      "Error! Incorrect data type.\n"
+      "  - var name   : " + var->name + "\n"
+      "  - var dtype  : " + var->dtype + "\n"
+      "  - input type : " + get_io_dtype_name<T>() + "\n");
+
+  auto vdata = reinterpret_cast<T*>(var->data);
+
+  std::vector<MPI_Offset> start(var->dims.size()), count(var->dims.size());
+  const bool has_time = has_dim(*var,"time");
+  int first_non_time_idx = has_time ? 1 : 0;
+  if (has_time) {
+    start[0] = var->nrecords;
+    count[0] = 1;
+  }
+  for (size_t idim=first_non_time_idx; idim<var->dims.size(); ++idim) {
+    start[idim] = 0;
+    count[idim] = var->dims[idim]->len;
+  }
+
+  int ret;
+
+  auto mpi_dtype = get_io_mpi_dtype<T>();
+  // If partitioned, write one decomposed-dim entry at a time
+  auto first_non_time_dim = var->dims[first_non_time_idx];
+  if (first_non_time_dim->decomp) {
+    ret = ncmpi_begin_indep_data(file.ncid);
+    EKAT_REQUIRE_MSG (ret==NC_NOERR,
+        "Error! Could not begin independent data mode for write.\n"
+        "  - file name : " + file.name + "\n"
+        "  - var name  : " + var->name + "\n"
+        "  - err code : " + std::to_string(ret) + "\n");
+    // Correct start/count for partitioned dimension
+    count[first_non_time_idx] = 1;
+    for (size_t i=0; i<first_non_time_dim->entries.size(); ++i) {
+      const int entry = first_non_time_dim->entries[i];
+
+      // Correct start for partitioned dimension
+      start[first_non_time_idx] = entry;
+      auto pt_data = data+i*var->chunk_len;
+      ret = ncmpi_put_vara(file.ncid,var->ncid,
+                           start.data(),count.data(),
+                           pt_data,var->chunk_len,mpi_dtype);
+#ifdef CLDERA_DEBUG
+      EKAT_REQUIRE_MSG (ret==NC_NOERR,
+          "Error! Could not write decomposed variable.\n"
+          "  - file name : " + file.name + "\n"
+          "  - var name  : " + var->name + "\n"
+          "  - point idx : " + std::to_string(entry) + "\n"
+          "  - err code : " + std::to_string(ret) + "\n");
+#endif
+    }
+    ret = ncmpi_end_indep_data(file.ncid);
+    EKAT_REQUIRE_MSG (ret==NC_NOERR,
+        "Error! Could not end independent data mode for write.\n"
+        "  - file name : " + file.name + "\n"
+        "  - var name  : " + var->name + "\n"
+        "  - err code : " + std::to_string(ret) + "\n");
+  } else {
+    ret = ncmpi_put_vara_all(file.ncid,var->ncid,
+                             start.data(),count.data(),
+                             data,var->chunk_len,mpi_dtype);
+#ifdef CLDERA_DEBUG
+      EKAT_REQUIRE_MSG (ret==NC_NOERR,
+          "Error! Could not write non-decomposed variable.\n"
+          "  - file name : " + file.name + "\n"
+          "  - var name  : " + var->name + "\n"
+          "  - err code : " + std::to_string(ret) + "\n");
+#endif
+  }
+
+  // Update number of records
+  ++var->nrecords;
+}
+
+template<>
+void write_var<int> (const NCFile& file, const std::string& vname,
+                     const int* const data)
+{
+  write_var_impl(file,vname,data);
+}
+template<>
+void write_var<long long> (const NCFile& file, const std::string& vname,
+                           const long long* const data)
+{
+  write_var_impl(file,vname,data);
+}
+template<>
+void write_var<float> (const NCFile& file, const std::string& vname,
+                       const float* const data)
+{
+  write_var_impl(file,vname,data);
+}
+template<>
+void write_var<double> (const NCFile& file, const std::string& vname,
+                        const double* const data)
+{
+  write_var_impl(file,vname,data);
+}
 
 } // namespace cldera

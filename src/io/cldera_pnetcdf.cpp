@@ -77,9 +77,9 @@ void compute_var_chunk_len (NCVar& var)
     if (dim->decomp) {
       EKAT_REQUIRE_MSG (pos==dim_start,
           "Error! Decomposition allowed only on the first non-time dimension.\n"
-          "  - var name : " + var.name + "\n"
-          "  - dim name : " + dim->name + "\n"
-          "  - var dims : " + var_dims_str + "\n");
+          "  - var name  : " + var.name + "\n"
+          "  - dim name  : " + dim->name + "\n"
+          "  - var dims  : " + var_dims_str + "\n");
     } else {
       var.chunk_len *= dim->len;
     }
@@ -380,14 +380,14 @@ void add_var (      NCFile& file,
   } else {
     EKAT_ERROR_MSG ("Error! Unrecognized/unsupported data type: " + dtype + "\n");
   }
+  compute_var_chunk_len(*var);
+
   int ret = ncmpi_def_var(file.ncid,vname.c_str(),nc_dtype,dims.size(),dims_ids.data(),&var->ncid);
   EKAT_REQUIRE_MSG (ret==NC_NOERR,
       "Error! Could not add variable to NC file.\n"
       "   - file name: " + file.name + "\n"
       "   - var name : " + vname + "\n"
       "   - err code : " + std::to_string(ret) + "\n");
-
-  compute_var_chunk_len(*var);
 
   file.vars[vname] = var;
 }

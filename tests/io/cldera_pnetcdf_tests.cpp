@@ -20,7 +20,7 @@ void write ()
   const int nglon = 36;
 
   // Create file
-  auto file = open_file ("test.nc",comm,IOMode::Write);
+  auto file = open_file ("test_np" + std::to_string(size) +".nc",comm,IOMode::Write);
 
   // Add dims
   add_dim (*file,"lat",nglat);
@@ -86,7 +86,7 @@ void read ()
   const int rank = comm.rank();
   const int size = comm.size();
 
-  auto file = open_file ("test.nc",comm,IOMode::Read);
+  auto file = open_file ("test_np" + std::to_string(size) +".nc",comm,IOMode::Read);
 
   // Partition along lat dimension, but differently from how it was done during write
   // Divide lat entries evenly, and do some extra work to account for remainders

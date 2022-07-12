@@ -16,12 +16,15 @@ void write ()
   const int rank = comm.rank();
   const int size = comm.size();
 
+  const int nglat = 12;
+  const int nglon = 36;
+
   // Create file
   auto file = open_file ("test.nc",comm,IOMode::Write);
 
   // Add dims
-  add_dim (*file,"lat",12);
-  add_dim (*file,"lon",36);
+  add_dim (*file,"lat",nglat);
+  add_dim (*file,"lon",nglon);
   add_dim (*file,"dim2",2);
 
   REQUIRE_THROWS (add_dim(*file,"lat",10)); // Dim already added
@@ -37,7 +40,7 @@ void write ()
 
   // Partition along lat dimension
   std::vector<int> my_lat;
-  for (int i=0; i<12; ++i) {
+  for (int i=0; i<nglat; ++i) {
     if (i%size == rank) {
       my_lat.push_back(i);
     }
@@ -54,14 +57,14 @@ void write ()
 
   // Create data in an rank-independent way
   int nlats = my_lat.size();
-  std::vector<double>     tdata(nlats*36);
-  std::vector<float>      vdata(nlats*36*2);
-  std::vector<long long>  idata(nlats*36);
+  std::vector<double>     tdata(nlats*nglon);
+  std::vector<float>      vdata(nlats*nglon*2);
+  std::vector<long long>  idata(nlats*nglon);
   for (int i=0; i<nlats; ++i) {
     int idx = my_lat[i];
-    std::iota(tdata.begin()+i*36,  tdata.begin()+(i+1)*36,idx*36);
-    std::iota(vdata.begin()+i*36*2,vdata.begin()+(i+1)*36*2,idx*36*2);
-    std::iota(idata.begin()+i*36,  idata.begin()+(i+1)*36,idx*36);
+    std::iota(tdata.begin()+i*nglon,  tdata.begin()+(i+1)*nglon,idx*nglon);
+    std::iota(vdata.begin()+i*nglon*2,vdata.begin()+(i+1)*nglon*2,idx*nglon*2);
+    std::iota(idata.begin()+i*nglon,  idata.begin()+(i+1)*nglon,idx*nglon);
   }
 
   write_var(*file,"T",tdata.data());

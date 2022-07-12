@@ -18,10 +18,13 @@ endif()
 add_library (cldera-pnetcdf
   cldera_pnetcdf.cpp)
 
-target_link_libraries (cldera-pnetcdf PUBLIC ekat ${PNETCDF_LIBRARIES})
+target_link_libraries (cldera-pnetcdf PUBLIC ekat)
 target_include_directories (cldera-pnetcdf
   PUBLIC
   "$<BUILD_INTERFACE:${CLDERA_SOURCE_DIR}/src;${CLDERA_BINARY_DIR}/src>"
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-  ${PNETCDF_INCLUDE_DIR}
 )
+
+# Pnetcdf is a private implementation detail, never exposed via headers.
+target_link_libraries (cldera-pnetcdf PRIVATE ${PNETCDF_LIBRARIES})
+target_include_directories (cldera-pnetcdf PRIVATE ${PNETCDF_INCLUDE_DIR})

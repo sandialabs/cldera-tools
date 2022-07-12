@@ -53,7 +53,6 @@ struct NCVar {
   std::string             name;
   std::string             dtype;
   std::vector<dim_ptr_t>  dims;
-  void*                   data;
   int                     nrecords; // For time-dep vars only
 
   // If dims are not decomposed, each read/write handles the whole array,

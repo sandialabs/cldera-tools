@@ -418,8 +418,6 @@ void read_var_impl (const NCFile& file, const std::string& vname,
     var_dims_str += " ";
   }
 
-  auto vdata = reinterpret_cast<T*>(var->data);
-
   std::vector<MPI_Offset> start(var->dims.size()), count(var->dims.size());
   const bool has_time = has_dim(*var,"time");
   EKAT_REQUIRE_MSG (record<=0 || has_time,
@@ -535,8 +533,6 @@ void write_var_impl (const NCFile& file,const std::string& vname,
       "  - var name   : " + var->name + "\n"
       "  - var dtype  : " + var->dtype + "\n"
       "  - input type : " + get_io_dtype_name<T>() + "\n");
-
-  auto vdata = reinterpret_cast<T*>(var->data);
 
   std::vector<MPI_Offset> start(var->dims.size()), count(var->dims.size());
   const bool has_time = has_dim(*var,"time");

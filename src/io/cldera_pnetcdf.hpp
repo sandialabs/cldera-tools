@@ -64,10 +64,19 @@ struct NCVar {
   int                     chunk_len;
 };
 
+// // A small struct to hold a Netcdf attribute info
+// struct NCAtt {
+//   int           varid;
+//   std::string   name;
+//   std::string   dtype;
+//   int           len;
+// };
+
 // A small struct to hold Netcdf file info
 struct NCFile {
   using dim_ptr_t    = std::shared_ptr<NCDim>;
   using var_ptr_t    = std::shared_ptr<NCVar>;
+  // using att_ptr_t    = std::shared_ptr<NCAtt>;
 
   int         ncid;
   std::string name;
@@ -75,6 +84,7 @@ struct NCFile {
 
   strmap_t<dim_ptr_t>  dims;
   strmap_t<var_ptr_t>  vars;
+  // strmap_t<strmap_t<att_ptr_t>>  atts; // atts[var_name][att_name] = att
 
   std::map<int,std::string> dim_id2name;
 
@@ -103,7 +113,7 @@ void add_decomp (      NCFile& file,
 void enddef (const NCFile& file);
 void redef  (const NCFile& file);
 
-// --- Read/write operations
+// --- Variable read/write operations
 template<typename T>
 void write_var (const NCFile& file,
                 const std::string& vname,
@@ -114,6 +124,64 @@ void read_var (const NCFile& file,
                const std::string& vname,
                      T* const data,
                const int record = -1);
+
+// --- Attribute read/write operations
+
+template<typename T>
+void set_att_v (const NCFile& file,
+                const std::string& att_name,
+                const std::string& var_name,
+                const std::vector<T>& data);
+
+template<typename T>
+void set_att (const NCFile& file,
+              const std::string& att_name,
+              const std::string& var_name,
+              const T& data)
+{
+  std::vector<T> data_v(1,data);
+  set_att_v(file,att_name,var_name,data_v);
+}
+
+template<>
+inline
+void set_att (const NCFile& file,
+              const std::string& att_name,
+              const std::string& var_name,
+              const std::string& data)
+{
+  std::vector<char> data_v(data.begin(),data.end());
+  set_att_v(file,att_name,var_name,data_v);
+}
+
+template<typename T>
+void get_att_v (const NCFile& file,
+                const std::string& name,
+                const std::string& var_name,  // use "NC_GLOBAL" for global attributes
+                      std::vector<T>& data);
+
+template<typename T>
+void get_att (const NCFile& file,
+              const std::string& att_name,
+              const std::string& var_name,  // use "NC_GLOBAL" for global attributes
+                    T& data)
+{
+  std::vector<T> data_v(1);
+  get_att_v(file,att_name,var_name,data_v);
+  data = data_v[0];
+}
+
+template<>
+inline
+void get_att (const NCFile& file,
+              const std::string& att_name,
+              const std::string& var_name,  // use "NC_GLOBAL" for global attributes
+                    std::string& data)
+{
+  std::vector<char> data_v(data.size());
+  get_att_v(file,att_name,var_name,data_v);
+  data.assign(data_v.begin(),data_v.end());
+}
 
 } // namespace cldera
 

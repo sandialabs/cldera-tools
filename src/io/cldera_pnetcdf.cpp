@@ -13,6 +13,8 @@ namespace cldera {
 template<typename T>
 std::string get_io_dtype_name ();
 template<typename T>
+nc_type get_nc_type ();
+template<typename T>
 MPI_Datatype get_io_mpi_dtype ();
 
 template<>
@@ -25,6 +27,17 @@ template<>
 std::string get_io_dtype_name<double> () { return "double"; }
 
 template<>
+nc_type get_nc_type<int> () { return NC_INT; }
+template<>
+nc_type get_nc_type<long long> () { return NC_INT64; }
+template<>
+nc_type get_nc_type<float> () { return NC_FLOAT; }
+template<>
+nc_type get_nc_type<double> () { return NC_DOUBLE; }
+template<>
+nc_type get_nc_type<char> () { return NC_CHAR; }
+
+template<>
 MPI_Datatype get_io_mpi_dtype<int> () { return MPI_INT; }
 template<>
 MPI_Datatype get_io_mpi_dtype<long long> () { return MPI_LONG_LONG_INT; }
@@ -33,7 +46,22 @@ MPI_Datatype get_io_mpi_dtype<float> () { return MPI_FLOAT; }
 template<>
 MPI_Datatype get_io_mpi_dtype<double> () { return MPI_DOUBLE; }
 
-// ======================== TYPES ======================== //
+int get_nc_type (const std::string& dtype) {
+  if (dtype=="int") {
+    return NC_INT;
+  } else if (dtype=="long long") {
+    return NC_INT64;
+  } else if (dtype=="float") {
+    return NC_FLOAT;
+  } else if (dtype=="double") {
+    return NC_DOUBLE;
+  } else if (dtype=="char") {
+    return NC_CHAR;
+  }
+
+  // Not a type
+  return NC_NAT;
+}
 
 // ==================== QUERY OPS =================== //
 
@@ -395,8 +423,8 @@ void add_var (      NCFile& file,
 // ================== READ OPS ================ //
 
 template<typename T>
-void read_var_impl (const NCFile& file, const std::string& vname,
-                          T* const  data, const int record)
+void read_var (const NCFile& file, const std::string& vname,
+                     T* const  data, const int record)
 {
   EKAT_REQUIRE_MSG (file.vars.find(vname)!=file.vars.end(),
       "Error! Variable not found in output NC file.\n"
@@ -491,36 +519,21 @@ void read_var_impl (const NCFile& file, const std::string& vname,
   ++var->nrecords;
 }
 
-template<>
-void read_var<int> (const NCFile& file, const std::string& vname,
-                          int* const data, const int record)
-{
-  read_var_impl(file,vname,data,record);
-}
-template<>
-void read_var<long long> (const NCFile& file, const std::string& vname,
-                                long long* const data, const int record)
-{
-  read_var_impl(file,vname,data,record);
-}
-template<>
-void read_var<float> (const NCFile& file, const std::string& vname,
-                            float* const data, const int record)
-{
-  read_var_impl(file,vname,data,record);
-}
-template<>
-void read_var<double> (const NCFile& file, const std::string& vname,
-                             double* const data, const int record)
-{
-  read_var_impl(file,vname,data,record);
-}
+// Instantiations 
+template void read_var (const NCFile& file, const std::string& vname,
+                        int* const data, const int record);
+template void read_var (const NCFile& file, const std::string& vname,
+                        long long* const data, const int record);
+template void read_var (const NCFile& file, const std::string& vname,
+                        float* const data, const int record);
+template void read_var (const NCFile& file, const std::string& vname,
+                        double* const data, const int record);
 
 // ====================== WRITE OPS ==================== //
 
 template<typename T>
-void write_var_impl (const NCFile& file,const std::string& vname,
-                     const T* const  data)
+void write_var (const NCFile& file,const std::string& vname,
+                const T* const  data)
 {
   EKAT_REQUIRE_MSG (file.vars.find(vname)!=file.vars.end(),
       "Error! Variable not found in output NC file.\n"
@@ -601,29 +614,126 @@ void write_var_impl (const NCFile& file,const std::string& vname,
   ++var->nrecords;
 }
 
-template<>
-void write_var<int> (const NCFile& file, const std::string& vname,
-                     const int* const data)
+// Instantiations
+template void write_var (const NCFile& file, const std::string& vname,
+                         const int* const data);
+template void write_var (const NCFile& file, const std::string& vname,
+                         const long long* const data);
+template void write_var (const NCFile& file, const std::string& vname,
+                         const float* const data);
+template void write_var (const NCFile& file, const std::string& vname,
+                         const double* const data);
+
+// ======================== ATTRIBUTES =========================== //
+
+template<typename T>
+void set_att_v (const NCFile& file,
+                const std::string& att_name,
+                const std::string& var_name,
+                const std::vector<T>& data)
 {
-  write_var_impl(file,vname,data);
+  int varid;
+  if (var_name=="NC_GLOBAL") {
+    varid = NC_GLOBAL;
+  } else {
+    EKAT_REQUIRE_MSG (file.vars.find(var_name)!=file.vars.end(),
+        "Error! Could not write variable attribute. Variable not found.\n"
+        "  - file name : " + file.name + "\n"
+        "  - var name  : " + var_name + "\n");
+
+    varid = file.vars.at(var_name)->ncid;
+  }
+
+  int ret = ncmpi_put_att (file.ncid,varid,att_name.c_str(),
+                           get_nc_type<T>(),data.size(),data.data());
+
+  EKAT_REQUIRE_MSG (ret==NC_NOERR,
+      "Error! Could not write attribute.\n"
+      "  - file name : " + file.name + "\n"
+      "  - var name  : " + var_name + "\n"
+      "  - err code : " + std::to_string(ret) + "\n");
 }
-template<>
-void write_var<long long> (const NCFile& file, const std::string& vname,
-                           const long long* const data)
+
+// Instantiations
+template void set_att_v (const NCFile& file,
+                         const std::string& att_name,
+                         const std::string& var_name,
+                         const std::vector<int>&  data);
+template void set_att_v (const NCFile& file,
+                         const std::string& att_name,
+                         const std::string& var_name,
+                         const std::vector<long long>& data);
+template void set_att_v (const NCFile& file,
+                         const std::string& att_name,
+                         const std::string& var_name,
+                         const std::vector<float>& data);
+template void set_att_v (const NCFile& file,
+                         const std::string& att_name,
+                         const std::string& var_name,
+                         const std::vector<double>& data);
+template void set_att_v (const NCFile& file,
+                         const std::string& att_name,
+                         const std::string& var_name,
+                         const std::vector<char>& data);
+
+template<typename T>
+void get_att_v (const NCFile& file,
+                const std::string& att_name,
+                const std::string& var_name,  // use "NC_GLOBAL" for global attributes
+                      std::vector<T>& data)
 {
-  write_var_impl(file,vname,data);
+  int varid;
+  if (var_name=="NC_GLOBAL") {
+    varid = NC_GLOBAL;
+  } else {
+    EKAT_REQUIRE_MSG (file.vars.find(var_name)!=file.vars.end(),
+        "Error! Could not write variable attribute. Variable not found.\n"
+        "  - file name : " + file.name + "\n"
+        "  - var name  : " + var_name + "\n");
+
+    varid = file.vars.at(var_name)->ncid;
+  }
+
+  int ret;
+  MPI_Offset len;
+  ret = ncmpi_inq_attlen(file.ncid, varid, att_name.c_str(), &len);
+
+  EKAT_REQUIRE_MSG (ret==NC_NOERR,
+      "Error! Could not retrieve attribute length.\n"
+      "  - file name : " + file.name + "\n"
+      "  - var name  : " + var_name + "\n"
+      "  - err code : " + std::to_string(ret) + "\n");
+
+  data.resize(len);
+  ret = ncmpi_get_att (file.ncid,varid,att_name.c_str(),data.data());
+
+  EKAT_REQUIRE_MSG (ret==NC_NOERR,
+      "Error! Could not read attribute.\n"
+      "  - file name : " + file.name + "\n"
+      "  - var name  : " + var_name + "\n"
+      "  - err code : " + std::to_string(ret) + "\n");
 }
-template<>
-void write_var<float> (const NCFile& file, const std::string& vname,
-                       const float* const data)
-{
-  write_var_impl(file,vname,data);
-}
-template<>
-void write_var<double> (const NCFile& file, const std::string& vname,
-                        const double* const data)
-{
-  write_var_impl(file,vname,data);
-}
+
+// Instantiations
+template void get_att_v (const NCFile& file,
+                         const std::string& att_name,
+                         const std::string& var_name,
+                               std::vector<int>& data);
+template void get_att_v (const NCFile& file,
+                         const std::string& att_name,
+                         const std::string& var_name,
+                               std::vector<long long>& data);
+template void get_att_v (const NCFile& file,
+                         const std::string& att_name,
+                         const std::string& var_name,
+                               std::vector<float>& data);
+template void get_att_v (const NCFile& file,
+                         const std::string& att_name,
+                         const std::string& var_name,
+                               std::vector<double>& data);
+template void get_att_v (const NCFile& file,
+                         const std::string& att_name,
+                         const std::string& var_name,
+                               std::vector<char>& data);
 
 } // namespace cldera

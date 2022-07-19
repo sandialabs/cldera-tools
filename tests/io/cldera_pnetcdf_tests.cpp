@@ -50,10 +50,16 @@ void write ()
   REQUIRE_THROWS (add_decomp (*file,"lat",my_lat)); // Decomp for "lat" already added
   REQUIRE_THROWS (add_var(*file,"W","float",{"lon","lat","dim2"},false)); // Decomp dim is not first
 
+  set_att (*file,"my_int","NC_GLOBAL",static_cast<int>(42));
+  set_att (*file,"my_dbl","NC_GLOBAL",static_cast<double>(42));
+  set_att (*file,"units","V",std::string("m/s"));
+  REQUIRE_THROWS (set_att(*file,"blah","XYZ",10)); // Not a valid var name
+
   // Close define phase
   enddef (*file);
 
   REQUIRE_THROWS (add_dim(*file,"dim3",3)); // Not in def mode
+  REQUIRE_THROWS (set_att(*file,"blah","XYZ",10)); // Not a valid var name
 
   // Create data in an rank-independent way
   int nlats = my_lat.size();
@@ -161,6 +167,16 @@ void read ()
       REQUIRE(idata[i*nglon+j]==(idx*nglon+j));
     }
   }
+  int my_int;
+  double my_dbl;
+  std::string units;
+  get_att (*file,"my_int","NC_GLOBAL",my_int);
+  get_att (*file,"my_dbl","NC_GLOBAL",my_dbl);
+  get_att (*file,"units","V",units);
+
+  REQUIRE (my_int==42);
+  REQUIRE (my_dbl==42);
+  REQUIRE (units=="m/s");
 
   // Check read exceptions
   REQUIRE_THROWS (read_var(*file,"V",vdata.data(),1)); // Not a time-dep var

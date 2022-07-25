@@ -65,6 +65,27 @@ int get_nc_type (const std::string& dtype) {
   return NC_NAT;
 }
 
+// Helper fcn, for debug/print purposes
+std::string dims_str (const std::vector<std::shared_ptr<const NCDim>>& dims) {
+  std::string s = "(";
+  for (const auto& d : dims) {
+    s += d->name;
+    s += ",";
+  }
+  s.back() = ')';
+  return s;
+}
+
+std::string dims_str (const std::map<std::string,std::shared_ptr<NCDim>>& dims) {
+  std::string s = "(";
+  for (const auto& d : dims) {
+    s += d.second->name;
+    s += ",";
+  }
+  s.back() = ')';
+  return s;
+}
+
 // ==================== QUERY OPS =================== //
 
 bool has_dim (const NCFile& file, const std::string& dname)
@@ -90,13 +111,6 @@ bool has_dim (const NCVar& var, const std::string& dname)
 // Helper function
 void compute_var_chunk_len (NCVar& var)
 {
-  // Useful for error messages
-  std::string var_dims_str;
-  for (const auto& d : var.dims) {
-    var_dims_str += d->name;
-    var_dims_str += " ";
-  }
-
   const int dim_start = var.dims[0]->name=="time" ? 1 : 0;
   const int dim_end   = var.dims.size();
 
@@ -109,7 +123,7 @@ void compute_var_chunk_len (NCVar& var)
           "Error! Decomposition allowed only on the first non-time dimension.\n"
           "  - var name  : " + var.name + "\n"
           "  - dim name  : " + dim->name + "\n"
-          "  - var dims  : " + var_dims_str + "\n");
+          "  - var dims  : " + dims_str(var.dims) + "\n");
     } else {
       var.chunk_len *= dim->len;
     }
@@ -291,13 +305,6 @@ void add_decomp (      NCFile& file,
                  const std::string& dim_name,
                  const std::vector<int>& entries)
 {
-  // Useful for error messages
-  std::string file_dims_str;
-  for (const auto& d : file.dims) {
-    file_dims_str += d.first;
-    file_dims_str += " ";
-  }
-
   const auto& comm = file.comm;
   const int rank = comm.rank();
 
@@ -306,7 +313,7 @@ void add_decomp (      NCFile& file,
   EKAT_REQUIRE_MSG (dim_it!=file.dims.end(),
       "Error! Invalid decomp dimension.\n"
       "   - file name  : " + file.name + "\n"
-      "   - file dims  : " + file_dims_str + "\n"
+      "   - file dims  : " + dims_str(file.dims) + "\n"
       "   - decomp dim : " + dim_name + "\n");
   auto dim = dim_it->second;
 
@@ -354,23 +361,11 @@ void add_var (      NCFile& file,
                     std::vector<std::string> dims,
               const bool time_dep)
 {
-  // Useful for error messages
-  std::string var_dims_str;
-  for (const auto& d : dims) {
-    var_dims_str += d;
-    var_dims_str += " ";
-  }
-  std::string file_dims_str;
-  for (const auto& d : file.dims) {
-    file_dims_str += d.second->name;
-    file_dims_str += " ";
-  }
-
   EKAT_REQUIRE_MSG (not has_var(file,vname),
       "Error! Could not add variable to NC file. Variable already added.\n"
       "   - file name: " + file.name + "\n"
       "   - var name : " + vname + "\n"
-      "   - var dims : " + var_dims_str + "\n");
+      "   - var dims : " + dims_str(file.vars.at(vname)->dims) + "\n");
 
   // Add time dimension if needed
   if (time_dep && dims[0]!="time") {
@@ -388,8 +383,8 @@ void add_var (      NCFile& file,
         "Error! Could not add variable to NC file. Variable dimension not in file.\n"
         "   - file name : " + file.name + "\n"
         "   - var name  : " + vname + "\n"
-        "   - var dims  : " + var_dims_str + "\n"
-        "   - file dims : " + file_dims_str + "\n");
+        "   - var dims  : " + dims_str(var->dims) + "\n"
+        "   - file dims : " + dims_str(file.dims) + "\n");
     dims_ids.push_back(file.dims.at(d)->ncid);
 
     var->dims.push_back(file.dims.at(d));
@@ -438,20 +433,13 @@ void read_var (const NCFile& file, const std::string& vname,
       "  - var dtype  : " + var->dtype + "\n"
       "  - input type : " + get_io_dtype_name<T>() + "\n");
 
-  // Useful for error messages
-  std::string var_dims_str;
-  for (const auto& d : var->dims) {
-    var_dims_str += d->name;
-    var_dims_str += " ";
-  }
-
   std::vector<MPI_Offset> start(var->dims.size()), count(var->dims.size());
   const bool has_time = has_dim(*var,"time");
   EKAT_REQUIRE_MSG (record<=0 || has_time,
       "Error! Record specified for non-time dependent variable.\n"
       "  - file name : " + file.name + "\n"
       "  - var name  : " + var->name + "\n"
-      "  - var dims  : " + var_dims_str + "\n"
+      "  - var dims  : " + dims_str(var->dims) + "\n"
       "  - record    : " + std::to_string(record) + "\n");
 
   int first_non_time_idx = has_time ? 1 : 0;

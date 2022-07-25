@@ -126,13 +126,10 @@ open_file (const std::string& fname, const ekat::Comm& comm, const IOMode mode)
 
   int ret;
   auto file = std::make_shared<NCFile>();
-  std::string mode_str;
   if (mode==IOMode::Write) {
     int ncmode = NC_CLOBBER | NC_64BIT_DATA;
-    mode_str = "write";
     ret = ncmpi_create(comm.mpi_comm(), fname.c_str(), ncmode, MPI_INFO_NULL, &file->ncid);
   } else {
-    mode_str = "write";
     int ncmode = NC_NOWRITE;
     ret = ncmpi_open(comm.mpi_comm(), fname.c_str(), ncmode, MPI_INFO_NULL, &file->ncid);
   }
@@ -140,7 +137,7 @@ open_file (const std::string& fname, const ekat::Comm& comm, const IOMode mode)
   EKAT_REQUIRE_MSG (ret==NC_NOERR,
       "Error! Could not open file.\n"
       "   - file name: " + fname + "\n"
-      "   - open mode: " + mode_str + "\n"
+      "   - open mode: " + e2str(mode) + "\n"
       "   - err code : " + std::to_string(ret) + "\n");
 
   file->name = fname;
@@ -271,7 +268,7 @@ void redef   (const NCFile& file)
 void add_dim (NCFile& file, const std::string& dname, const int len)
 {
   EKAT_REQUIRE_MSG (not has_dim(file,dname),
-      "Error! Could add dimension to NC file. Dimension already added.\n"
+      "Error! Could not add dimension to NC file. Dimension already added.\n"
       "   - file name: " + file.name + "\n"
       "   - dim name : " + dname + "\n");
 
@@ -388,7 +385,7 @@ void add_var (      NCFile& file,
 
   for (const auto& d : dims) {
     EKAT_REQUIRE_MSG (has_dim(file,d),
-        "Error! Could add variable to NC file. Variable dimension not in file.\n"
+        "Error! Could not add variable to NC file. Variable dimension not in file.\n"
         "   - file name : " + file.name + "\n"
         "   - var name  : " + vname + "\n"
         "   - var dims  : " + var_dims_str + "\n"

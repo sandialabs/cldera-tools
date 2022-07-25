@@ -9,6 +9,8 @@
 #include <map>
 
 namespace cldera {
+namespace io {
+namespace pnetcdf {
 
 // =============== TYPES =============== //
 
@@ -183,6 +185,8 @@ void get_att (const NCFile& file,
   data.assign(data_v.begin(),data_v.end());
 }
 
+} // namespace pnetcdf
+} // namespace io
 } // namespace cldera
 
 #endif // CLCDERA_PNETCDF_HPP

@@ -8,6 +8,8 @@
 #include <pnetcdf.h>
 
 namespace cldera {
+namespace io {
+namespace pnetcdf {
 
 // If you add support for other types, add specializations of these functions
 template<typename T>
@@ -736,4 +738,6 @@ template void get_att_v (const NCFile& file,
                          const std::string& var_name,
                                std::vector<char>& data);
 
+} // namespace pnetcdf
+} // namespace io
 } // namespace cldera

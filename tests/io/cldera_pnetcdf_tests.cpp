@@ -10,6 +10,7 @@
 void write ()
 {
   using namespace cldera;
+  using namespace cldera::io::pnetcdf;
 
   // Get comm specs
   ekat::Comm comm(MPI_COMM_WORLD);
@@ -87,6 +88,7 @@ void write ()
 void read ()
 {
   using namespace cldera;
+  using namespace cldera::io::pnetcdf;
 
   ekat::Comm comm(MPI_COMM_WORLD);
   const int rank = comm.rank();

@@ -10,16 +10,16 @@ std::shared_ptr<Graph> GraphFactory::build_graph(std::ostream& out) const
   if(m_verbose)
     out << "GraphFactory::buildGraph()\n" << "  Loading input file " << m_filename << "\n";
 
-  EKAT_REQUIRE_MSG (std::ifstream(m_filename).good(), "Error! GraphFactory: Filename of " + m_filename + " is invalid!\n");
-  ekat::ParameterList params(ekat::parse_yaml_file(m_filename));
-
   std::map<std::string, std::shared_ptr<GraphVertex> > vertices;
   std::map<std::string, vos_t> edges;
 
   if(m_verbose) 
     out << "  Grabbing DAG sublist...\n";
 
-  const auto& dag_list = params.sublist("DAG");
+  // TODO: no longer checks filename to see if it's valid. will still probably crash in the case of an invalid filename, but 
+  // it may be more cryptic than previous
+
+  const auto& dag_list = m_params.sublist("DAG");
   for (auto nameptr = dag_list.sublists_names_cbegin(); nameptr!=dag_list.sublists_names_cend(); ++nameptr)
   {
     std::string name = *nameptr;

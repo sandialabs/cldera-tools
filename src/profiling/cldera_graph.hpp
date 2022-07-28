@@ -31,6 +31,9 @@ public:
   // Computes whether the graph is cyclic or not
   bool is_cyclic();
 
+  // Check whether a specified vertex exists or not
+  bool has_vertex(const std::string& name) const;
+
   // Setters
 
   // None at the moment
@@ -38,8 +41,14 @@ public:
 
   // Getters
 
+  // Get the vertex names in the graph
+  std::vector<std::string> get_vertex_names();
+
   // Get the vertex object keyed by the string name
   std::shared_ptr<GraphVertex> get_vertex(const std::string& name);
+
+  // Get the edges in the graph
+  std::map<std::string, std::vector<std::string> > get_edges() { return m_edges; }
 
   // Get the names of children of a node keyed by the string name
   std::vector<std::string> get_children(const std::string& name);

@@ -28,10 +28,9 @@ public:
                   const ekat::Comm& comm);
 
   // True if test passes, false if test fails
-  bool test() const override;
+  bool test(const ekat::Comm& comm, const TimeStamp& t) override;
 
 private:
-  const std::shared_ptr<const Field> m_field;
   const Bounds m_bounds;
 
   std::shared_ptr<FieldStat>  m_max_stat;

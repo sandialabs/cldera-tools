@@ -16,6 +16,7 @@ void Graph::generate_dot_graph(std::ostream& out) const
 {
   out << "digraph graphname {\n";
 
+  // for each edge from first to second, create an edge in dot format: "first -> second"
   for(auto& pair : m_edges)
   {
     for (const auto& dst : pair.second)
@@ -26,15 +27,33 @@ void Graph::generate_dot_graph(std::ostream& out) const
   out << "}\n";
 }
 
+std::vector<std::string> Graph::get_vertex_names()
+{
+  std::vector<std::string> names;
+
+  // Get all string, GraphVertex pairs
+  for (auto& pair : m_vertices)
+  {
+    names.push_back(pair.first);
+  }
+
+  return names;
+}
+
+bool Graph::has_vertex(const std::string& name) const
+{
+  return (m_vertices.count(name) > 0);
+}
+
 std::shared_ptr<GraphVertex> Graph::get_vertex(const std::string& name)
 {
-  EKAT_REQUIRE_MSG (m_vertices.count(name) > 0, "Error! Graph.get_vertex: Requested vertex " + name + " does not exist!\n");
+  EKAT_REQUIRE_MSG (has_vertex(name), "Error! Graph.get_vertex: Requested vertex " + name + " does not exist!\n");
   return m_vertices[name];
 }
 
 std::vector<std::string> Graph::get_children(const std::string& name) 
 {
-  EKAT_REQUIRE_MSG (m_vertices.count(name) > 0, "Error! Graph.get_vertex: Requested vertex " + name + " does not exist!\n");
+  EKAT_REQUIRE_MSG (has_vertex(name), "Error! Graph.get_vertex: Requested vertex " + name + " does not exist!\n");
   return m_edges[name]; 
 }
 
@@ -46,7 +65,7 @@ std::vector<std::string> Graph::get_children(const std::string& name)
  */
 std::vector<std::string> Graph::get_children_recursive(const std::string& name, const int recursion_depth)
 {
-  EKAT_REQUIRE_MSG (m_vertices.count(name) > 0, "Error! Graph.get_children_recursive: Requested vertex " + name + " does not exist!\n");
+  EKAT_REQUIRE_MSG (has_vertex(name), "Error! Graph.get_children_recursive: Requested vertex " + name + " does not exist!\n");
   EKAT_REQUIRE_MSG (recursion_depth >= -1, "Error! Graph.get_children_recursive: recursion_depth must be -1 or greater!\n");
   std::vector<std::string> children;
 
@@ -96,7 +115,7 @@ std::vector<std::string> Graph::get_children_recursive(const std::string& name, 
 
 std::vector<std::string> Graph::get_parents(const std::string& name)
 {
-  EKAT_REQUIRE_MSG (m_vertices.count(name) > 0, "Error! Graph.get_parents: Requested vertex " + name + " does not exist!\n");
+  EKAT_REQUIRE_MSG (has_vertex(name), "Error! Graph.get_parents: Requested vertex " + name + " does not exist!\n");
   std::vector<std::string> parents;
 
   // Loop over potential parent vertices

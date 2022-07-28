@@ -13,10 +13,15 @@ endif()
 
 add_library (cldera-profiling
     cldera_bounds_field_test.cpp
+    cldera_max_field_test.cpp
+    cldera_min_field_test.cpp
+    cldera_field_test_factory.cpp
     cldera_field.cpp
     cldera_graph_vertex.cpp
     cldera_graph.cpp
     cldera_graph_factory.cpp
+    cldera_pathway.cpp
+    cldera_pathway_factory.cpp
     cldera_profiling_session.cpp
     cldera_profiling_archive.cpp
     cldera_profiling_interface.cpp

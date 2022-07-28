@@ -42,10 +42,11 @@ TEST_CASE ("test_manager") {
   REQUIRE(test_manager.has_field_test(field_test_name) == true);
 
   // Test field test running
-  REQUIRE_THROWS(test_manager.run_field_test("Test does not exist"));
-  std::iota(foo_data.begin(), foo_data.end(), 1); // field within bounds
-  REQUIRE(test_manager.run_field_test(field_test_name) == true);
-  REQUIRE(test_manager.run_field_test(field_test_name2) == false);
+  const ekat::Comm comm(MPI_COMM_WORLD);
+  REQUIRE_THROWS(test_manager.run_field_test("Test does not exist", comm));
+  std::iota(foo_data.begin(), foo_data.end(), 1.0); // field within bounds
+  REQUIRE(test_manager.run_field_test(field_test_name, comm) == true);
+  REQUIRE(test_manager.run_field_test(field_test_name2, comm) == false);
 
   // Test field test runner
   std::map<std::string, bool> expected_results = {{field_test_name, true}, {field_test_name2, false}};

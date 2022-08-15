@@ -27,6 +27,11 @@ add_subdirectory(${EKAT_SRC_DIR} ${EKAT_BLD_DIR})
 #       Build CLDERA         #
 ##############################
 
+set (EKAT_CMAKE_PATH ${EKAT_SRC_DIR}/cmake CACHE INTERNAL "")
+list(APPEND CMAKE_MODULE_PATH ${EKAT_CMAKE_PATH})
+include(EkatMpiUtils)
+DisableMpiCxxBindings()
+
 # Add search paths for cmake modules
 list (APPEND CMAKE_MODULE_PATH
       ${CMAKE_CURRENT_SOURCE_DIR}/cmake

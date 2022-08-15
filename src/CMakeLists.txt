@@ -5,6 +5,10 @@ EkatConfigFile (${CLDERA_SOURCE_DIR}/src/cldera_config.h.in
                 ${CLDERA_BINARY_DIR}/src/cldera_config.h
                 F90_FILE ${CLDERA_BINARY_DIR}/src/cldera_config.f)
 
+if (CLDERA_PNETCDF_PATH)
+  add_subdirectory(io)
+endif()
+
 if (CLDERA_ENABLE_PROFILING_TOOL)
   add_subdirectory(profiling)
 endif()

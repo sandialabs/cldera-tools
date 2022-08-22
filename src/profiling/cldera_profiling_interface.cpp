@@ -131,7 +131,7 @@ void cldera_set_field_partition_c (
   auto& s = cldera::ProfilingSession::instance(true);
   auto& archive = s.get<cldera::ProfilingArchive>("archive");
 
-  archive.get_field(name).set_part_data (part,part_size,data);
+  archive.get_field(name).set_part_size_and_data (part,part_size,data);
 }
 
 void cldera_set_field_c (

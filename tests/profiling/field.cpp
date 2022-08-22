@@ -24,17 +24,19 @@ TEST_CASE ("field") {
 
   // Set data in fields
   REQUIRE_THROWS (foo.set_data(foo_data.data())); // Data already set
-  REQUIRE_THROWS (baz.set_part_data(3,1,foo_data.data())); // part idx OOB
-  REQUIRE_THROWS (baz.set_part_data(1,10,foo_data.data())); // part size OOB
+  REQUIRE_THROWS (baz.set_part_size_and_data(3,1,foo_data.data())); // part idx OOB
+  REQUIRE_THROWS (baz.set_part_size_and_data(1,10,foo_data.data())); // part size OOB
+  REQUIRE_THROWS (bar.set_data(nullptr)); // Invalid pointer
   bar.set_data(bar_data.data());
-  baz.set_part_data(0,1,baz_data[0].data());
-  baz.set_part_data(2,1,baz_data[2].data());
-  baz.set_part_data(1,1,baz_data[1].data());
+  baz.set_part_size_and_data(0,1,baz_data[0].data());
+  baz.set_part_size_and_data(2,1,baz_data[2].data());
+  baz.set_part_size_and_data(1,1,baz_data[1].data());
 
-  // Get data
+  // Commit
   REQUIRE_THROWS (baz.get_part_data(0)); // Field not yet committed
   bar.commit();
   baz.commit();
+  REQUIRE_THROWS (bar.set_data(foo_data.data())); // Can't reset data pointer
   REQUIRE_THROWS (baz.get_data()); // Can't call get_data on partitioned field
 
   // Check dimensions

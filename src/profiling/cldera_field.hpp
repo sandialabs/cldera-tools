@@ -60,6 +60,11 @@ private:
  * Note: a contiguous/non-partitioned field simply has nparts=1.
  */
 
+enum class DataAccess {
+  Copy,
+  View
+};
+
 class Field {
 public:
   using KT_h = ekat::KokkosTypes<ekat::HostDevice>;
@@ -67,10 +72,12 @@ public:
   using hview_1d = typename KT_h::template view_1d<T,MT>;
 
   Field (const std::string& n, const std::vector<int>& d,
-         const int nparts, const int part_dim);
+         const int nparts, const int part_dim,
+         const DataAccess cv = DataAccess::View);
 
   // Shortcuts for single-partition field
-  Field (const std::string& n, const std::vector<int>& d);
+  Field (const std::string& n, const std::vector<int>& d,
+         const DataAccess cv = DataAccess::View);
   Field (const std::string& n, const std::vector<int>& d, const Real* data);
 
   const std::string& name () const { return m_name; }
@@ -82,10 +89,13 @@ public:
   // Set part specs
   void set_part_size  (const int ipart, const int part_size);
   void set_part_data  (const int ipart, const Real* data);
-  void set_part_size_and_data  (const int ipart, const int part_size, const Real* data);
   void set_data (const Real* data);
 
   void commit ();
+
+  // Copy into managed views, if m_data_access=Copy
+  void copy_part_data (const int ipart, const Real* data);
+  void copy_data (const Real* data);
 
   // Get data as view
   hview_1d<const Real> get_part_view (const int ipart) const;
@@ -109,7 +119,10 @@ private:
   int                               m_part_dim;
   std::vector<long long>            m_part_sizes;
   std::vector<hview_1d<const Real>> m_data;
+  std::vector<hview_1d<      Real>> m_data_nonconst;
   bool                              m_committed = false;
+
+  DataAccess                        m_data_access;
 };
 
 inline const Real*

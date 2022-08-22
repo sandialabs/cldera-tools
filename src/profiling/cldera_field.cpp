@@ -9,8 +9,8 @@ namespace cldera
 {
 
 Field::
-Field(const std::string& n, const std::vector<int>& d)
- : Field(n,d,1,0)
+Field(const std::string& n, const std::vector<int>& d, const DataAccess cv)
+ : Field(n,d,1,0,cv)
 {
   // We can go ahead and set sizes
   set_part_size(m_part_dim,m_layout[m_part_dim]);
@@ -18,16 +18,17 @@ Field(const std::string& n, const std::vector<int>& d)
 
 Field::
 Field(const std::string& n, const std::vector<int>& d, const Real* data)
- : Field(n,d)
+ : Field(n,d,DataAccess::View)
 {
   set_data(data);
 }
 
 Field::
 Field (const std::string& n, const std::vector<int>& d,
-       const int nparts, const int part_dim)
+       const int nparts, const int part_dim, const DataAccess cv)
  : m_name(n)
  , m_layout(d)
+ , m_data_access(cv)
 {
   EKAT_REQUIRE_MSG (part_dim>=0 && part_dim<m_layout.rank(),
       "Error! Invalid partition dimension.\n"
@@ -49,9 +50,12 @@ Field (const std::string& n, const std::vector<int>& d,
 
 FieldLayout Field::
 part_layout (const int ipart) const {
-  EKAT_REQUIRE_MSG (m_committed,
-      "Error! Field '" + m_name + "' was not yet committed.\n");
   check_part_idx(ipart);
+  EKAT_REQUIRE_MSG (m_part_sizes[ipart]!=-1,
+      "[Field::part_layout]\n"
+      "  Error! Part size was not yet set.\n"
+      "    - Field name: " + m_name + "\n"
+      "    - Part index: " + std::to_string(ipart) + "\n");
 
   std::vector<int> d = m_layout.dims();
   d[m_part_dim] = m_part_sizes[ipart];
@@ -80,10 +84,22 @@ set_part_size (const int ipart, const int part_size)
 }
 
 void Field::
-set_part_size_and_data (const int ipart, const int part_size, const Real* data)
+copy_part_data (const int ipart, const Real* data)
 {
-  set_part_size(ipart,part_size);
-  set_part_data(ipart,data);
+  EKAT_REQUIRE_MSG (m_data_access==DataAccess::Copy,
+      "[Field::copy_part_data]\n"
+      "  Error! Attempt to copy data, but field data access is not 'Copy'.\n"
+      "    - Field name: " + m_name + "\n");
+
+  check_part_idx(ipart);
+  EKAT_REQUIRE_MSG (data!=nullptr,
+      "[Field::copy_part_data]\n"
+      "  Error! Invalid part data pointer.\n"
+      "    - Field name: " + m_name + "\n"
+      "    - Part index: " + std::to_string(ipart) + "\n");
+
+  hview_1d<const Real,Kokkos::MemoryUnmanaged> v(data,part_layout(ipart).size());
+  Kokkos::deep_copy(m_data_nonconst[ipart],v);
 }
 
 void Field::
@@ -97,10 +113,26 @@ set_data (const Real* data)
   commit();
 }
 
+void Field::
+copy_data (const Real* data)
+{
+  copy_part_data(0,data);
+}
+
 void Field::commit () {
   if (m_committed) {
     // Should we error out instead?
     return;
+  }
+
+  if (m_data_access==DataAccess::Copy) {
+    // Allocate the views
+    m_data_nonconst.resize(m_nparts);
+    for (int i=0; i<m_nparts; ++i) {
+      auto iname = m_name + "_" + std::to_string(i);
+      m_data_nonconst[i] = hview_1d<Real> (iname,part_layout(i).size());
+      m_data[i] = m_data_nonconst[i];
+    }
   }
 
   // Checks
@@ -111,6 +143,8 @@ void Field::commit () {
         "  Error! Part data was not set for at least one partition.\n"
         "    - Field name: " + m_name + "\n"
         "    - Part index: " + std::to_string(ipart) + "\n");
+
+    // Note: the following should be automatically true for Copy fields
     for (int jpart=0; jpart<ipart; ++jpart) {
       EKAT_REQUIRE_MSG (m_data[ipart].data()!=m_data[jpart].data(),
         "[Field::commit]\n"
@@ -145,6 +179,11 @@ check_part_idx (const int ipart) const {
 void Field::
 set_part_data (const int ipart, const Real* data)
 {
+  EKAT_REQUIRE_MSG (m_data_access==DataAccess::View,
+      "[Field::set_part_data]\n"
+      "  Error! Attempt to set data pointer, but data access is 'Copy'.\n"
+      "    - Field name: " + m_name + "\n");
+
   EKAT_REQUIRE_MSG (m_data[ipart].data()==nullptr,
       "[Field::set_part_data]\n"
       "  Error! Part data was already set.\n"

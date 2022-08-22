@@ -122,16 +122,26 @@ void cldera_add_partitioned_field_c (
   archive.add_field(cldera::Field(name,d,num_parts,part_dim));
 }
 
-void cldera_set_field_partition_c (
+void cldera_set_field_part_size_c (
     const char*& name,
     const int   part,
-    const int   part_size,
+    const int   part_size)
+{
+  auto& s = cldera::ProfilingSession::instance(true);
+  auto& archive = s.get<cldera::ProfilingArchive>("archive");
+
+  archive.get_field(name).set_part_size (part,part_size);
+}
+
+void cldera_set_field_part_data_c (
+    const char*& name,
+    const int   part,
     const cldera::Real*& data)
 {
   auto& s = cldera::ProfilingSession::instance(true);
   auto& archive = s.get<cldera::ProfilingArchive>("archive");
 
-  archive.get_field(name).set_part_size_and_data (part,part_size,data);
+  archive.get_field(name).set_part_data (part,data);
 }
 
 void cldera_set_field_c (
@@ -142,6 +152,27 @@ void cldera_set_field_c (
   auto& archive = s.get<cldera::ProfilingArchive>("archive");
 
   archive.get_field(name).set_data (data);
+}
+
+void cldera_copy_field_partition_c (
+    const char*& name,
+    const int part,
+    const cldera::Real*& data)
+{
+  auto& s = cldera::ProfilingSession::instance(true);
+  auto& archive = s.get<cldera::ProfilingArchive>("archive");
+
+  archive.get_field(name).copy_part_data (part,data);
+}
+
+void cldera_copy_field_c (
+    const char*& name,
+    const cldera::Real*& data)
+{
+  auto& s = cldera::ProfilingSession::instance(true);
+  auto& archive = s.get<cldera::ProfilingArchive>("archive");
+
+  archive.get_field(name).copy_data (data);
 }
 
 void cldera_commit_field_c (const char*& name)

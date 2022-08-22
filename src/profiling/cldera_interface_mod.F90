@@ -14,11 +14,11 @@ module cldera_interface_mod
     module procedure string_c2f
   end interface c2f
 
-  interface cldera_set_field_partition
-    module procedure cldera_set_field_partition_1d, &
-                     cldera_set_field_partition_2d, &
-                     cldera_set_field_partition_3d
-  end interface cldera_set_field_partition
+  interface cldera_set_field_part_data
+    module procedure cldera_set_field_part_data_1d, &
+                     cldera_set_field_part_data_2d, &
+                     cldera_set_field_part_data_3d
+  end interface cldera_set_field_part_data
 contains
 
   ! Initialize cldera session and main structures
@@ -68,43 +68,55 @@ contains
   end subroutine cldera_add_partitioned_field
 
   ! Set data of a particular field partition in the cldera data base
-  subroutine cldera_set_field_partition_1d (fname,part,part_size,data)
+  subroutine cldera_set_field_part_size (fname,part,part_size)
     use iso_c_binding, only: c_char, c_loc
-    use cldera_interface_f2c_mod, only: csfp_c => cldera_set_field_partition_c
+    use cldera_interface_f2c_mod, only: csfps_c => cldera_set_field_part_size_c
     character (len=*), intent(in) :: fname
     integer,  intent(in) :: part, part_size
+
+    character (kind=c_char, len=max_str_len), target :: fname_c
+
+    fname_c = f2c(fname)
+    call csfps_c(c_loc(fname_c),f2c(part-1),f2c(part_size))
+
+  end subroutine cldera_set_field_part_size
+  subroutine cldera_set_field_part_data_1d (fname,part,data)
+    use iso_c_binding, only: c_char, c_loc
+    use cldera_interface_f2c_mod, only: csfpd_c => cldera_set_field_part_data_c
+    character (len=*), intent(in) :: fname
+    integer,  intent(in) :: part
     real(r8), intent(in), target :: data(:)
 
     character (kind=c_char, len=max_str_len), target :: fname_c
 
     fname_c = f2c(fname)
-    call csfp_c(c_loc(fname_c),f2c(part-1),f2c(part_size),c_loc(data(1)))
+    call csfpd_c(c_loc(fname_c),f2c(part-1),c_loc(data(1)))
 
-  end subroutine cldera_set_field_partition_1d
-  subroutine cldera_set_field_partition_2d (fname,part,part_size,data)
+  end subroutine cldera_set_field_part_data_1d
+  subroutine cldera_set_field_part_data_2d (fname,part,data)
     use iso_c_binding, only: c_char, c_loc
-    use cldera_interface_f2c_mod, only: csfp_c => cldera_set_field_partition_c
+    use cldera_interface_f2c_mod, only: csfpd_c => cldera_set_field_part_data_c
     character (len=*), intent(in) :: fname
-    integer,  intent(in) :: part, part_size
+    integer,  intent(in) :: part
     real(r8), intent(in), target :: data(:,:)
 
     character (kind=c_char, len=max_str_len), target :: fname_c
 
     fname_c = f2c(fname)
-    call csfp_c(c_loc(fname_c),f2c(part-1),f2c(part_size),c_loc(data(1,1)))
-  end subroutine cldera_set_field_partition_2d
-  subroutine cldera_set_field_partition_3d (fname,part,part_size,data)
+    call csfpd_c(c_loc(fname_c),f2c(part-1),c_loc(data(1,1)))
+  end subroutine cldera_set_field_part_data_2d
+  subroutine cldera_set_field_part_data_3d (fname,part,data)
     use iso_c_binding, only: c_char, c_loc
-    use cldera_interface_f2c_mod, only: csfp_c => cldera_set_field_partition_c
+    use cldera_interface_f2c_mod, only: csfpd_c => cldera_set_field_part_data_c
     character (len=*), intent(in) :: fname
-    integer,  intent(in) :: part, part_size
+    integer,  intent(in) :: part
     real(r8), intent(in), target :: data(:,:,:)
 
     character (kind=c_char, len=max_str_len), target :: fname_c
 
     fname_c = f2c(fname)
-    call csfp_c(c_loc(fname_c),f2c(part-1),f2c(part_size),c_loc(data(1,1,1)))
-  end subroutine cldera_set_field_partition_3d
+    call csfpd_c(c_loc(fname_c),f2c(part-1),c_loc(data(1,1,1)))
+  end subroutine cldera_set_field_part_data_3d
 
   ! Check all parts have been set in each field
   subroutine cldera_commit_all_fields ()

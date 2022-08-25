@@ -15,12 +15,12 @@ TEST_CASE ("field") {
   std::iota(baz_data[1].begin(),baz_data[1].end(),20);
   std::iota(baz_data[2].begin(),baz_data[2].end(),40);
 
-  Field foo("foo",{5},foo_data.data());
-  Field bar("bar",{5,4});
-  Field baz("baz",{5,4,3},3,2); // 3 partitions along last dim
-  Field foobar("foobar",{5},DataAccess::Copy);
-  REQUIRE_THROWS (Field("",{5},6,0)); // Too many parts
-  REQUIRE_THROWS (Field("",{5},1,1)); // part dim OOB
+  Field foo("foo",{5},{"col"},foo_data.data());
+  Field bar("bar",{5,4},{"col","lev"});
+  Field baz("baz",{5,4,3},{"col","cmp","lev"},3,2); // 3 partitions along last dim
+  Field foobar("foobar",{5},{"col"},DataAccess::Copy);
+  REQUIRE_THROWS (Field("",{5},{"col"},6,0)); // Too many parts
+  REQUIRE_THROWS (Field("",{5},{"col"},1,1)); // part dim OOB
   REQUIRE (foo.committed());
 
   foobar.set_part_size(0,5); // OK, same value

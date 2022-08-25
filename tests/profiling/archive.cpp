@@ -8,7 +8,7 @@ TEST_CASE ("archive") {
   ProfilingArchive archive;
 
   std::vector<Real> foo_data (20);
-  archive.add_field(Field("foo",{5,4},foo_data.data()));
+  archive.add_field(Field("foo",{5,4},{"col","lev"},foo_data.data()));
 
   REQUIRE (archive.has_field("foo"));
   REQUIRE (archive.get_field("foo").layout().size()==20);

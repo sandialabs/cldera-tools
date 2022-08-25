@@ -2,6 +2,8 @@
 #define CLDERA_FIELD_HPP
 
 #include "cldera_profiling_types.hpp"
+
+#include <ekat/ekat_assert.hpp>
 #include <ekat/kokkos/ekat_kokkos_types.hpp>
 
 #include <vector>
@@ -18,17 +20,31 @@ namespace cldera
 
 class FieldLayout {
 public:
-  FieldLayout (const std::vector<int>& dims) {
+  explicit FieldLayout (const std::vector<int>& dims)
+  {
     EKAT_REQUIRE_MSG (dims.size()>0, "Error! Invalid rank.\n");
     for (auto d : dims) {
       EKAT_REQUIRE_MSG (d>0, "Error! Invalid dimension (" + std::to_string(d) + "\n");
     }
     m_dims = dims;
+
+    m_names.resize(m_dims.size(),"unknown");
+  }
+
+  FieldLayout (const std::vector<int>& dims,
+               const std::vector<std::string>& names)
+   : FieldLayout (dims)
+  {
+    EKAT_REQUIRE_MSG (names.size()==m_dims.size(),
+        "Error! Size of names and dims array must match.\n");
+    m_names = names;
   }
 
   const std::vector<int>& dims () const { return m_dims; }
+  const std::vector<std::string>& names () const { return m_names; }
 
-  int operator[]  (const int i) const { return m_dims[i]; }
+  int extent (const int i) const { return m_dims[i]; }
+  std::string name (const int i) const { return m_names[i]; }
 
   int rank () const { return dims().size(); }
   long long size () const {
@@ -39,7 +55,8 @@ public:
     return s;
   }
 private:
-  std::vector<int> m_dims;
+  std::vector<int>          m_dims;
+  std::vector<std::string>  m_names;
 };
 
 /*
@@ -71,14 +88,27 @@ public:
   template<typename T, typename MT = Kokkos::MemoryManaged>
   using hview_1d = typename KT_h::template view_1d<T,MT>;
 
-  Field (const std::string& n, const std::vector<int>& d,
+  Field (const std::string& n, const FieldLayout& fl,
+         const int nparts, const int part_dim,
+         const DataAccess cv = DataAccess::View);
+  Field (const std::string& n,
+         const std::vector<int>& dims,
+         const std::vector<std::string>& dimnames,
          const int nparts, const int part_dim,
          const DataAccess cv = DataAccess::View);
 
   // Shortcuts for single-partition field
-  Field (const std::string& n, const std::vector<int>& d,
+  Field (const std::string& n, const FieldLayout& fl,
          const DataAccess cv = DataAccess::View);
-  Field (const std::string& n, const std::vector<int>& d, const Real* data);
+  Field (const std::string& n,
+         const std::vector<int>& dims,
+         const std::vector<std::string>& dimnames,
+         const DataAccess cv = DataAccess::View);
+  Field (const std::string& n, const FieldLayout& fl, const Real* data);
+  Field (const std::string& n,
+         const std::vector<int>& dims,
+         const std::vector<std::string>& dimnames,
+         const Real* data);
 
   const std::string& name () const { return m_name; }
 

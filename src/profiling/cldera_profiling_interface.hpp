@@ -25,17 +25,19 @@ void cldera_clean_up_c ();
 
 // Set a field ptr/metadata in the profiling archive
 void cldera_add_partitioned_field_c (
-    const char*& name,
-    const int   rank,
-    const int*  dims,
-    const int   num_parts,
-    const int   part_dim);
+    const char*&  name,
+    const int     rank,
+    const int*    dims,
+    const char**  dimnames,
+    const int     num_parts,
+    const int     part_dim);
 
 // Shortcut in case of single partition
 void cldera_add_field_c (
-    const char*& name,
-    const int   rank,
-    const int*  dims);
+    const char*&  name,
+    const int     rank,
+    const int*    dims,
+    const char**  dimnames);
 
 void cldera_set_field_partition_c (
     const char*& name,

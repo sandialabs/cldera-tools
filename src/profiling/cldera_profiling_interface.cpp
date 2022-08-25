@@ -85,18 +85,20 @@ void cldera_clean_up_c ()
 }
 
 void cldera_add_field_c (const char*& name,
-                         const int  rank,
-                         const int* dims)
+                         const int    rank,
+                         const int*   dims,
+                         const char** dimnames)
 {
-  cldera_add_partitioned_field_c(name,rank,dims,1,0);
+  cldera_add_partitioned_field_c(name,rank,dims,dimnames,1,0);
 }
 
 void cldera_add_partitioned_field_c (
-    const char*& name,
-    const int  rank,
-    const int* dims,
-    const int  num_parts,
-    const int  part_dim)
+    const char*&  name,
+    const int     rank,
+    const int*    dims,
+    const char**  dimnames,
+    const int     num_parts,
+    const int     part_dim)
 {
   EKAT_REQUIRE_MSG (rank>=0 && rank<=4,
       "Error! Unsupported field rank (" + std::to_string(rank) + "\n");
@@ -107,6 +109,7 @@ void cldera_add_partitioned_field_c (
 
   // Copy input raw pointer to vector
   std::vector<int> d(rank);
+  std::vector<std::string> dn(rank);
   for (int i=0; i<rank; ++i) {
     EKAT_REQUIRE_MSG (dims[i]>=0,
         "Error! Invalid field extent.\n"
@@ -115,11 +118,13 @@ void cldera_add_partitioned_field_c (
         "   - Extent:    " +  std::to_string(dims[i]) + "\n");
 
     d[i] = dims[i];
+    dn[i] = dimnames[i];
   }
+  cldera::FieldLayout fl(d,dn);
 
   // Set data in the archive structure
   auto& archive = s.create_or_get<cldera::ProfilingArchive>("archive");
-  archive.add_field(cldera::Field(name,d,num_parts,part_dim));
+  archive.add_field(cldera::Field(name,fl,num_parts,part_dim));
 }
 
 void cldera_set_field_part_size_c (

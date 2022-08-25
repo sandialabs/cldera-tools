@@ -48,15 +48,19 @@ contains
   end function cldera_get_field_names
 
   ! Add a partitioned field to cldera data base
-  subroutine cldera_add_partitioned_field(fname,dims,nparts,part_dim)
-    use iso_c_binding, only: c_char, c_loc
+  subroutine cldera_add_partitioned_field(fname,dims,dimnames,nparts,part_dim)
+    use iso_c_binding, only: c_char, c_loc, c_ptr
     use cldera_interface_f2c_mod, only: capf_c => cldera_add_partitioned_field_c
     character (len=*), intent(in) :: fname
+    character (len=*), intent(in) :: dimnames(:)
     integer, intent(in) :: nparts, part_dim
     integer, intent(in) :: dims(:)
 
-    integer :: part_dim_c, rank
+    type(c_ptr),allocatable :: c_dimnames_ptrs(:)
+
+    integer :: part_dim_c, rank, i
     character (kind=c_char, len=max_str_len), target :: fname_c
+    character (kind=c_char, len=max_str_len), allocatable, target :: c_dimnames(:)
 
     ! The index of partition in (dim0,...,dimN) needs to be flipped,
     ! since C will read the dims array backwards
@@ -64,7 +68,14 @@ contains
     part_dim_c = rank - part_dim
     fname_c = f2c(fname)
 
-    call capf_c(c_loc(fname_c),f2c(rank),f2c(dims),f2c(nparts),f2c(part_dim_c))
+    allocate(c_dimnames(rank))
+    allocate(c_dimnames_ptrs(rank))
+    do i=1,rank
+      c_dimnames(i) = f2c(dimnames(i))
+      c_dimnames_ptrs(i) = c_loc(c_dimnames(i))
+    enddo
+
+    call capf_c(c_loc(fname_c),f2c(rank),f2c(dims),c_dimnames_ptrs,f2c(nparts),f2c(part_dim_c))
   end subroutine cldera_add_partitioned_field
 
   ! Set data of a particular field partition in the cldera data base

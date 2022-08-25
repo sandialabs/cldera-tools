@@ -9,25 +9,45 @@ namespace cldera
 {
 
 Field::
-Field(const std::string& n, const std::vector<int>& d, const DataAccess cv)
- : Field(n,d,1,0,cv)
+Field(const std::string& n, const FieldLayout& fl, const DataAccess cv)
+ : Field(n,fl,1,0,cv)
 {
   // We can go ahead and set sizes
-  set_part_size(m_part_dim,m_layout[m_part_dim]);
+  set_part_size(m_part_dim,m_layout.extent(m_part_dim));
 }
 
 Field::
-Field(const std::string& n, const std::vector<int>& d, const Real* data)
- : Field(n,d,DataAccess::View)
+Field (const std::string& n,
+       const std::vector<int>& dims,
+       const std::vector<std::string>& dimnames,
+       const Real* data)
+ : Field(n,FieldLayout(dims,dimnames),data)
+{
+  // Nothing to do here
+}
+
+Field::
+Field(const std::string& n, const FieldLayout& fl, const Real* data)
+ : Field(n,fl,DataAccess::View)
 {
   set_data(data);
 }
 
 Field::
-Field (const std::string& n, const std::vector<int>& d,
+Field (const std::string& n,
+       const std::vector<int>& dims,
+       const std::vector<std::string>& dimnames,
+       const DataAccess cv)
+ : Field(n,FieldLayout(dims,dimnames),cv)
+{
+  // Nothing to do here
+}
+
+Field::
+Field (const std::string& n, const FieldLayout& fl,
        const int nparts, const int part_dim, const DataAccess cv)
  : m_name(n)
- , m_layout(d)
+ , m_layout(fl)
  , m_data_access(cv)
 {
   EKAT_REQUIRE_MSG (part_dim>=0 && part_dim<m_layout.rank(),
@@ -35,7 +55,7 @@ Field (const std::string& n, const std::vector<int>& d,
       "  - Field name: " + m_name + "\n"
       "  - Field rank: " + std::to_string(m_layout.rank()) + "\n"
       "  - Part dim  : " + std::to_string(part_dim) + "\n");
-  EKAT_REQUIRE_MSG (nparts>=1 && nparts<=d[part_dim],
+  EKAT_REQUIRE_MSG (nparts>=1 && nparts<=m_layout.extent(part_dim),
       "Error! Invalid number of parts.\n"
       "  - Field name : " + m_name + "\n"
       "  - Num parts  : " + std::to_string(nparts) + "\n"
@@ -46,6 +66,17 @@ Field (const std::string& n, const std::vector<int>& d,
   m_part_dim = part_dim;
   m_data.resize(nparts);
   m_part_sizes.resize(nparts,-1);
+}
+
+Field::
+Field (const std::string& n,
+       const std::vector<int>& dims,
+       const std::vector<std::string>& dimnames,
+       const int nparts, const int part_dim,
+       const DataAccess cv)
+ : Field(n,FieldLayout(dims,dimnames),nparts,part_dim,cv)
+{
+  // Nothing to do here
 }
 
 FieldLayout Field::
@@ -66,7 +97,7 @@ void Field::
 set_part_size (const int ipart, const int part_size)
 {
   check_part_idx(ipart);
-  EKAT_REQUIRE_MSG (part_size>=0 && part_size<=m_layout[m_part_dim],
+  EKAT_REQUIRE_MSG (part_size>=0 && part_size<=m_layout.extent(m_part_dim),
       "[Field::set_part_size]\n"
       "  Error! Invalid part size.\n"
       "    - Field name: " + m_name + "\n"
@@ -155,13 +186,13 @@ void Field::commit () {
     }
     part_sizes_sum += m_part_sizes[ipart];
   }
-  EKAT_REQUIRE_MSG (part_sizes_sum==m_layout[m_part_dim],
+  EKAT_REQUIRE_MSG (part_sizes_sum==m_layout.extent(m_part_dim),
       "[Field::commit]\n"
       "  Error! Partition sizes do not add up to layout dimension.\n"
       "    - Field name     : " + m_name + "\n"
       "    - Field dims     : [" + ekat::join(m_layout.dims(),",") + "]\n"
       "    - Part dim       : " + std::to_string(m_part_dim) + "\n"
-      "    - Dim[Part dim]  : " + std::to_string(m_layout[m_part_dim]) + "\n"
+      "    - Dim[Part dim]  : " + std::to_string(m_layout.extent(m_part_dim)) + "\n"
       "    - Sum(part sizes): " + std::to_string(part_sizes_sum) + "\n");
 
   m_committed = true;

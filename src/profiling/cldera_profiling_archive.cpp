@@ -26,6 +26,7 @@ add_field (const Field& field)
       "[ProfilingArchive::add_field]\n"
       "  Error! Field '" + name + "' was already added.\n");
 
+  m_fields_names.push_back(field.name());
   m_fields.emplace(name,field);
 }
 
@@ -33,7 +34,8 @@ const Field& ProfilingArchive::
 get_field (const std::string& name) const
 {
   EKAT_REQUIRE_MSG (has_field(name),
-      "[ProfilingArchive::get_field] Error! Field '" + name + "' not found.\n");
+      "[ProfilingArchive::get_field] Error! Field '" + name + "' not found.\n"
+      "  List of current fields: " + ekat::join(m_fields_names,", "));
   return m_fields.at(name);
 }
 
@@ -41,7 +43,8 @@ Field& ProfilingArchive::
 get_field (const std::string& name)
 {
   EKAT_REQUIRE_MSG (has_field(name),
-      "[ProfilingArchive::get_field] Error! Field '" + name + "' not found.\n");
+      "[ProfilingArchive::get_field] Error! Field '" + name + "' not found.\n"
+      "  List of current fields: " + ekat::join(m_fields_names,", "));
   return m_fields.at(name);
 }
 

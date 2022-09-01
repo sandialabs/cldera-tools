@@ -29,25 +29,6 @@ contains
     call cldera_init_c(f2c(comm))
   end subroutine cldera_init
 
-  function cldera_get_field_names () result(names)
-    use iso_c_binding, only: c_char, c_loc
-    use cldera_interface_f2c_mod, only: cgnf_c=>cldera_get_num_fields_c, &
-                                        cgfn_c=>cldera_get_field_name_c
-
-    character (len=max_str_len), allocatable :: names (:)
-    character (kind=c_char, len=max_str_len), target :: fname_c
-    integer :: nfields, ifield
-
-    nfields = cgnf_c()
-    allocate(names(nfields))
-
-    do ifield=1,nfields
-      ! Subtract 1 to ifield, b/c of C-vs-Fortran index base
-      call cgfn_c (ifield-1, c_loc(fname_c))
-      names(ifield) = c2f(fname_c)
-    enddo
-  end function cldera_get_field_names
-
   ! Add a partitioned field to cldera data base
   subroutine cldera_add_partitioned_field(fname,rank,dims,dimnames,nparts,part_dim)
     use iso_c_binding, only: c_char, c_int, c_loc, c_ptr

@@ -196,26 +196,6 @@ void cldera_commit_all_fields_c ()
   archive.commit_all_fields();
 }
 
-int cldera_get_num_fields_c ()
-{
-  const auto& s = cldera::ProfilingSession::instance(true);
-  const auto& p = s.get<ekat::ParameterList>("params");
-  return p.get<std::vector<std::string>>("Fields To Track").size();
-}
-
-void cldera_get_field_name_c (const int i, char*& name)
-{
-  const auto& s = cldera::ProfilingSession::instance(true);
-  const auto& p = s.get<ekat::ParameterList>("params");
-  const auto& names = p.get<std::vector<std::string>>("Fields To Track");
-
-  EKAT_REQUIRE_MSG (i>=0 && i<cldera_get_num_fields_c(),
-      "Error! Invalid field index.\n"
-      "  - ifield: " + std::to_string(i) + "\n"
-      "  - num fields: " + std::to_string(cldera_get_num_fields_c()) + "\n");
-  strcpy(name,names[i].data());
-}
-
 void cldera_compute_stats_c (const int ymd, const int tod)
 {
   auto& s = cldera::ProfilingSession::instance(true);

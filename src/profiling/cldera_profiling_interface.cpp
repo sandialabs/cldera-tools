@@ -67,7 +67,10 @@ void cldera_init_c (const MPI_Fint fcomm)
 void cldera_clean_up_c ()
 {
   auto& s = cldera::ProfilingSession::instance();
-  if (s.get_comm().am_i_root()) {
+  // Store this, since cleaning up the ProfileSession will reset
+  // the comm to MPI_COMM_SELF.
+  auto am_i_root = s.get_comm().am_i_root();
+  if (am_i_root) {
     printf(" -> Shutting down cldera profiling session...\n");
   }
 
@@ -79,7 +82,7 @@ void cldera_clean_up_c ()
   }
 
   s.clean_up();
-  if (s.get_comm().am_i_root()) {
+  if (am_i_root) {
     printf(" -> Shutting down cldera profiling session...done!\n");
   }
 }

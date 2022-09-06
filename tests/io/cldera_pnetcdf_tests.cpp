@@ -4,7 +4,6 @@
 
 #include <catch2/catch.hpp>
 
-#include <pnetcdf.h>
 #include <iostream>
 
 void write ()

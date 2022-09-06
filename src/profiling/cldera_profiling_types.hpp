@@ -3,12 +3,18 @@
 
 #include "cldera_config.h"
 #include <ekat/ekat_assert.hpp>
+#include <ekat/kokkos/ekat_kokkos_types.hpp>
+
 #include <vector>
 
 namespace cldera {
 
 using Real = double;
 
+using KokkosTypesHost = ekat::KokkosTypes<ekat::HostDevice>;
+
+template<typename T, typename MT = Kokkos::MemoryManaged>
+using view_1d_host = typename KokkosTypesHost::template view_1d<T,MT>;
 
 // Type of statistics to be tracked on a Field
 enum class StatType {
@@ -24,7 +30,6 @@ enum class StatType {
 struct TimeStamp {
   int ymd;
   int tod;
-
 };
 
 inline bool operator== (const TimeStamp& lhs, const TimeStamp& rhs) {

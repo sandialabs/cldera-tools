@@ -129,7 +129,7 @@ copy_part_data (const int ipart, const Real* data)
       "    - Field name: " + m_name + "\n"
       "    - Part index: " + std::to_string(ipart) + "\n");
 
-  hview_1d<const Real,Kokkos::MemoryUnmanaged> v(data,part_layout(ipart).size());
+  view_1d_host<const Real,Kokkos::MemoryUnmanaged> v(data,part_layout(ipart).size());
   Kokkos::deep_copy(m_data_nonconst[ipart],v);
 }
 
@@ -161,7 +161,7 @@ void Field::commit () {
     m_data_nonconst.resize(m_nparts);
     for (int i=0; i<m_nparts; ++i) {
       auto iname = m_name + "_" + std::to_string(i);
-      m_data_nonconst[i] = hview_1d<Real> (iname,part_layout(i).size());
+      m_data_nonconst[i] = view_1d_host<Real> (iname,part_layout(i).size());
       m_data[i] = m_data_nonconst[i];
     }
   }
@@ -226,7 +226,7 @@ set_part_data (const int ipart, const Real* data)
       "    - Field name: " + m_name + "\n"
       "    - Part index: " + std::to_string(ipart) + "\n");
 
-  m_data[ipart] = hview_1d<const Real> (data,part_layout(ipart).size());
+  m_data[ipart] = view_1d_host<const Real> (data,part_layout(ipart).size());
 }
 
 } // namespace cldera

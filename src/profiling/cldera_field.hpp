@@ -4,7 +4,6 @@
 #include "cldera_profiling_types.hpp"
 
 #include <ekat/ekat_assert.hpp>
-#include <ekat/kokkos/ekat_kokkos_types.hpp>
 
 #include <vector>
 #include <string>
@@ -84,9 +83,6 @@ enum class DataAccess {
 
 class Field {
 public:
-  using KT_h = ekat::KokkosTypes<ekat::HostDevice>;
-  template<typename T, typename MT = Kokkos::MemoryManaged>
-  using hview_1d = typename KT_h::template view_1d<T,MT>;
 
   Field (const std::string& n, const FieldLayout& fl,
          const int nparts, const int part_dim,
@@ -128,8 +124,8 @@ public:
   void copy_data (const Real* data);
 
   // Get data as view
-  hview_1d<const Real> get_part_view (const int ipart) const;
-  hview_1d<const Real> get_view () const;
+  view_1d_host<const Real> get_part_view (const int ipart) const;
+  view_1d_host<const Real> get_view () const;
 
   // Get raw data
   const Real* get_part_data (const int ipart) const;
@@ -148,8 +144,8 @@ private:
   int                               m_nparts;
   int                               m_part_dim;
   std::vector<long long>            m_part_sizes;
-  std::vector<hview_1d<const Real>> m_data;
-  std::vector<hview_1d<      Real>> m_data_nonconst;
+  std::vector<view_1d_host<const Real>> m_data;
+  std::vector<view_1d_host<      Real>> m_data_nonconst;
   bool                              m_committed = false;
 
   DataAccess                        m_data_access;
@@ -165,9 +161,8 @@ Field::get_data () const {
   return get_view().data();
 }
 
-inline auto
+inline  view_1d_host<const Real>
 Field::get_part_view (const int ipart) const
- -> hview_1d<const Real>
 {
   EKAT_REQUIRE_MSG (m_committed,
       "Error! Field '" + m_name + "' was not committed yet.\n");
@@ -177,9 +172,8 @@ Field::get_part_view (const int ipart) const
   return m_data[ipart];
 }
 
-inline auto
+inline view_1d_host<const Real>
 Field::get_view () const
- -> hview_1d<const Real>
 {
   EKAT_REQUIRE_MSG (m_nparts==1,
       "Error! Field::get_view is only available for non-partitioned fields.\n");

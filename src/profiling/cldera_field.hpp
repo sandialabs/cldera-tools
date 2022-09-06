@@ -19,7 +19,8 @@ namespace cldera
 
 class FieldLayout {
 public:
-  explicit FieldLayout (const std::vector<int>& dims)
+  FieldLayout (const std::vector<int>& dims,
+               const std::vector<std::string>& names)
   {
     EKAT_REQUIRE_MSG (dims.size()>0, "Error! Invalid rank.\n");
     for (auto d : dims) {
@@ -27,13 +28,6 @@ public:
     }
     m_dims = dims;
 
-    m_names.resize(m_dims.size(),"unknown");
-  }
-
-  FieldLayout (const std::vector<int>& dims,
-               const std::vector<std::string>& names)
-   : FieldLayout (dims)
-  {
     EKAT_REQUIRE_MSG (names.size()==m_dims.size(),
         "Error! Size of names and dims array must match.\n");
     m_names = names;

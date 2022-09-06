@@ -90,7 +90,7 @@ part_layout (const int ipart) const {
 
   std::vector<int> d = m_layout.dims();
   d[m_part_dim] = m_part_sizes[ipart];
-  return FieldLayout{d};
+  return FieldLayout{d,m_layout.names()};
 }
 
 void Field::

@@ -2,23 +2,27 @@
 
 module cldera_interface_mod
 
-  use iso_c_binding, only: c_loc, r8 => c_double
+  use iso_c_binding,   only: c_loc, r8 => c_double
+  use iso_fortran_env, only: output_unit
   implicit none
 
   integer, parameter, public :: max_str_len = CLDERA_MAX_NAME_LEN
 
+  integer :: iulog = output_unit
+  logical :: masterproc = .false.
+
   interface f2c
-    module procedure string_f2c, int_f2c, real_f2c, aint_f2c
+    module procedure string_f2c, int_f2c
   end interface f2c
   interface c2f
     module procedure string_c2f
   end interface c2f
 
-  interface cldera_set_field_partition
-    module procedure cldera_set_field_partition_1d, &
-                     cldera_set_field_partition_2d, &
-                     cldera_set_field_partition_3d
-  end interface cldera_set_field_partition
+  interface cldera_set_field_part_data
+    module procedure cldera_set_field_part_data_1d, &
+                     cldera_set_field_part_data_2d, &
+                     cldera_set_field_part_data_3d
+  end interface cldera_set_field_part_data
 contains
 
   ! Initialize cldera session and main structures
@@ -29,82 +33,112 @@ contains
     call cldera_init_c(f2c(comm))
   end subroutine cldera_init
 
-  function cldera_get_field_names () result(names)
-    use iso_c_binding, only: c_char, c_loc
-    use cldera_interface_f2c_mod, only: cgnf_c=>cldera_get_num_fields_c, &
-                                        cgfn_c=>cldera_get_field_name_c
+  subroutine cldera_set_log_unit (log_unit)
+    integer, intent(in) :: log_unit
 
-    character (len=max_str_len), allocatable :: names (:)
-    character (kind=c_char, len=max_str_len), target :: fname_c
-    integer :: nfields, ifield
+    iulog = log_unit
+  end subroutine cldera_set_log_unit
 
-    nfields = cgnf_c()
-    allocate(names(nfields))
+  subroutine cldera_set_masterproc (am_i_master)
+    logical, intent(in) :: am_i_master
 
-    do ifield=1,nfields
-      call cgfn_c (ifield-1, c_loc(fname_c))
-      names(ifield) = c2f(fname_c)
-    enddo
-  end function cldera_get_field_names
+    masterproc = am_i_master
+  end subroutine cldera_set_masterproc
 
   ! Add a partitioned field to cldera data base
-  subroutine cldera_add_partitioned_field(fname,dims,nparts,part_dim)
-    use iso_c_binding, only: c_char, c_loc
+  subroutine cldera_add_partitioned_field(fname,rank,dims,dimnames,nparts,part_dim)
+    use iso_c_binding, only: c_char, c_int, c_loc, c_ptr
     use cldera_interface_f2c_mod, only: capf_c => cldera_add_partitioned_field_c
     character (len=*), intent(in) :: fname
+    character (len=*), intent(in) :: dimnames(:)
     integer, intent(in) :: nparts, part_dim
     integer, intent(in) :: dims(:)
+    integer, intent(in) :: rank
 
-    integer :: part_dim_c, rank
+    type(c_ptr),allocatable :: c_dimnames_ptrs(:)
+
+    integer :: part_dim_c, i
+    integer(kind=c_int), allocatable :: c_dims(:)
     character (kind=c_char, len=max_str_len), target :: fname_c
+    character (kind=c_char, len=max_str_len), allocatable, target :: c_dimnames(:)
 
-    ! The index of partition in (dim0,...,dimN) needs to be flipped,
-    ! since C will read the dims array backwards
-    rank = size(dims)
-    part_dim_c = rank - part_dim
+    if (masterproc) then
+      write(iulog,fmt='(a)',advance='no') "[cldera profiling] Adding field "//trim(fname)//"("
+      do i=1,rank-1
+        write(iulog,fmt='(a)',advance='no') trim(dimnames(i))//","
+      enddo
+      write(iulog,fmt='(a)') trim(dimnames(rank))//")"
+    endif
+
     fname_c = f2c(fname)
 
-    call capf_c(c_loc(fname_c),f2c(rank),f2c(dims),f2c(nparts),f2c(part_dim_c))
+    allocate(c_dims(rank))
+    allocate(c_dimnames(rank))
+    allocate(c_dimnames_ptrs(rank))
+    ! Flip dims,dimnames arrays, since in C the first is the slowest striding
+    do i=1,rank
+      c_dims(i) = f2c(dims(rank-i+1))
+      c_dimnames(i) = f2c(dimnames(i))
+      c_dimnames_ptrs(rank-i+1) = c_loc(c_dimnames(i))
+    enddo
+
+    ! Flip part_dim, since we flipped the dimensions
+    ! Also, flip dims, since in C the first is the slowest striding
+    call capf_c(c_loc(fname_c),f2c(rank),c_dims,c_dimnames_ptrs,f2c(nparts),f2c(rank-part_dim))
   end subroutine cldera_add_partitioned_field
 
   ! Set data of a particular field partition in the cldera data base
-  subroutine cldera_set_field_partition_1d (fname,part,part_size,data)
+  subroutine cldera_set_field_part_size (fname,part,part_size)
     use iso_c_binding, only: c_char, c_loc
-    use cldera_interface_f2c_mod, only: csfp_c => cldera_set_field_partition_c
+    use cldera_interface_f2c_mod, only: csfps_c => cldera_set_field_part_size_c
     character (len=*), intent(in) :: fname
     integer,  intent(in) :: part, part_size
+
+    character (kind=c_char, len=max_str_len), target :: fname_c
+
+    fname_c = f2c(fname)
+    ! Subtract 1 to part, b/c of C-vs-Fortran index base
+    call csfps_c(c_loc(fname_c),f2c(part-1),f2c(part_size))
+  end subroutine cldera_set_field_part_size
+  subroutine cldera_set_field_part_data_1d (fname,part,data)
+    use iso_c_binding, only: c_char, c_loc
+    use cldera_interface_f2c_mod, only: csfpd_c => cldera_set_field_part_data_c
+    character (len=*), intent(in) :: fname
+    integer,  intent(in) :: part
     real(r8), intent(in), target :: data(:)
 
     character (kind=c_char, len=max_str_len), target :: fname_c
 
     fname_c = f2c(fname)
-    call csfp_c(c_loc(fname_c),f2c(part-1),f2c(part_size),c_loc(data(1)))
-
-  end subroutine cldera_set_field_partition_1d
-  subroutine cldera_set_field_partition_2d (fname,part,part_size,data)
+    ! Subtract 1 to part, b/c of C-vs-Fortran index base
+    call csfpd_c(c_loc(fname_c),f2c(part-1),c_loc(data(1)))
+  end subroutine cldera_set_field_part_data_1d
+  subroutine cldera_set_field_part_data_2d (fname,part,data)
     use iso_c_binding, only: c_char, c_loc
-    use cldera_interface_f2c_mod, only: csfp_c => cldera_set_field_partition_c
+    use cldera_interface_f2c_mod, only: csfpd_c => cldera_set_field_part_data_c
     character (len=*), intent(in) :: fname
-    integer,  intent(in) :: part, part_size
+    integer,  intent(in) :: part
     real(r8), intent(in), target :: data(:,:)
 
     character (kind=c_char, len=max_str_len), target :: fname_c
 
     fname_c = f2c(fname)
-    call csfp_c(c_loc(fname_c),f2c(part-1),f2c(part_size),c_loc(data(1,1)))
-  end subroutine cldera_set_field_partition_2d
-  subroutine cldera_set_field_partition_3d (fname,part,part_size,data)
+    ! Subtract 1 to part, b/c of C-vs-Fortran index base
+    call csfpd_c(c_loc(fname_c),f2c(part-1),c_loc(data(1,1)))
+  end subroutine cldera_set_field_part_data_2d
+  subroutine cldera_set_field_part_data_3d (fname,part,data)
     use iso_c_binding, only: c_char, c_loc
-    use cldera_interface_f2c_mod, only: csfp_c => cldera_set_field_partition_c
+    use cldera_interface_f2c_mod, only: csfpd_c => cldera_set_field_part_data_c
     character (len=*), intent(in) :: fname
-    integer,  intent(in) :: part, part_size
+    integer,  intent(in) :: part
     real(r8), intent(in), target :: data(:,:,:)
 
     character (kind=c_char, len=max_str_len), target :: fname_c
 
     fname_c = f2c(fname)
-    call csfp_c(c_loc(fname_c),f2c(part-1),f2c(part_size),c_loc(data(1,1,1)))
-  end subroutine cldera_set_field_partition_3d
+    ! Subtract 1 to part, b/c of C-vs-Fortran index base
+    call csfpd_c(c_loc(fname_c),f2c(part-1),c_loc(data(1,1,1)))
+  end subroutine cldera_set_field_part_data_3d
 
   ! Check all parts have been set in each field
   subroutine cldera_commit_all_fields ()
@@ -159,26 +193,5 @@ contains
 
     int_c = int_f
   end function int_f2c
-
-  function real_f2c (real_f) result(real_c)
-    use iso_c_binding, only: c_double
-    real, intent(in) :: real_f
-    real(kind=c_double) :: real_c
-
-    real_c = real_f
-  end function real_f2c
-
-  function aint_f2c (aint_f) result(aint_c)
-    use iso_c_binding, only: c_int
-    integer, intent(in) :: aint_f(:)
-    integer(kind=c_int), allocatable :: aint_c(:)
-    integer :: i,n
-
-    n = size(aint_f)
-    allocate (aint_c(n))
-    do i=1,n
-      aint_c(i) = aint_f(n-i+1)
-    enddo
-  end function aint_f2c
 
 end module cldera_interface_mod

@@ -15,27 +15,43 @@ TEST_CASE ("field") {
   std::iota(baz_data[1].begin(),baz_data[1].end(),20);
   std::iota(baz_data[2].begin(),baz_data[2].end(),40);
 
-  Field foo("foo",{5},foo_data.data());
-  Field bar("bar",{5,4});
-  Field baz("baz",{5,4,3},3,2); // 3 partitions along last dim
-  REQUIRE_THROWS (Field("",{5},6,0)); // Too many parts
-  REQUIRE_THROWS (Field("",{5},1,1)); // part dim OOB
+  Field foo("foo",{5},{"col"},foo_data.data());
+  Field bar("bar",{5,4},{"col","lev"});
+  Field baz("baz",{5,4,3},{"col","cmp","lev"},3,2); // 3 partitions along last dim
+  Field foobar("foobar",{5},{"col"},DataAccess::Copy);
+  REQUIRE_THROWS (Field("",{5},{"col"},6,0)); // Too many parts
+  REQUIRE_THROWS (Field("",{5},{"col"},1,1)); // part dim OOB
   REQUIRE (foo.committed());
+
+  foobar.set_part_size(0,5); // OK, same value
+  foobar.set_part_size(0,5); // OK, same value
+  REQUIRE_THROWS(foobar.set_part_size(0,6)); // Can't change part sizes
 
   // Set data in fields
   REQUIRE_THROWS (foo.set_data(foo_data.data())); // Data already set
-  REQUIRE_THROWS (baz.set_part_data(3,1,foo_data.data())); // part idx OOB
-  REQUIRE_THROWS (baz.set_part_data(1,10,foo_data.data())); // part size OOB
+  REQUIRE_THROWS (baz.set_part_size(3,1)); // part idx OOB
+  REQUIRE_THROWS (baz.set_part_size(1,10)); // part size OOB
+  REQUIRE_THROWS (foobar.set_part_data(0,foo_data.data())); // Not a View field
+  REQUIRE_THROWS (bar.set_data(nullptr)); // Invalid pointer
   bar.set_data(bar_data.data());
-  baz.set_part_data(0,1,baz_data[0].data());
-  baz.set_part_data(2,1,baz_data[2].data());
-  baz.set_part_data(1,1,baz_data[1].data());
+  baz.set_part_size(0,1);
+  baz.set_part_size(2,1);
+  baz.set_part_size(1,1);
+  baz.set_part_data(0,baz_data[0].data());
+  baz.set_part_data(2,baz_data[2].data());
+  baz.set_part_data(1,baz_data[1].data());
 
-  // Get data
+  // Commit
   REQUIRE_THROWS (baz.get_part_data(0)); // Field not yet committed
   bar.commit();
   baz.commit();
+  foobar.commit();
+  REQUIRE_THROWS (bar.set_data(foo_data.data())); // Can't reset data pointer
   REQUIRE_THROWS (baz.get_data()); // Can't call get_data on partitioned field
+
+  // Copy data
+  REQUIRE_THROWS (foo.copy_data(foo_data.data())); // Can't copy in a View field.
+  foobar.copy_data(foo_data.data());
 
   // Check dimensions
   REQUIRE(foo.layout().size()==5);
@@ -49,6 +65,7 @@ TEST_CASE ("field") {
   // Check data
   for (int i=0; i<foo.layout().size(); ++i) {
     REQUIRE (foo.get_data()[i]==i);
+    REQUIRE (foo.get_data()[i]==foobar.get_data()[i]);
   }
   for (int i=0; i<bar.layout().size(); ++i) {
     REQUIRE (bar.get_data()[i]==i);

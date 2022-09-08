@@ -67,7 +67,10 @@ void cldera_init_c (const MPI_Fint fcomm)
 void cldera_clean_up_c ()
 {
   auto& s = cldera::ProfilingSession::instance();
-  if (s.get_comm().am_i_root()) {
+  // Store this, since cleaning up the ProfileSession will reset
+  // the comm to MPI_COMM_SELF.
+  auto am_i_root = s.get_comm().am_i_root();
+  if (am_i_root) {
     printf(" -> Shutting down cldera profiling session...\n");
   }
 
@@ -79,24 +82,26 @@ void cldera_clean_up_c ()
   }
 
   s.clean_up();
-  if (s.get_comm().am_i_root()) {
+  if (am_i_root) {
     printf(" -> Shutting down cldera profiling session...done!\n");
   }
 }
 
 void cldera_add_field_c (const char*& name,
-                         const int  rank,
-                         const int* dims)
+                         const int    rank,
+                         const int*   dims,
+                         const char** dimnames)
 {
-  cldera_add_partitioned_field_c(name,rank,dims,1,0);
+  cldera_add_partitioned_field_c(name,rank,dims,dimnames,1,0);
 }
 
 void cldera_add_partitioned_field_c (
-    const char*& name,
-    const int  rank,
-    const int* dims,
-    const int  num_parts,
-    const int  part_dim)
+    const char*&  name,
+    const int     rank,
+    const int*    dims,
+    const char**  dimnames,
+    const int     num_parts,
+    const int     part_dim)
 {
   EKAT_REQUIRE_MSG (rank>=0 && rank<=4,
       "Error! Unsupported field rank (" + std::to_string(rank) + "\n");
@@ -107,6 +112,7 @@ void cldera_add_partitioned_field_c (
 
   // Copy input raw pointer to vector
   std::vector<int> d(rank);
+  std::vector<std::string> dn(rank);
   for (int i=0; i<rank; ++i) {
     EKAT_REQUIRE_MSG (dims[i]>=0,
         "Error! Invalid field extent.\n"
@@ -115,23 +121,35 @@ void cldera_add_partitioned_field_c (
         "   - Extent:    " +  std::to_string(dims[i]) + "\n");
 
     d[i] = dims[i];
+    dn[i] = dimnames[i];
   }
+  cldera::FieldLayout fl(d,dn);
 
   // Set data in the archive structure
   auto& archive = s.create_or_get<cldera::ProfilingArchive>("archive");
-  archive.add_field(cldera::Field(name,d,num_parts,part_dim));
+  archive.add_field(cldera::Field(name,fl,num_parts,part_dim));
 }
 
-void cldera_set_field_partition_c (
+void cldera_set_field_part_size_c (
     const char*& name,
     const int   part,
-    const int   part_size,
+    const int   part_size)
+{
+  auto& s = cldera::ProfilingSession::instance(true);
+  auto& archive = s.get<cldera::ProfilingArchive>("archive");
+
+  archive.get_field(name).set_part_size (part,part_size);
+}
+
+void cldera_set_field_part_data_c (
+    const char*& name,
+    const int   part,
     const cldera::Real*& data)
 {
   auto& s = cldera::ProfilingSession::instance(true);
   auto& archive = s.get<cldera::ProfilingArchive>("archive");
 
-  archive.get_field(name).set_part_data (part,part_size,data);
+  archive.get_field(name).set_part_data (part,data);
 }
 
 void cldera_set_field_c (
@@ -142,6 +160,27 @@ void cldera_set_field_c (
   auto& archive = s.get<cldera::ProfilingArchive>("archive");
 
   archive.get_field(name).set_data (data);
+}
+
+void cldera_copy_field_partition_c (
+    const char*& name,
+    const int part,
+    const cldera::Real*& data)
+{
+  auto& s = cldera::ProfilingSession::instance(true);
+  auto& archive = s.get<cldera::ProfilingArchive>("archive");
+
+  archive.get_field(name).copy_part_data (part,data);
+}
+
+void cldera_copy_field_c (
+    const char*& name,
+    const cldera::Real*& data)
+{
+  auto& s = cldera::ProfilingSession::instance(true);
+  auto& archive = s.get<cldera::ProfilingArchive>("archive");
+
+  archive.get_field(name).copy_data (data);
 }
 
 void cldera_commit_field_c (const char*& name)
@@ -158,26 +197,6 @@ void cldera_commit_all_fields_c ()
   auto& archive = s.create_or_get<cldera::ProfilingArchive>("archive");
 
   archive.commit_all_fields();
-}
-
-int cldera_get_num_fields_c ()
-{
-  const auto& s = cldera::ProfilingSession::instance(true);
-  const auto& p = s.get<ekat::ParameterList>("params");
-  return p.get<std::vector<std::string>>("Fields To Track").size();
-}
-
-void cldera_get_field_name_c (const int i, char*& name)
-{
-  const auto& s = cldera::ProfilingSession::instance(true);
-  const auto& p = s.get<ekat::ParameterList>("params");
-  const auto& names = p.get<std::vector<std::string>>("Fields To Track");
-
-  EKAT_REQUIRE_MSG (i>=0 && i<cldera_get_num_fields_c(),
-      "Error! Invalid field index.\n"
-      "  - ifield: " + std::to_string(i) + "\n"
-      "  - num fields: " + std::to_string(cldera_get_num_fields_c()) + "\n");
-  strcpy(name,names[i].data());
 }
 
 void cldera_compute_stats_c (const int ymd, const int tod)

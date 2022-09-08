@@ -5,6 +5,7 @@
 #include "cldera_field.hpp"
 
 #include <map>
+#include <list>
 
 namespace cldera {
 
@@ -44,6 +45,8 @@ public:
 
   void dump_stats_to_yaml (const std::string& file_name) const;
 private:
+
+  std::list<std::string>                  m_fields_names;
 
   std::map<std::string,Field>             m_fields;
   std::map<std::string,stats_history_t>   m_field_stats;

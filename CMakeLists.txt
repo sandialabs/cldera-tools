@@ -84,3 +84,7 @@ install(FILES
 install(EXPORT ClderaTargets
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/cldera)
 
+# Install the template cldera_profiling_config.yaml
+install(FILES
+  "${CLDERA_SOURCE_DIR}/scripts/cldera_profiling_config.yaml"
+  DESTINATION ${CMAKE_INSTALL_DATAROOTDIR})

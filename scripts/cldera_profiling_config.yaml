@@ -1,0 +1,18 @@
+#########################################
+#      CLDERA CONFIG FILE TEMPLATE      #
+#                                       #
+#  This file (with this name!) must be  #
+#  placed inside the case folder, or    #
+#  the profiling tool will do nothing.  #
+#                                       #
+#########################################
+%YAML 1.0
+---
+Stats Output File: cldera_stats.yaml
+Fields To Track: [SO2, H2SO4]
+
+SO2:
+  Compute Stats: [Max]
+H2SO4:
+  Compute Stats: [Min]
+...

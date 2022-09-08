@@ -2,10 +2,14 @@
 
 module cldera_interface_mod
 
-  use iso_c_binding, only: c_loc, r8 => c_double
+  use iso_c_binding,   only: c_loc, r8 => c_double
+  use iso_fortran_env, only: output_unit
   implicit none
 
   integer, parameter, public :: max_str_len = CLDERA_MAX_NAME_LEN
+
+  integer :: iulog = output_unit
+  logical :: masterproc = .false.
 
   interface f2c
     module procedure string_f2c, int_f2c
@@ -29,6 +33,18 @@ contains
     call cldera_init_c(f2c(comm))
   end subroutine cldera_init
 
+  subroutine cldera_set_log_unit (log_unit)
+    integer, intent(in) :: log_unit
+
+    iulog = log_unit
+  end subroutine cldera_set_log_unit
+
+  subroutine cldera_set_masterproc (am_i_master)
+    logical, intent(in) :: am_i_master
+
+    masterproc = am_i_master
+  end subroutine cldera_set_masterproc
+
   ! Add a partitioned field to cldera data base
   subroutine cldera_add_partitioned_field(fname,rank,dims,dimnames,nparts,part_dim)
     use iso_c_binding, only: c_char, c_int, c_loc, c_ptr
@@ -45,6 +61,14 @@ contains
     integer(kind=c_int), allocatable :: c_dims(:)
     character (kind=c_char, len=max_str_len), target :: fname_c
     character (kind=c_char, len=max_str_len), allocatable, target :: c_dimnames(:)
+
+    if (masterproc) then
+      write(iulog,fmt='(a)',advance='no') "[cldera profiling] Adding field "//trim(fname)//"("
+      do i=1,rank-1
+        write(iulog,fmt='(a)',advance='no') trim(dimnames(i))//","
+      enddo
+      write(iulog,fmt='(a)') trim(dimnames(rank))//")"
+    endif
 
     fname_c = f2c(fname)
 

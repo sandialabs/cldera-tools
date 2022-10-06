@@ -2,6 +2,10 @@
 #include "cldera_field_global_min.hpp"
 #include "cldera_field_global_sum.hpp"
 #include "cldera_field_global_avg.hpp"
+#include "cldera_field_max_along_columns.hpp"
+#include "cldera_field_min_along_columns.hpp"
+#include "cldera_field_sum_along_columns.hpp"
+#include "cldera_field_avg_along_columns.hpp"
 
 #include <ekat/util/ekat_string_utils.hpp>
 
@@ -19,6 +23,14 @@ create_stat (const std::string& name, const ekat::Comm& comm) {
     stat = std::make_shared<FieldGlobalSum>(comm);
   } else if (name_ci=="global_avg") {
     stat = std::make_shared<FieldGlobalAvg>(comm);
+  } else if (name_ci=="max_along_columns") {
+    stat = std::make_shared<FieldMaxAlongColumns>(comm);
+  } else if (name_ci=="min_along_columns") {
+    stat = std::make_shared<FieldMinAlongColumns>(comm);
+  } else if (name_ci=="sum_along_columns") {
+    stat = std::make_shared<FieldSumAlongColumns>(comm);
+  } else if (name_ci=="avg_along_columns") {
+    stat = std::make_shared<FieldAvgAlongColumns>(comm);
   } else {
     EKAT_ERROR_MSG ("Unrecognized/unsupported stat '" + name + "'.\n");
   }

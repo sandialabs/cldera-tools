@@ -93,6 +93,7 @@ public:
 
   // Query status
   int nparts () const { return m_nparts; }
+  int part_dim () const { return m_part_dim; }
   bool committed () const { return m_committed; }
 
 private:

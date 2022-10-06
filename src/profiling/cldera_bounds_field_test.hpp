@@ -1,14 +1,13 @@
 #ifndef CLDERA_BOUNDS_FIELD_TEST_HPP
 #define CLDERA_BOUNDS_FIELD_TEST_HPP
 
+#include "profiling/stats/cldera_field_stat.hpp"
 #include "cldera_field_test.hpp"
 #include "cldera_profiling_types.hpp"
 
 #include <memory>
 
 namespace cldera {
-
-class Field;
 
 // A pair used to store min/max bounds
 struct Bounds {
@@ -23,14 +22,20 @@ struct Bounds {
 class BoundsFieldTest : public FieldTest
 {
 public:
-  BoundsFieldTest(const std::string& name, const std::shared_ptr<const Field> field, const Bounds& bounds);
+  BoundsFieldTest(const std::string& name,
+                  const std::shared_ptr<const Field>& field,
+                  const Bounds& bounds,
+                  const ekat::Comm& comm);
 
   // True if test passes, false if test fails
-  bool test(const ekat::Comm& comm) const override;
+  bool test() const override;
 
 private:
   const std::shared_ptr<const Field> m_field;
   const Bounds m_bounds;
+
+  std::shared_ptr<FieldStat>  m_max_stat;
+  std::shared_ptr<FieldStat>  m_min_stat;
 };
 
 } // namespace cldera

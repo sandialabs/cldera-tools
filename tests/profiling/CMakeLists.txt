@@ -8,12 +8,24 @@ EkatCreateUnitTest (session session.cpp
   MPI_NP_FLAG ${CLDERA_TESTS_MPI_NP_FLAG})
 
 # Test Field
+EkatCreateUnitTest (time_stamp time_stamp.cpp
+  LIBS cldera-profiling ekat)
+
+# Test Field
 EkatCreateUnitTest (field field.cpp
   LIBS cldera-profiling ekat)
 
 # Test ProfilingArchive
 EkatCreateUnitTest (archive archive.cpp
-  LIBS cldera-profiling ekat)
+  LIBS cldera-profiling ekat
+  PROPERTIES FIXTURES_SETUP archive_output)
+
+add_test (NAME archive_check
+          COMMAND ncdump -v foo_global_max archive_tests.nc)
+set_tests_properties(archive_check PROPERTIES
+  PASS_REGULAR_EXPRESSION "foo_global_max = 3"
+  FIXTURES_REQUIRED archive_output
+)
 
 # Test Graph
 EkatCreateUnitTest (graph graph.cpp

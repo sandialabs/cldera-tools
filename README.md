@@ -7,30 +7,33 @@ The cldera-tools repo contains a library whose goal is to "profile" quantities i
 ```
 %YAML 1.0
 ---
-Stats Output File: cldera_stats.yaml
+Profiling Output:
+  Filename: cldera_stats.nc
 Fields To Track: [SO2, H2SO4]
 
 SO2:
-  Compute Stats: [Max]
+  Compute Stats: [global_max]
 H2SO4:
-  Compute Stats: [Min]
+  Compute Stats: [global_min]
 ...
 ```
 
-Running an E3SM case that uses CLDERA (e.g., `F20TR-CLDERA`) would generate the file `cldera_stats.yaml` in the run folder, whose content will look like the following:
+Running an E3SM case that uses CLDERA (e.g., `F20TR-CLDERA`) would generate the file `cldera_stats.nc`
+in the run folder. Running `ncdump -h cldera_stats.nc` should show something like the following:
 
 ```
-%YAML 1.1
----
-H2SO4:
-  Min:
-    Timestamps: [19910101.3600, 19910101.7200, 19910101.10800, 19910101.14400, 19910101.18000, 19910101.21600, 19910101.25200, 19910101.28800, 19910101.32400, 19910101.36000, 19910101.39600, 19910101.43200, 19910101.46800, 19910101.50400, 19910101.54000, 19910101.57600, 19910101.61200, 19910101.64800, 19910101.68400, 19910101.72000, 19910101.75600, 19910101.79200, 19910101.82800, 19910102.0]
-    Values: [7.8533024858398e-27, 2.5668891775532e-26, 1.2441217677756e-27, 6.5550604409998e-26, 7.0864413176058e-25, 1.6922991276391e-23, 4.1074848003180e-23, 1.3154042557344e-22, 1.3350997795038e-22, 5.7456865021541e-23, 5.9686624506205e-23, 2.2416232474606e-23, 1.1999704857521e-24, 2.4560533800177e-29, 1.2228147799198e-23, 7.2223714970792e-22, 5.5037631035254e-25, 6.6304561540602e-26, 2.1858451717351e-25, 4.8826322149140e-25, 1.1758402879695e-22, 8.3975348678835e-23, 4.3280576584943e-21, 6.2645093521745e-23]
-SO2:
-  Max:
-    Timestamps: [19910101.3600, 19910101.7200, 19910101.10800, 19910101.14400, 19910101.18000, 19910101.21600, 19910101.25200, 19910101.28800, 19910101.32400, 19910101.36000, 19910101.39600, 19910101.43200, 19910101.46800, 19910101.50400, 19910101.54000, 19910101.57600, 19910101.61200, 19910101.64800, 19910101.68400, 19910101.72000, 19910101.75600, 19910101.79200, 19910101.82800, 19910102.0]
-    Values: [3.6087438125778e-08, 3.5894425708473e-08, 3.5721556136599e-08, 3.5483199956125e-08, 3.5253918091705e-08, 3.6059542506238e-08, 3.6836519271650e-08, 3.8432711743365e-08, 3.9137532803743e-08, 4.0995685281938e-08, 4.1824806810879e-08, 4.3649447241393e-08, 4.5322348063647e-08, 4.7589193008743e-08, 4.5886412540401e-08, 4.7434266908599e-08, 4.6544989213327e-08, 4.7089547608924e-08, 4.3591178610284e-08, 4.4747558792056e-08, 4.6106373923549e-08, 4.4921964309152e-08, 4.5909736907053e-08, 4.6846372141518e-08]
-...
+netcdf cldera_stats {
+dimensions:
+	time = UNLIMITED ; // (10 currently)
+variables:
+	double time(time) ;
+	double SO2_global_max(time) ;
+	double H2SO4_global_min(time) ;
+
+// global attributes:
+		:start_date = 10101 ;
+		:start_time = 0 ;
+}
 ```
 
 The output file contains a sublist for each field; for each field, there's a sublist for each requested statistic; for each statistic, CLDERA saves the timestamps where the corresponding values were obtained (timestamp is in the format YYYYMMDD.TOD, where TOD is the time-of-day in seconds).
@@ -94,6 +97,8 @@ cmake \
   -D CLDERA_ENABLE_TESTS:BOOL=ON              \
   -D CLDERA_ENABLE_PROFILING_TOOL:BOOL=ON     \
   -D CLDERA_TESTS_MAX_RANKS:STRING=4          \
+  \
+  -D CLDERA_PNETCDF_PATH:PATH={PNETCDF_ROOT}  \
   \
   ${SRC_DIR}
 ```

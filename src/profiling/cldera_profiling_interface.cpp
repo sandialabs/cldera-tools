@@ -2,11 +2,12 @@
 
 #include "cldera_profiling_session.hpp"
 #include "cldera_profiling_archive.hpp"
-#include "stats/cldera_compute_stat.hpp"
+#include "stats/cldera_field_stat_factory.hpp"
 
 #include <ekat/ekat_parameter_list.hpp>
 #include <ekat/io/ekat_yaml.hpp>
 #include <ekat/util/ekat_string_utils.hpp>
+#include <ekat/ekat_session.hpp>
 #include <ekat/ekat_assert.hpp>
 
 #include <cstring>
@@ -14,77 +15,76 @@
 
 extern "C" {
 
-void cldera_init_c (const MPI_Fint fcomm)
+namespace cldera {
+
+void cldera_init_c (const MPI_Fint fcomm, const int ymd, const int tod)
 {
+  ekat::initialize_ekat_session ();
+
   // Convert F90 comm to C comm, create ekat::Comm, and init session
   MPI_Comm mpiComm = MPI_Comm_f2c(fcomm);
   EKAT_REQUIRE_MSG (mpiComm!=nullptr, "Error! Input fortran comm seems invalid.\n");
 
   ekat::Comm comm(mpiComm);
 
-  if (comm.am_i_root()) {
-    printf(" -> Initializing cldera profiling session...\n");
-  }
-
-  auto& s = cldera::ProfilingSession::instance();
-  s.init(comm);
-
-  using requests_t = std::map<std::string,std::vector<cldera::StatType>>;
-  using vos_t = std::vector<std::string>;
-
   //TODO: make the filename configurable
   std::string filename = "./cldera_profiling_config.yaml";
-  if (std::ifstream(filename).good()) {
-    auto& params = s.create<ekat::ParameterList>("params",ekat::parse_yaml_file(filename));
 
-    auto& requests = s.create<requests_t>("requests");
-    const auto& fnames = params.get<vos_t>("Fields To Track");
-    for (const auto& fname : fnames) {
-      const auto& req_pl = params.sublist(fname);
-      auto& req_stats = requests[fname];
-      for (auto stat_str : req_pl.get<vos_t>("Compute Stats")) {
-        req_stats.push_back(cldera::str2stat (stat_str));
-      }
-    }
-  } else {
+  if (not std::ifstream(filename).good()) {
     if (comm.am_i_root()) {
-      printf(" -> WARNING: no 'cldera_profiling_config.yaml' file found.\n"
-             "    CLDERA profiling tools will do nothing.\n");
+      printf(" [CLDERA] WARNING: could not open './cldera_profiling_config.yaml'.\n"
+             "   -> Profiling will do nothing.\n");
     }
-
-    // Create entries, since they will be queried later.
-    // Since they're empty, all ops will be trivial/no-ops.
-    auto& params = s.create<ekat::ParameterList>("params");
-    params.set<std::vector<std::string>>("Fields To Track",{});
-    s.create<requests_t>("requests");
+    return;
   }
 
   if (comm.am_i_root()) {
-    printf(" -> Initializing cldera profiling session...done!\n");
+    printf(" [CLDERA] Initializing profiling session ...\n");
+  }
+
+  auto& s = ProfilingSession::instance();
+
+  s.init(comm);
+
+  using stat_ptr_t = std::shared_ptr<FieldStat>;
+  using requests_t = std::map<std::string,std::vector<stat_ptr_t>>;
+  using vos_t = std::vector<std::string>;
+
+  auto& params = s.create<ekat::ParameterList>("params",ekat::parse_yaml_file(filename));
+  auto& requests = s.create<requests_t>("requests");
+  const auto& fnames = params.get<vos_t>("Fields To Track");
+  for (const auto& fname : fnames) {
+    const auto& req_pl = params.sublist(fname);
+    auto& req_stats = requests[fname];
+    for (auto stat : req_pl.get<vos_t>("Compute Stats")) {
+      req_stats.push_back(create_stat(stat,comm));
+    }
+  }
+  s.create<ProfilingArchive>("archive",comm,TimeStamp(ymd,tod),params.sublist("Profiling Output"));
+
+  if (comm.am_i_root()) {
+    printf(" [CLDERA] Initializing profiling session ... done!\n");
   }
 }
 
 void cldera_clean_up_c ()
 {
-  auto& s = cldera::ProfilingSession::instance();
+  auto& s = ProfilingSession::instance();
+
+  // If input file was not provided, cldera does nothing
+  if (not s.inited()) { return; }
+
   // Store this, since cleaning up the ProfileSession will reset
   // the comm to MPI_COMM_SELF.
   auto am_i_root = s.get_comm().am_i_root();
   if (am_i_root) {
-    printf(" -> Shutting down cldera profiling session...\n");
+    printf(" [CLDERA] Shutting down profiling session ...\n");
   }
-
-  auto& archive = s.create_or_get<cldera::ProfilingArchive>("archive");
-  const auto& p = s.get<ekat::ParameterList>("params");
-  if (p.isParameter("Stats Output File")) {
-    const auto& ofile = p.get<std::string>("Stats Output File");
-    archive.dump_stats_to_yaml (ofile);
-  }
-
   s.clean_up();
   if (am_i_root) {
-    printf(" -> Shutting down cldera profiling session...done!\n");
+    printf(" [CLDERA] Shutting down profiling session ... done!\n");
   }
+  ekat::finalize_ekat_session ();
 }
 
 void cldera_add_field_c (const char*& name,
@@ -103,12 +103,15 @@ void cldera_add_partitioned_field_c (
     const int     num_parts,
     const int     part_dim)
 {
+  auto& s = ProfilingSession::instance();
+
+  // If input file was not provided, cldera does nothing
+  if (not s.inited()) { return; }
+
   EKAT_REQUIRE_MSG (rank>=0 && rank<=4,
       "Error! Unsupported field rank (" + std::to_string(rank) + "\n");
   EKAT_REQUIRE_MSG (num_parts>=1,
       "Error! Invalid number of partitions (" + std::to_string(num_parts) + "\n");
-
-  auto& s = cldera::ProfilingSession::instance(true);
 
   // Copy input raw pointer to vector
   std::vector<int> d(rank);
@@ -123,11 +126,11 @@ void cldera_add_partitioned_field_c (
     d[i] = dims[i];
     dn[i] = dimnames[i];
   }
-  cldera::FieldLayout fl(d,dn);
+  FieldLayout fl(d,dn);
 
   // Set data in the archive structure
-  auto& archive = s.create_or_get<cldera::ProfilingArchive>("archive");
-  archive.add_field(cldera::Field(name,fl,num_parts,part_dim));
+  auto& archive = s.get<ProfilingArchive>("archive");
+  archive.add_field(Field(name,fl,num_parts,part_dim));
 }
 
 void cldera_set_field_part_size_c (
@@ -135,8 +138,12 @@ void cldera_set_field_part_size_c (
     const int   part,
     const int   part_size)
 {
-  auto& s = cldera::ProfilingSession::instance(true);
-  auto& archive = s.get<cldera::ProfilingArchive>("archive");
+  auto& s = ProfilingSession::instance();
+
+  // If input file was not provided, cldera does nothing
+  if (not s.inited()) { return; }
+
+  auto& archive = s.get<ProfilingArchive>("archive");
 
   archive.get_field(name).set_part_size (part,part_size);
 }
@@ -144,20 +151,28 @@ void cldera_set_field_part_size_c (
 void cldera_set_field_part_data_c (
     const char*& name,
     const int   part,
-    const cldera::Real*& data)
+    const Real*& data)
 {
-  auto& s = cldera::ProfilingSession::instance(true);
-  auto& archive = s.get<cldera::ProfilingArchive>("archive");
+  auto& s = ProfilingSession::instance();
+
+  // If input file was not provided, cldera does nothing
+  if (not s.inited()) { return; }
+
+  auto& archive = s.get<ProfilingArchive>("archive");
 
   archive.get_field(name).set_part_data (part,data);
 }
 
 void cldera_set_field_c (
     const char*& name,
-    const cldera::Real*& data)
+    const Real*& data)
 {
-  auto& s = cldera::ProfilingSession::instance(true);
-  auto& archive = s.get<cldera::ProfilingArchive>("archive");
+  auto& s = ProfilingSession::instance();
+
+  // If input file was not provided, cldera does nothing
+  if (not s.inited()) { return; }
+
+  auto& archive = s.get<ProfilingArchive>("archive");
 
   archive.get_field(name).set_data (data);
 }
@@ -165,59 +180,91 @@ void cldera_set_field_c (
 void cldera_copy_field_partition_c (
     const char*& name,
     const int part,
-    const cldera::Real*& data)
+    const Real*& data)
 {
-  auto& s = cldera::ProfilingSession::instance(true);
-  auto& archive = s.get<cldera::ProfilingArchive>("archive");
+  auto& s = ProfilingSession::instance();
+
+  // If input file was not provided, cldera does nothing
+  if (not s.inited()) { return; }
+
+  auto& archive = s.get<ProfilingArchive>("archive");
 
   archive.get_field(name).copy_part_data (part,data);
 }
 
 void cldera_copy_field_c (
     const char*& name,
-    const cldera::Real*& data)
+    const Real*& data)
 {
-  auto& s = cldera::ProfilingSession::instance(true);
-  auto& archive = s.get<cldera::ProfilingArchive>("archive");
+  auto& s = ProfilingSession::instance();
+
+  // If input file was not provided, cldera does nothing
+  if (not s.inited()) { return; }
+
+  auto& archive = s.get<ProfilingArchive>("archive");
 
   archive.get_field(name).copy_data (data);
 }
 
 void cldera_commit_field_c (const char*& name)
 {
-  auto& s = cldera::ProfilingSession::instance(true);
-  auto& archive = s.get<cldera::ProfilingArchive>("archive");
+  auto& s = ProfilingSession::instance();
+
+  // If input file was not provided, cldera does nothing
+  if (not s.inited()) { return; }
+
+  auto& archive = s.get<ProfilingArchive>("archive");
 
   archive.get_field(name).commit();
 }
 
 void cldera_commit_all_fields_c ()
 {
-  auto& s = cldera::ProfilingSession::instance(true);
-  auto& archive = s.create_or_get<cldera::ProfilingArchive>("archive");
+  auto& s = ProfilingSession::instance();
+
+  // If input file was not provided, cldera does nothing
+  if (not s.inited()) { return; }
+
+  auto& archive = s.get<ProfilingArchive>("archive");
 
   archive.commit_all_fields();
 }
 
 void cldera_compute_stats_c (const int ymd, const int tod)
 {
-  auto& s = cldera::ProfilingSession::instance(true);
-  const auto& comm = s.get_comm();
+  auto& s = ProfilingSession::instance();
 
-  using requests_t = std::map<std::string,std::vector<cldera::StatType>>;
+  // If input file was not provided, cldera does nothing
+  if (not s.inited()) { return; }
+
+  const auto& comm = s.get_comm();
+  if (comm.am_i_root()) {
+    printf(" [CLDERA] Computing stats ...\n");
+  }
+
+  using stat_ptr_t = std::shared_ptr<FieldStat>;
+  using requests_t = std::map<std::string,std::vector<stat_ptr_t>>;
   auto& requests = s.get<requests_t>("requests");
 
-  auto& archive = s.get<cldera::ProfilingArchive>("archive");
+  auto& archive = s.get<ProfilingArchive>("archive");
 
   for (const auto& it : requests) {
     const auto& fname = it.first;
     const auto& stats = it.second;
     const auto& f = archive.get_field(fname);
+
     for (auto stat : stats) {
-      auto& history = archive.get_stat_history(fname,stat);
-      cldera::compute_stat({ymd,tod},f,stat,history,comm);
+      archive.append_stat(fname,stat->name(),stat->compute(f));
     }
   }
+
+  archive.update_time(TimeStamp{ymd,tod});
+
+  if (comm.am_i_root()) {
+    printf(" [CLDERA] Computing stats ... done!\n");
+  }
 }
+
+} // namespace cldera
 
 } // extern "C"

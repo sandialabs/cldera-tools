@@ -8,11 +8,13 @@
 #########################################
 %YAML 1.0
 ---
-Stats Output File: cldera_stats.yaml
+Profiling Output:
+  Filename: cldera_stats.nc
+  Flush Frequency: 10
 Fields To Track: [SO2, H2SO4]
 
 SO2:
-  Compute Stats: [Max]
+  Compute Stats: [global_max]
 H2SO4:
-  Compute Stats: [Min]
+  Compute Stats: [global_min]
 ...

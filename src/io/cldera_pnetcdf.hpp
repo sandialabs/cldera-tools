@@ -21,6 +21,10 @@ enum class IOMode {
   Invalid
 };
 
+// If you don't know what the string name for T is, just call this
+template<typename T>
+std::string get_io_dtype_name ();
+
 inline std::string e2str (const IOMode m) {
   std::string name;
   switch (m) {
@@ -35,6 +39,7 @@ inline std::string e2str (const IOMode m) {
 template<typename T>
 using strmap_t = std::map<std::string,T>;
 
+extern int UNLIMITED;
 
 // A small struct to hold Netcdf dimensions info
 struct NCDim {
@@ -66,19 +71,10 @@ struct NCVar {
   int                     chunk_len;
 };
 
-// // A small struct to hold a Netcdf attribute info
-// struct NCAtt {
-//   int           varid;
-//   std::string   name;
-//   std::string   dtype;
-//   int           len;
-// };
-
 // A small struct to hold Netcdf file info
 struct NCFile {
   using dim_ptr_t    = std::shared_ptr<NCDim>;
   using var_ptr_t    = std::shared_ptr<NCVar>;
-  // using att_ptr_t    = std::shared_ptr<NCAtt>;
 
   int         ncid;
   std::string name;
@@ -86,8 +82,8 @@ struct NCFile {
 
   strmap_t<dim_ptr_t>  dims;
   strmap_t<var_ptr_t>  vars;
-  // strmap_t<strmap_t<att_ptr_t>>  atts; // atts[var_name][att_name] = att
 
+  bool enddef = false;
   std::map<int,std::string> dim_id2name;
 
   ekat::Comm    comm;
@@ -108,12 +104,21 @@ void add_var (      NCFile& file,
                     std::vector<std::string> dims,
               const bool time_dep);
 
+void add_time (      NCFile& file,
+               const std::string& dtype);
+
 void add_decomp (      NCFile& file,
                  const std::string& dim_name,
                  const std::vector<int>& entries);
 
-void enddef (const NCFile& file);
-void redef  (const NCFile& file);
+void enddef (NCFile& file);
+void redef  (NCFile& file);
+
+template<typename T>
+void update_time (      NCFile& file,
+                  const T& time) {
+  write_var (file,"time",&time);
+}
 
 // --- Variable read/write operations
 template<typename T>

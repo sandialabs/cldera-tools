@@ -20,7 +20,7 @@ extern "C" {
  */
 
 // Initialize/finalize the cldera profiling session
-void cldera_init_c (const MPI_Fint fcomm);
+void cldera_init_c (const MPI_Fint fcomm, const int ymd, const int tod);
 void cldera_clean_up_c ();
 
 // Set a field ptr/metadata in the profiling archive

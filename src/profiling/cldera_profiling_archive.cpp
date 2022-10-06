@@ -1,21 +1,78 @@
 #include "cldera_profiling_archive.hpp"
-#include "stats/cldera_stats_utils.hpp"
+#include "profiling/stats/cldera_field_stat_factory.hpp"
 
 #include <ekat/io/ekat_yaml.hpp>
 #include <ekat/ekat_parameter_list.hpp>
+#include <ekat/util/ekat_string_utils.hpp>
 #include <ekat/ekat_assert.hpp>
 
 namespace cldera {
 
-ProfilingArchive::~ProfilingArchive()
+ProfilingArchive::
+ProfilingArchive(const ekat::Comm& comm,
+                 const TimeStamp& start_date,
+                 const ekat::ParameterList& params)
+ : m_comm (comm)
+ , m_start_date (start_date)
 {
-  clean_up();
+  create_output_file(params);
+}
+
+ProfilingArchive::
+~ProfilingArchive()
+{
+  // If there's any data left to flush, do it.
+  flush_to_file ();
+
+  if (m_output_file) {
+    io::pnetcdf::close_file(*m_output_file);
+  }
 }
 
 void ProfilingArchive::
-clean_up () {
-  m_fields.clear();
-  m_field_stats.clear();
+create_output_file (const ekat::ParameterList& params)
+{
+  const auto& file_name = params.get<std::string>("Filename");
+  m_output_file = open_file (file_name, m_comm, io::pnetcdf::IOMode::Write);
+  if (params.isParameter("Flush Frequency")) {
+    m_flush_freq = params.get<int>("Flush Frequency");
+  } else {
+    m_flush_freq = 10;
+  }
+}
+
+void ProfilingArchive::
+setup_output_file ()
+{
+  if (m_comm.am_i_root()) {
+    printf(" [CLDERA] setting up output file ...");
+  }
+
+  // Add time dimension
+  io::pnetcdf::add_time (*m_output_file,"double");
+
+  io::pnetcdf::set_att(*m_output_file,"start_date","NC_GLOBAL",m_start_date.ymd());
+  io::pnetcdf::set_att(*m_output_file,"start_time","NC_GLOBAL",m_start_date.tod());
+
+  for (const auto& it1 : m_fields_stats.front()) {
+    const auto& fname = it1.first;
+    const auto& f = get_field(fname);
+    for (const auto& it2 : it1.second) {
+      const auto& sname = it2.first;
+      const auto& stat  = it2.second;
+
+      add_var (*m_output_file,
+               stat.name(),
+               io::pnetcdf::get_io_dtype_name<Real>(),
+               stat.layout().names(),
+               true);
+    }
+  }
+  io::pnetcdf::enddef (*m_output_file);
+
+  if (m_comm.am_i_root()) {
+    printf("done!\n");
+  }
 }
 
 void ProfilingArchive::
@@ -48,45 +105,83 @@ get_field (const std::string& name)
   return m_fields.at(name);
 }
 
-History&
-ProfilingArchive::
-get_stat_history (const std::string& name, const StatType stat)
+void ProfilingArchive::
+append_stat (const std::string& fname, const std::string& stat_name,
+             const Field& stat)
 {
-  EKAT_REQUIRE_MSG (has_field(name),
-      "[ProfilingArchive::get_field] Error! Field '" + name + "' not registered.\n");
+  EKAT_REQUIRE_MSG (has_field(fname),
+      "[ProfilingArchive::get_field] Error! Field '" + fname + "' not found.\n"
+      "  List of current fields: " + ekat::join(m_fields_names,", "));
 
-  return m_field_stats[name][stat];
+  if (m_fields_stats.size()==0) {
+    EKAT_REQUIRE_MSG (m_time_stamps.size()==0,
+        "Error! You had time stamps stored, but not stats.\n"
+        "       You should have already gotten an error.\n"
+        "       Please, contact developers.\n");
+    m_fields_stats.emplace_back();
+  }
+  m_fields_stats.back()[fname][stat_name] = stat;
 }
 
-void ProfilingArchive::dump_stats_to_yaml (const std::string& file_name) const
+void ProfilingArchive::update_time (const TimeStamp& ts) {
+  EKAT_REQUIRE_MSG (m_fields_stats.size()==(m_time_stamps.size()+1),
+      "Error! It looks like you haven't stored any stat this time stamp.\n");
+  m_time_stamps.push_back(ts);
+
+  if (static_cast<int>(m_time_stamps.size())>m_flush_freq) {
+    flush_to_file();
+  }
+}
+
+void ProfilingArchive::flush_to_file ()
 {
-  ekat::ParameterList stats("Statistics");
+  if (m_output_file!=nullptr) {
 
-  // Loop over fields
-  for (const auto& it1 : m_field_stats) {
-    const auto& fname = it1.first;
+    if (m_comm.am_i_root()) {
+      printf(" [CLDERA] Flushing field stats to file ...\n");
+    }
 
-    // Loop over all stats for this field
-    for (const auto& it2 : it1.second) {
-      auto stat = it2.first;
-      const auto& hist = it2.second;
+    const int num_steps = m_time_stamps.size();
+    if (num_steps == 0) {
+      return;
+    }
 
-      // If hist is empty, skip it
-      if (hist.size()>0) {
-        auto& stats_of_f = stats.sublist(fname);
-        auto& this_stat = stats_of_f.sublist(e2str(stat));
-        this_stat.set("Values",hist.values());
-        auto& times = this_stat.get<std::vector<std::string>>("Timestamps",{});
+    if (not m_output_file->enddef) {
+      // We have not setup the output file yet
+      setup_output_file();
+    }
 
-        // Write timestamps as YYYYMMDD.TOD
-        for (const auto& t : hist.times()) {
-          times.push_back(std::to_string(t.ymd) + "." + std::to_string(t.tod));
+    // Loop over number of time records
+    auto ts_it = m_time_stamps.begin();
+    auto stats_it = m_fields_stats.begin();
+    for (int i=0; i<num_steps; ++i) {
+      const auto& ts = *ts_it;
+      const auto& stats = *stats_it;
+
+      for (const auto& it1 : stats) {
+        const auto& fname = it1.first;
+        for (const auto& it2: it1.second) {
+          const auto& sname = it2.first;
+          const auto& stat  = it2.second;
+
+          const auto var_name = fname + "_" + sname;
+
+          write_var (*m_output_file,var_name,stat.data());
         }
       }
+      io::pnetcdf::update_time(*m_output_file,ts-m_start_date);
+
+      std::advance(ts_it,1);
+      std::advance(stats_it,1);
+    }
+
+    m_time_stamps.clear();
+    m_fields_stats.clear();
+
+    if (m_comm.am_i_root()) {
+      printf(" [CLDERA] Flushing field stats to file ... done!\n");
     }
   }
-
-  ekat::write_yaml_file(file_name,stats);
 }
 
 void ProfilingArchive::commit_all_fields ()
@@ -95,4 +190,5 @@ void ProfilingArchive::commit_all_fields ()
     it.second.commit();
   }
 }
+
 } // namespace cldera

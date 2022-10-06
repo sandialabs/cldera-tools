@@ -16,7 +16,12 @@ if (NOT PNETCDF_FOUND)
 endif()
 
 add_library (cldera-pnetcdf
-  cldera_pnetcdf.cpp)
+  cldera_pnetcdf.cpp
+)
+
+set (CLDERA_PROFILING_HEADERS
+  cldera_pnetcdf.hpp
+)
 
 target_link_libraries (cldera-pnetcdf PUBLIC ekat)
 target_include_directories (cldera-pnetcdf
@@ -28,3 +33,11 @@ target_include_directories (cldera-pnetcdf
 # Pnetcdf is a private implementation detail, never exposed via headers.
 target_link_libraries (cldera-pnetcdf PRIVATE ${PNETCDF_LIBRARIES})
 target_include_directories (cldera-pnetcdf PRIVATE ${PNETCDF_INCLUDE_DIR})
+set_target_properties (cldera-pnetcdf PROPERTIES
+  PUBLIC_HEADER "${CLDERA_PNETCDF_HEADERS}")
+
+install (TARGETS cldera-pnetcdf
+  EXPORT        ClderaTargets
+  LIBRARY       DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE       DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})

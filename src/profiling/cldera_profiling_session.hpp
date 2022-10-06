@@ -26,10 +26,8 @@ namespace cldera {
 
 class ProfilingSession {
 public:
-  static ProfilingSession& instance (const bool must_be_already_inited = false) {
+  static ProfilingSession& instance () {
     static ProfilingSession s;
-    EKAT_REQUIRE_MSG (s.inited() || not must_be_already_inited,
-        "[ProfilingSession::instance] Error! Instance was not yet inited.\n");
 
     return s;
   };
@@ -58,9 +56,7 @@ public:
 
   void remove (const std::string& name);
 
-  bool inited () const {
-    return m_inited;
-  }
+  bool inited () const { return m_inited; }
 private:
   ProfilingSession () = default;
 

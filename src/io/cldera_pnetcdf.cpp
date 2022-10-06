@@ -3,7 +3,7 @@
 
 #include <ekat/ekat_assert.hpp>
 #include "ekat/std_meta/ekat_std_utils.hpp"
-#include "ekat/ekat_assert.hpp"
+#include "ekat/util/ekat_string_utils.hpp"
 
 #include <pnetcdf.h>
 
@@ -11,9 +11,9 @@ namespace cldera {
 namespace io {
 namespace pnetcdf {
 
+int UNLIMITED = NC_UNLIMITED;
+
 // If you add support for other types, add specializations of these functions
-template<typename T>
-std::string get_io_dtype_name ();
 template<typename T>
 nc_type get_nc_type ();
 template<typename T>
@@ -67,23 +67,20 @@ int get_nc_type (const std::string& dtype) {
 
 // Helper fcn, for debug/print purposes
 std::string dims_str (const std::vector<std::shared_ptr<const NCDim>>& dims) {
-  std::string s = "(";
+  std::vector<std::string> names;
   for (const auto& d : dims) {
-    s += d->name;
-    s += ",";
+    names.push_back(d->name);
   }
-  s.back() = ')';
-  return s;
+
+  return ekat::join(names,",");
 }
 
 std::string dims_str (const std::map<std::string,std::shared_ptr<NCDim>>& dims) {
-  std::string s = "(";
+  std::vector<std::string> names;
   for (const auto& d : dims) {
-    s += d.second->name;
-    s += ",";
+    names.push_back(d.second->name);
   }
-  s.back() = ')';
-  return s;
+  return ekat::join(names,",");
 }
 
 // ==================== QUERY OPS =================== //
@@ -123,7 +120,7 @@ void compute_var_chunk_len (NCVar& var)
           "Error! Decomposition allowed only on the first non-time dimension.\n"
           "  - var name  : " + var.name + "\n"
           "  - dim name  : " + dim->name + "\n"
-          "  - var dims  : " + dims_str(var.dims) + "\n");
+          "  - var dims  : (" + dims_str(var.dims) + ")\n");
     } else {
       var.chunk_len *= dim->len;
     }
@@ -260,7 +257,7 @@ void close_file (NCFile& file)
   file.dim_id2name.clear();
 }
 
-void enddef (const NCFile& file)
+void enddef (NCFile& file)
 {
   int ret = ncmpi_enddef(file.ncid);
 
@@ -268,8 +265,10 @@ void enddef (const NCFile& file)
       "Error! Could not end define mode on NC file.\n"
       "   - file name: " + file.name + "\n"
       "   - err code : " + std::to_string(ret) + "\n");
+
+  file.enddef = true;
 }
-void redef   (const NCFile& file)
+void redef (NCFile& file)
 {
   int ret = ncmpi_redef(file.ncid);
 
@@ -277,14 +276,21 @@ void redef   (const NCFile& file)
       "Error! Could not re-enter define mode on NC file.\n"
       "   - file name: " + file.name + "\n"
       "   - err code : " + std::to_string(ret) + "\n");
+
+  file.enddef = false;
 }
 
 void add_dim (NCFile& file, const std::string& dname, const int len)
 {
-  EKAT_REQUIRE_MSG (not has_dim(file,dname),
-      "Error! Could not add dimension to NC file. Dimension already added.\n"
-      "   - file name: " + file.name + "\n"
-      "   - dim name : " + dname + "\n");
+  if (has_dim(file,dname)) {
+    EKAT_REQUIRE_MSG (file.dims.at(dname)->len==len,
+        "Error! Could not add dimension to NC file. Dimension already added with different length.\n"
+        "   - file name: " + file.name + "\n"
+        "   - dim name : " + dname + "\n"
+        "   - dim len  : " + std::to_string(len) + "\n"
+        "   - input len: " + std::to_string(file.dims.at(dname)->len) + "\n");
+    return;
+  }
 
   auto dim = std::make_shared<NCDim>();
   dim->name = dname;
@@ -313,14 +319,20 @@ void add_decomp (      NCFile& file,
   EKAT_REQUIRE_MSG (dim_it!=file.dims.end(),
       "Error! Invalid decomp dimension.\n"
       "   - file name  : " + file.name + "\n"
-      "   - file dims  : " + dims_str(file.dims) + "\n"
+      "   - file dims  : (" + dims_str(file.dims) + ")\n"
       "   - decomp dim : " + dim_name + "\n");
   auto dim = dim_it->second;
 
-  EKAT_REQUIRE_MSG (not dim->decomp,
-      "Error! Decomposition was already added for this dimension.\n"
+  EKAT_REQUIRE_MSG (not dim->decomp or dim->entries==entries,
+      "Error! Decomposition was already added for this dimension, with different entries.\n"
       "   - file name : " + file.name + "\n"
-      "   - dim name  : " + dim_name + "\n");
+      "   - dim name  : " + dim_name + "\n"
+      "   - decomp entries: [" + ekat::join(dim->entries," ") + "]\n"
+      "   - input entries: [" + ekat::join(entries," ") + "]\n");
+
+  if (dim->decomp) {
+    return;
+  }
 
   int count = entries.size();
   int gcount;
@@ -361,16 +373,34 @@ void add_var (      NCFile& file,
                     std::vector<std::string> dims,
               const bool time_dep)
 {
-  EKAT_REQUIRE_MSG (not has_var(file,vname),
-      "Error! Could not add variable to NC file. Variable already added.\n"
-      "   - file name: " + file.name + "\n"
-      "   - var name : " + vname + "\n"
-      "   - var dims : " + dims_str(file.vars.at(vname)->dims) + "\n");
+  if (has_var(file,vname)) {
+    // Check that they're the same, then early return
+    const auto& var = *file.vars.at(vname);
+    EKAT_REQUIRE_MSG (dtype==var.dtype,
+        "Error! Could not add variable to NC file. Variable already added with a different data type.\n"
+        "   - file name: " + file.name + "\n"
+        "   - var name : " + vname + "\n"
+        "   - var dtype : " + var.dtype + "\n"
+        "   - input dtype : " + dtype + "\n");
+    EKAT_REQUIRE_MSG ( ekat::join(dims,",") == dims_str(var.dims),
+        "Error! Could not add variable to NC file. Variable already added with different dimensions.\n"
+        "   - file name: " + file.name + "\n"
+        "   - var name : " + vname + "\n"
+        "   - var dims : (" + dims_str(file.vars.at(vname)->dims) + ")\n"
+        "   - input dims : (" + ekat::join(dims,",") + ")\n");
+
+    return;
+  }
 
   // Add time dimension if needed
-  if (time_dep && dims[0]!="time") {
+  if (time_dep && (dims.size()==0 || dims[0]!="time")) {
     dims.insert(dims.begin(),"time");
   }
+
+  EKAT_REQUIRE_MSG (dims.size()>0,
+      "Error! Cannot add a non-time dependent variable that has no dimensions.\n"
+        "   - file name : " + file.name + "\n"
+        "   - var name  : " + vname + "\n");
 
   auto var = std::make_shared<NCVar>();
   var->name = vname;
@@ -380,11 +410,12 @@ void add_var (      NCFile& file,
 
   for (const auto& d : dims) {
     EKAT_REQUIRE_MSG (has_dim(file,d),
-        "Error! Could not add variable to NC file. Variable dimension not in file.\n"
+        "Error! Could not add variable to NC file. Dimension '" + d + "' not in file.\n"
         "   - file name : " + file.name + "\n"
         "   - var name  : " + vname + "\n"
-        "   - var dims  : " + dims_str(var->dims) + "\n"
-        "   - file dims : " + dims_str(file.dims) + "\n");
+        "   - var_dims  : (" + ekat::join(dims,",") + ")\n"
+        "   - time dep  : " + (time_dep ? "yes" : "no") + "\n"
+        "   - file dims : (" + dims_str(file.dims) + ")\n");
     dims_ids.push_back(file.dims.at(d)->ncid);
 
     var->dims.push_back(file.dims.at(d));
@@ -412,6 +443,13 @@ void add_var (      NCFile& file,
       "   - err code : " + std::to_string(ret) + "\n");
 
   file.vars[vname] = var;
+}
+
+void add_time (      NCFile& file,
+               const std::string& dtype)
+{
+  add_dim(file,"time",UNLIMITED);
+  add_var(file,"time",dtype,{"time"},true);
 }
 
 // ================== READ OPS ================ //
@@ -537,27 +575,32 @@ void write_var (const NCFile& file,const std::string& vname,
   std::vector<MPI_Offset> start(var->dims.size()), count(var->dims.size());
   const bool has_time = has_dim(*var,"time");
   int first_non_time_idx = has_time ? 1 : 0;
+  int rank = var->dims.size();
   if (has_time) {
+    --rank;
     start[0] = var->nrecords;
     count[0] = 1;
   }
-  for (size_t idim=first_non_time_idx; idim<var->dims.size(); ++idim) {
-    start[idim] = 0;
-    count[idim] = var->dims[idim]->len;
+  if (rank>0) {
+    for (size_t idim=first_non_time_idx; idim<var->dims.size(); ++idim) {
+      start[idim] = 0;
+      count[idim] = var->dims[idim]->len;
+    }
   }
 
   int ret;
 
+  ret = ncmpi_begin_indep_data(file.ncid);
+  EKAT_REQUIRE_MSG (ret==NC_NOERR,
+      "Error! Could not begin independent data mode for write.\n"
+      "  - file name : " + file.name + "\n"
+      "  - var name  : " + var->name + "\n"
+      "  - err code : " + std::to_string(ret) + "\n");
+
   auto mpi_dtype = get_io_mpi_dtype<T>();
   // If partitioned, write one decomposed-dim entry at a time
-  auto first_non_time_dim = var->dims[first_non_time_idx];
-  if (first_non_time_dim->decomp) {
-    ret = ncmpi_begin_indep_data(file.ncid);
-    EKAT_REQUIRE_MSG (ret==NC_NOERR,
-        "Error! Could not begin independent data mode for write.\n"
-        "  - file name : " + file.name + "\n"
-        "  - var name  : " + var->name + "\n"
-        "  - err code : " + std::to_string(ret) + "\n");
+  if (rank>0 && var->dims[first_non_time_idx]->decomp) {
+    auto first_non_time_dim = var->dims[first_non_time_idx];
     // Correct start/count for partitioned dimension
     count[first_non_time_idx] = 1;
     for (size_t i=0; i<first_non_time_dim->entries.size(); ++i) {
@@ -578,16 +621,15 @@ void write_var (const NCFile& file,const std::string& vname,
           "  - err code : " + std::to_string(ret) + "\n");
 #endif
     }
-    ret = ncmpi_end_indep_data(file.ncid);
-    EKAT_REQUIRE_MSG (ret==NC_NOERR,
-        "Error! Could not end independent data mode for write.\n"
-        "  - file name : " + file.name + "\n"
-        "  - var name  : " + var->name + "\n"
-        "  - err code : " + std::to_string(ret) + "\n");
   } else {
-    ret = ncmpi_put_vara_all(file.ncid,var->ncid,
-                             start.data(),count.data(),
-                             data,var->chunk_len,mpi_dtype);
+    // No partitioned data: simply write to file from root rank.
+    // WARNING: if the data is not partitioned, we assume that all
+    //          ranks store the same data, and therefore we can
+    //          pick any rank to do the write.
+    if (file.comm.am_i_root()) {
+      ret = ncmpi_put_vara(file.ncid,var->ncid,
+                           start.data(),count.data(),
+                           data,var->chunk_len,mpi_dtype);
 #ifdef CLDERA_DEBUG
       EKAT_REQUIRE_MSG (ret==NC_NOERR,
           "Error! Could not write non-decomposed variable.\n"
@@ -595,7 +637,15 @@ void write_var (const NCFile& file,const std::string& vname,
           "  - var name  : " + var->name + "\n"
           "  - err code : " + std::to_string(ret) + "\n");
 #endif
+    }
   }
+
+  ret = ncmpi_end_indep_data(file.ncid);
+  EKAT_REQUIRE_MSG (ret==NC_NOERR,
+      "Error! Could not end independent data mode for write.\n"
+      "  - file name : " + file.name + "\n"
+      "  - var name  : " + var->name + "\n"
+      "  - err code : " + std::to_string(ret) + "\n");
 
   // Update number of records
   ++var->nrecords;

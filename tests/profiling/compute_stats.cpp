@@ -1,4 +1,4 @@
-#include "profiling/stats/cldera_compute_stat.hpp"
+#include "profiling/stats/cldera_field_stat_factory.hpp"
 
 #include <ekat/mpi/ekat_comm.hpp>
 
@@ -11,11 +11,6 @@ TEST_CASE ("stats") {
 
   ekat::Comm comm(MPI_COMM_WORLD);
 
-  constexpr auto Max = StatType::Max;
-  constexpr auto Min = StatType::Min;
-  constexpr auto Avg = StatType::Avg;
-  constexpr auto Sum = StatType::Sum;
-
   constexpr int dim0 = 2;
   constexpr int dim1 = 3;
 
@@ -27,23 +22,24 @@ TEST_CASE ("stats") {
 
   Field f("f",{dim0,dim1},{"dim0","dim1"});
   f.set_data(raw_data);
-  std::map<StatType,History> hist;
 
   // Compute all supported stats
-  TimeStamp t {20220419,43200};
-  auto stats = {Max,Min,Avg,Sum};
-  for (auto stat : stats) {
-    compute_stat(t,f,stat,hist[stat],comm);
+  auto stats_names = {"global_max", "global_min", "global_sum", "global_avg"};
+  std::map<std::string,Field> stat_fields;
+  std::map<std::string,Field> expected;
+  for (auto sname : stats_names) {
+    auto stat = create_stat(sname,comm);
+    stat_fields.emplace(sname,stat->compute(f));
+
+    expected.emplace(sname,Field(sname,stat_fields.at(sname).layout(),DataAccess::Copy));
   }
 
-  std::map<StatType,std::vector<Real>> expected;
-  expected[Max] = {5};
-  expected[Min] = {0};
-  expected[Sum] = {15};
-  expected[Avg] = {15.0/6};
+  expected["global_max"].data_nonconst()[0] = 5;
+  expected["global_min"].data_nonconst()[0] = 0;
+  expected["global_sum"].data_nonconst()[0] = 15;
+  expected["global_avg"].data_nonconst()[0] = 15.0/6;
 
-  for (auto stat : stats) {
-    REQUIRE (hist[stat].times()==std::vector<TimeStamp>(1,t));
-    REQUIRE (hist[stat].values()==expected[stat]);
+  for (auto sname : stats_names) {
+    REQUIRE (expected.at(sname).data()[0]==stat_fields.at(sname).data()[0]);
   }
 }

@@ -1,22 +1,30 @@
 #include "cldera_bounds_field_test.hpp"
 #include "cldera_field.hpp"
-#include "profiling/stats/cldera_compute_stat.hpp"
+#include "profiling/stats/cldera_field_stat_factory.hpp"
 
 namespace cldera {
 
-BoundsFieldTest::BoundsFieldTest(const std::string& name, const std::shared_ptr<const Field> field,
-    const Bounds& bounds) : FieldTest(name), m_field(field), m_bounds(bounds)
+BoundsFieldTest::
+BoundsFieldTest(const std::string& name,
+                const std::shared_ptr<const Field>& field,
+                const Bounds& bounds,
+                const ekat::Comm& comm)
+ : FieldTest(name)
+ , m_field(field)
+ , m_bounds(bounds)
 {
+  m_max_stat = create_stat("global_max",comm);
+  m_min_stat = create_stat("global_min",comm);
 }
 
-bool BoundsFieldTest::test(const ekat::Comm& comm) const
+bool BoundsFieldTest::test() const
 {
-  const Real field_min = compute_min(*m_field, comm);
-  if (field_min < m_bounds.min)
+  const auto field_min = m_min_stat->compute(*m_field);
+  if (field_min.data()[0] < m_bounds.min)
     return false;
 
-  const Real field_max = compute_max(*m_field, comm);
-  if (field_max > m_bounds.max)
+  const auto field_max = m_max_stat->compute(*m_field);
+  if (field_max.data()[0] > m_bounds.max)
     return false;
 
   return true;

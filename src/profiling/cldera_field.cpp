@@ -13,7 +13,16 @@ Field(const std::string& n, const FieldLayout& fl, const DataAccess cv)
  : Field(n,fl,1,0,cv)
 {
   // We can go ahead and set sizes
-  set_part_size(m_part_dim,m_layout.extent(m_part_dim));
+  if (m_layout.rank()>0) {
+    set_part_size(m_part_dim,m_layout.extent(m_part_dim));
+  } else {
+    set_part_size(m_part_dim,1);
+  }
+
+  if (cv==DataAccess::Copy) {
+    // We might as well...
+    commit ();
+  }
 }
 
 Field::
@@ -50,12 +59,12 @@ Field (const std::string& n, const FieldLayout& fl,
  , m_layout(fl)
  , m_data_access(cv)
 {
-  EKAT_REQUIRE_MSG (part_dim>=0 && part_dim<m_layout.rank(),
+  EKAT_REQUIRE_MSG (part_dim>=0 && part_dim<(m_layout.rank()==0 ? 1 : m_layout.rank()),
       "Error! Invalid partition dimension.\n"
       "  - Field name: " + m_name + "\n"
       "  - Field rank: " + std::to_string(m_layout.rank()) + "\n"
       "  - Part dim  : " + std::to_string(part_dim) + "\n");
-  EKAT_REQUIRE_MSG (nparts>=1 && nparts<=m_layout.extent(part_dim),
+  EKAT_REQUIRE_MSG (nparts>=1 && nparts<=(m_layout.rank()==0 ? 1 : m_layout.extent(part_dim)),
       "Error! Invalid number of parts.\n"
       "  - Field name : " + m_name + "\n"
       "  - Num parts  : " + std::to_string(nparts) + "\n"
@@ -88,16 +97,20 @@ part_layout (const int ipart) const {
       "    - Field name: " + m_name + "\n"
       "    - Part index: " + std::to_string(ipart) + "\n");
 
-  std::vector<int> d = m_layout.dims();
-  d[m_part_dim] = m_part_sizes[ipart];
-  return FieldLayout{d,m_layout.names()};
+  if (m_layout.rank()==0) {
+    return FieldLayout();
+  } else {
+    std::vector<int> d = m_layout.dims();
+    d[m_part_dim] = m_part_sizes[ipart];
+    return FieldLayout{d,m_layout.names()};
+  }
 }
 
 void Field::
 set_part_size (const int ipart, const int part_size)
 {
   check_part_idx(ipart);
-  EKAT_REQUIRE_MSG (part_size>=0 && part_size<=m_layout.extent(m_part_dim),
+  EKAT_REQUIRE_MSG (part_size>=0 && part_size<=(m_layout.rank()==0 ? 1 : m_layout.extent(m_part_dim)),
       "[Field::set_part_size]\n"
       "  Error! Invalid part size.\n"
       "    - Field name: " + m_name + "\n"
@@ -186,7 +199,7 @@ void Field::commit () {
     }
     part_sizes_sum += m_part_sizes[ipart];
   }
-  EKAT_REQUIRE_MSG (part_sizes_sum==m_layout.extent(m_part_dim),
+  EKAT_REQUIRE_MSG (part_sizes_sum==(m_layout.rank()==0 ? 1 : m_layout.extent(m_part_dim)),
       "[Field::commit]\n"
       "  Error! Partition sizes do not add up to layout dimension.\n"
       "    - Field name     : " + m_name + "\n"

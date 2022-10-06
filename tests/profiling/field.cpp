@@ -42,12 +42,12 @@ TEST_CASE ("field") {
   baz.set_part_data(1,baz_data[1].data());
 
   // Commit
-  REQUIRE_THROWS (baz.get_part_data(0)); // Field not yet committed
+  REQUIRE_THROWS (baz.part_data(0)); // Field not yet committed
   bar.commit();
   baz.commit();
   foobar.commit();
   REQUIRE_THROWS (bar.set_data(foo_data.data())); // Can't reset data pointer
-  REQUIRE_THROWS (baz.get_data()); // Can't call get_data on partitioned field
+  REQUIRE_THROWS (baz.data()); // Can't call data on partitioned field
 
   // Copy data
   REQUIRE_THROWS (foo.copy_data(foo_data.data())); // Can't copy in a View field.
@@ -64,16 +64,25 @@ TEST_CASE ("field") {
 
   // Check data
   for (int i=0; i<foo.layout().size(); ++i) {
-    REQUIRE (foo.get_data()[i]==i);
-    REQUIRE (foo.get_data()[i]==foobar.get_data()[i]);
+    REQUIRE (foo.data()[i]==i);
+    REQUIRE (foo.data()[i]==foobar.data()[i]);
   }
   for (int i=0; i<bar.layout().size(); ++i) {
-    REQUIRE (bar.get_data()[i]==i);
+    REQUIRE (bar.data()[i]==i);
   }
   for (int p=0,offset=0; p<baz.nparts(); ++p) {
     for (int i=0; i<baz.part_layout(p).size(); ++i) {
-      REQUIRE (baz.get_part_data(p)[i]==(i+offset));
+      REQUIRE (baz.part_data(p)[i]==(i+offset));
     }
     offset += baz.part_layout(p).size();
   }
+
+  // Check degenerate case of a scalar
+  Field scalar("s",{},{},DataAccess::Copy);
+
+  REQUIRE(scalar.layout().rank()==0);
+  REQUIRE(scalar.layout().size()==1);
+  REQUIRE(scalar.part_layout(0).rank()==0);
+  REQUIRE(scalar.part_layout(0).size()==1);
+
 }

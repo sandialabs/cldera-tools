@@ -22,10 +22,12 @@ class FieldTestFactory {
 public:
   FieldTestFactory(const std::string& filename, 
                    const std::map<std::string, std::shared_ptr<const Field> > fields, 
+                   const ekat::Comm& comm,
                    const bool verbose = false)
   : m_filename(filename),
     m_verbose(verbose),
-    m_fields(fields)
+    m_fields(fields),
+    m_comm(comm)
   {}
 
   // Build the graph based on the "Test" sublist of the input file
@@ -40,6 +42,8 @@ private:
 
   // The corresponding fields to run tests on
   std::map<std::string, std::shared_ptr<const Field> > m_fields;
+
+  const ekat::Comm m_comm;
 };
 
 } // namespace cldera

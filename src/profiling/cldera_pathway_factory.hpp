@@ -26,10 +26,11 @@ public:
     m_verbose(false)
   {}
 
-  PathwayFactory(const std::string& filename, const std::map<std::string, std::shared_ptr<const Field> > fields, const bool verbose = false)
+  PathwayFactory(const std::string& filename, const std::map<std::string, std::shared_ptr<const Field> > fields, const ekat::Comm& comm, const bool verbose = false)
   : m_filename(filename),
     m_fields(fields),
-    m_verbose(verbose)
+    m_verbose(verbose),
+    m_comm(comm)
   {}
 
   // Build the pathway based on the "Pathway" sublist of the input file
@@ -44,6 +45,8 @@ private:
 
   // The fields
   std::map<std::string, std::shared_ptr<const Field> > m_fields;
+
+  const ekat::Comm m_comm;
 };
 
 } // namespace cldera

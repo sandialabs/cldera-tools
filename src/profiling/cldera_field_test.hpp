@@ -25,7 +25,7 @@ public:
   virtual ~FieldTest() = default;
 
   // True if test passes, false if test fails
-  virtual bool test(const ekat::Comm& comm, const TimeStamp& t) = 0;
+  virtual bool test(const TimeStamp& t) = 0;
 
   const std::string& name() const { return m_name; }
 

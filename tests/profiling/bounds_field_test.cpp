@@ -27,11 +27,10 @@ TEST_CASE ("bounds_field_test") {
   const Bounds bounds{min, max};
   const BoundsFieldTest bounds_field_test(bounds_field_test_name, foo, bounds, comm);
   TimeStamp time = {1,1};
-  const ekat::Comm comm(MPI_COMM_WORLD);
 
   // Test BoundsFieldTest
   {
-    BoundsFieldTest bounds_field_test(bounds_field_test_name, foo, bounds);
+    BoundsFieldTest bounds_field_test(bounds_field_test_name, foo, bounds, comm);
     bounds_field_test.set_save_history(true);
     
     // Check name
@@ -39,15 +38,15 @@ TEST_CASE ("bounds_field_test") {
 
     // Check if field is within bounds
     std::iota(foo_data.begin(), foo_data.end(), 1.0);
-    REQUIRE(bounds_field_test.test(comm,time) == true);
+    REQUIRE(bounds_field_test.test(time) == true);
 
     // Check min failure
     foo_data[2] = -1.5;
-    REQUIRE(bounds_field_test.test(comm,time) == false);
+    REQUIRE(bounds_field_test.test(time) == false);
 
     // Check max failure
     foo_data[2] = 7.5;
-    REQUIRE(bounds_field_test.test(comm,time) == false);
+    REQUIRE(bounds_field_test.test(time) == false);
     
     // Check if history has been saved for both failures
     REQUIRE(bounds_field_test.get_test_history().size() == 2);
@@ -60,7 +59,7 @@ TEST_CASE ("bounds_field_test") {
     fields.emplace("foo",foo);
 
     // Create a field test factory
-    FieldTestFactory field_test_factory("cldera_field_test_input.yaml", fields, true);
+    FieldTestFactory field_test_factory("cldera_field_test_input.yaml", fields, comm, true);
     std::map<std::string, std::shared_ptr<FieldTest> > tests = field_test_factory.build_field_tests(std::cout);
     
     // Check that the name used to access the test is the same as its member
@@ -70,20 +69,20 @@ TEST_CASE ("bounds_field_test") {
 
     // Check if field is within bounds
     std::iota(foo_data.begin(), foo_data.end(), 1.0);
-    REQUIRE(tests["foobounds"]->test(comm,time) == true);
-    REQUIRE(tests["foomax"]->test(comm,time) == true);
-    REQUIRE(tests["foomin"]->test(comm,time) == true);
+    REQUIRE(tests["foobounds"]->test(time) == true);
+    REQUIRE(tests["foomax"]->test(time) == true);
+    REQUIRE(tests["foomin"]->test(time) == true);
 
     // Check min failure
     foo_data[2] = -1.5;
-    REQUIRE(tests["foobounds"]->test(comm,time) == false);
-    REQUIRE(tests["foomax"]->test(comm,time) == true);
-    REQUIRE(tests["foomin"]->test(comm,time) == false);
+    REQUIRE(tests["foobounds"]->test(time) == false);
+    REQUIRE(tests["foomax"]->test(time) == true);
+    REQUIRE(tests["foomin"]->test(time) == false);
 
     // Check max failure
     foo_data[2] = 7.5;
-    REQUIRE(tests["foobounds"]->test(comm,time) == false);
-    REQUIRE(tests["foomax"]->test(comm,time) == false);
-    REQUIRE(tests["foomin"]->test(comm,time) == true);
+    REQUIRE(tests["foobounds"]->test(time) == false);
+    REQUIRE(tests["foomax"]->test(time) == false);
+    REQUIRE(tests["foomin"]->test(time) == true);
   }
 }

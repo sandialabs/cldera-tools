@@ -15,7 +15,7 @@ BoundsFieldTest::BoundsFieldTest(const std::string& name,
   m_min_stat = create_stat("global_min",comm);
 }
 
-bool BoundsFieldTest::test(const ekat::Comm& comm, const TimeStamp& t)
+bool BoundsFieldTest::test(const TimeStamp& t)
 {
   const auto field_min = m_min_stat->compute(*m_field);
   if (field_min.data()[0] < m_bounds.min)
@@ -28,6 +28,7 @@ bool BoundsFieldTest::test(const ekat::Comm& comm, const TimeStamp& t)
     return false;
   }
 
+  const auto field_max = m_max_stat->compute(*m_field);
   if (field_max.data()[0] > m_bounds.max)
   {
     if(m_save_history_on_failure)

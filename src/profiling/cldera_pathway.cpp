@@ -61,7 +61,7 @@ bool Pathway::run_pathway_tests(const ekat::Comm& comm, const TimeStamp& time)
       // loop over and run all the tests
       for(auto test : tests)
       {
-        bool result = test->test(comm,{time.ymd,time.tod});
+        bool result = test->test({time.ymd(),time.tod()});
 
         // if it fails mark the result as failure, detect the node, and add children
         if(result == false)
@@ -128,7 +128,7 @@ void Pathway::dump_test_history_to_yaml(const std::string& file_name)
       const std::vector<TimeStamp> times = test_history.times();
       for (unsigned int i=0; i<times.size(); ++i)
       {
-        times_vector.push_back(std::to_string(times[i].ymd)+"."+std::to_string(times[i].tod));
+        times_vector.push_back(std::to_string(times[i].ymd())+"."+std::to_string(times[i].tod()));
       }
     }
   }

@@ -28,7 +28,7 @@ public:
                   const ekat::Comm& comm);
 
   // True if test passes, false if test fails
-  bool test(const ekat::Comm& comm, const TimeStamp& t) override;
+  bool test(const TimeStamp& t) override;
 
 private:
   const Bounds m_bounds;

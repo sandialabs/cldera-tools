@@ -3,7 +3,6 @@
 #include "cldera_profiling_session.hpp"
 #include "cldera_profiling_archive.hpp"
 #include "stats/cldera_field_stat_factory.hpp"
-#include "stats/cldera_compute_stat.hpp"
 #include "cldera_pathway_factory.hpp"
 
 #include <ekat/ekat_parameter_list.hpp>
@@ -282,7 +281,7 @@ void cldera_compute_stats_c (const int ymd, const int tod)
     printf("cldera-tools: ProfilingSession does not have pathway... creating initial pathway...\n");
     // create the pathway then throw it in the ProfilingSession
     std::string filename = "./cldera_profiling_config.yaml";
-    cldera::PathwayFactory pathway_factory(filename, fields, true);
+    cldera::PathwayFactory pathway_factory(filename, fields, comm, true);
     auto& pathway = s.create_or_get<std::shared_ptr<cldera::Pathway>>("pathway",pathway_factory.build_pathway());
     printf("cldera-tools: Running pathway tests after creation...\n");
     pathway->run_pathway_tests(comm, time);

@@ -42,7 +42,7 @@ std::map<std::string, std::shared_ptr<FieldTest> > FieldTestFactory::build_field
       if(m_verbose)
         out << "    Min=" << params[0] << ", Max=" << params[1] << "\n";
       Bounds bounds{params[0],params[1]};
-      BoundsFieldTest bounds_test(name,field,bounds);
+      BoundsFieldTest bounds_test(name,field,bounds,m_comm);
       bounds_test.set_save_history(true);
       std::shared_ptr<BoundsFieldTest> bounds_test_ptr = std::make_shared<BoundsFieldTest>(bounds_test);
       tests[name] = bounds_test_ptr;
@@ -52,7 +52,7 @@ std::map<std::string, std::shared_ptr<FieldTest> > FieldTestFactory::build_field
       std::vector<Real> params = test_params.get<std::vector<Real> >("Params");
       if(m_verbose)
         out << "    Min=" << params[0] << "\n";
-      MinFieldTest min_test(name,field,params[0]);
+      MinFieldTest min_test(name,field,params[0],m_comm);
       min_test.set_save_history(true);
       std::shared_ptr<MinFieldTest> min_test_ptr = std::make_shared<MinFieldTest>(min_test);
       tests[name] = min_test_ptr;
@@ -62,7 +62,7 @@ std::map<std::string, std::shared_ptr<FieldTest> > FieldTestFactory::build_field
       std::vector<Real> params = test_params.get<std::vector<Real> >("Params");
       if(m_verbose)
         out << "    Max=" << params[0] << "\n";
-      MaxFieldTest max_test(name,field,params[0]);
+      MaxFieldTest max_test(name,field,params[0],m_comm);
       max_test.set_save_history(true);
       std::shared_ptr<MaxFieldTest> max_test_ptr = std::make_shared<MaxFieldTest>(max_test);
       tests[name] = max_test_ptr;

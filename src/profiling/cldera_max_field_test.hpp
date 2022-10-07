@@ -1,6 +1,7 @@
 #ifndef CLDERA_MAX_FIELD_TEST_HPP
 #define CLDERA_MAX_FIELD_TEST_HPP
 
+#include "profiling/stats/cldera_field_stat.hpp"
 #include "cldera_field_test.hpp"
 #include "cldera_profiling_types.hpp"
 
@@ -17,13 +18,18 @@ class Field;
 class MaxFieldTest : public FieldTest
 {
 public:
-  MaxFieldTest(const std::string& name, const std::shared_ptr<const Field> field, const Real& max);
+  MaxFieldTest(const std::string& name,
+               const std::shared_ptr<const Field>& field, 
+               const Real& max,
+               const ekat::Comm& comm);
 
   // True if test passes, false if test fails
-  bool test(const ekat::Comm& comm, const TimeStamp& t) override;
+  bool test(const TimeStamp& t) override;
 
 private:
   const Real m_max;
+
+  std::shared_ptr<FieldStat>  m_max_stat;
 };
 
 } // namespace cldera

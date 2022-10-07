@@ -36,7 +36,7 @@ TEST_CASE ("pathway") {
 
     // load the input deck and construct the pathway
     std::string filename = "./cldera_pathway_input.yaml";
-    cldera::PathwayFactory pathway_factory(filename, fields, true);
+    cldera::PathwayFactory pathway_factory(filename, fields, comm, true);
     std::shared_ptr<cldera::Pathway> pathway = pathway_factory.build_pathway(std::cout);
     cldera::TimeStamp time = {1991, 3600};
 
@@ -46,24 +46,24 @@ TEST_CASE ("pathway") {
     REQUIRE(pathway->run_pathway_tests(comm, time));
 
     foo_data[2] = 8.0;
-    time.tod = 7200;
+    time = {1991, 7200};
     REQUIRE(!pathway->run_pathway_tests(comm, time));
 
     foo_data[2] = -1.0;
-    time.tod = 10800;
+    time = {1991, 10800};
     REQUIRE(!pathway->run_pathway_tests(comm, time));
 
     foo_data[2] = 1.0;
     bar_data[2] = 2.0;
-    time.tod = 14400;
+    time = {1991, 14400};
     REQUIRE(!pathway->run_pathway_tests(comm, time));
 
     bar_data[2] = -1.0;
-    time.tod = 18000;
+    time = {1991, 18000};
     REQUIRE(!pathway->run_pathway_tests(comm, time));
 
     bar_data[2] = 1.0;
-    time.tod = 21600;
+    time = {1991, 21600};
     //REQUIRE(pathway->run_pathway_tests(comm, time)); // TODO: is this a bug?
 
     pathway->dump_test_history_to_yaml("test_history.yaml");

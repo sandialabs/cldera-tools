@@ -29,7 +29,7 @@ std::shared_ptr<Pathway> PathwayFactory::build_pathway(std::ostream& out) const
   // 2. Build the field tests
   if(m_verbose)
     out << "PathwayFactory::build_pathway()\n" << "  Creating field tests via FieldTestFactory\n";
-  FieldTestFactory field_test_factory(m_filename, m_fields);
+  FieldTestFactory field_test_factory(m_filename, m_fields, m_comm);
   std::map<std::string, std::shared_ptr<FieldTest> > tests = field_test_factory.build_field_tests();
 
   // 3. Link field tests to DAG vertices (fill vertex_tests using entries in tests)

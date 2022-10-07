@@ -2,6 +2,7 @@
 #define CLDERA_PROFILING_TYPES_HPP
 
 #include "cldera_config.h"
+#include "cldera_time_stamp.hpp"
 #include <ekat/ekat_assert.hpp>
 #include <ekat/kokkos/ekat_kokkos_types.hpp>
 
@@ -26,27 +27,6 @@ enum class StatType {
   Bad
 };
 
-// An std::pair would work too, but ymd/tod convey
-// more meaning than first/second.
-struct TimeStamp {
-  int ymd;
-  int tod;
-};
-
-inline bool operator== (const TimeStamp& lhs, const TimeStamp& rhs) {
-  return lhs.ymd==rhs.ymd && lhs.tod==rhs.tod;
-}
-
-inline std::ostream& operator<< (std::ostream& out, const TimeStamp& t) {
-  out << std::to_string(t.ymd) << "." << std::to_string(t.tod);
-  return out;
-}
-
-// A small struct, containing history for
-// the statistics of a Field
-// NOTE: a std::pair would do too, but times/values are more meaningful
-//       names than first/second. Besides, we can expand the struct,
-//       without having to change downstream code.
 class History {
 public:
   int size () const { return m_times.size(); }

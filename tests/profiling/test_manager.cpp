@@ -24,12 +24,12 @@ TEST_CASE ("test_manager") {
   const std::string field_test_name = "Test bounds of foo";
   const Real min = 0.0, max = 6.0;
   const Bounds bounds{min, max};
-  const auto field_test = std::make_shared<BoundsFieldTest>(field_test_name, foo, bounds,comm);
+  const auto field_test = std::make_shared<BoundsFieldTest>(field_test_name, foo, bounds, comm);
 
   // Initialize another simple field test
   const std::string field_test_name2 = "Test tighter bounds of foo";
   const Bounds bounds2{2.0, 3.0};
-  const auto field_test2 = std::make_shared<BoundsFieldTest>(field_test_name2, foo, bounds2,comm);
+  const auto field_test2 = std::make_shared<BoundsFieldTest>(field_test_name2, foo, bounds2, comm);
 
   // Test add field test to test manager
   REQUIRE_THROWS(test_manager.add_field_test(nullptr)); // Throw on nullptr
@@ -42,11 +42,10 @@ TEST_CASE ("test_manager") {
   REQUIRE(test_manager.has_field_test(field_test_name) == true);
 
   // Test field test running
-  const ekat::Comm comm(MPI_COMM_WORLD);
-  REQUIRE_THROWS(test_manager.run_field_test("Test does not exist", comm));
+  REQUIRE_THROWS(test_manager.run_field_test("Test does not exist"));
   std::iota(foo_data.begin(), foo_data.end(), 1.0); // field within bounds
-  REQUIRE(test_manager.run_field_test(field_test_name, comm) == true);
-  REQUIRE(test_manager.run_field_test(field_test_name2, comm) == false);
+  REQUIRE(test_manager.run_field_test(field_test_name) == true);
+  REQUIRE(test_manager.run_field_test(field_test_name2) == false);
 
   // Test field test runner
   std::map<std::string, bool> expected_results = {{field_test_name, true}, {field_test_name2, false}};

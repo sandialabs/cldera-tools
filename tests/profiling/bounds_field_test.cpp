@@ -26,7 +26,7 @@ TEST_CASE ("bounds_field_test") {
   const Real min = 0.0, max = 6.0;
   const Bounds bounds{min, max};
   const BoundsFieldTest bounds_field_test(bounds_field_test_name, foo, bounds, comm);
-  TimeStamp time = {1,1};
+  TimeStamp time = {19910701,1000};
 
   // Test BoundsFieldTest
   {

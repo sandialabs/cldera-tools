@@ -38,7 +38,7 @@ TEST_CASE ("pathway") {
     std::string filename = "./cldera_pathway_input.yaml";
     cldera::PathwayFactory pathway_factory(filename, fields, comm, true);
     std::shared_ptr<cldera::Pathway> pathway = pathway_factory.build_pathway(std::cout);
-    cldera::TimeStamp time = {1991, 3600};
+    cldera::TimeStamp time = {19910701, 3600};
 
     // check that all pathway tests pass
     std::iota(foo_data.begin(), foo_data.end(), 1.0);
@@ -46,24 +46,24 @@ TEST_CASE ("pathway") {
     REQUIRE(pathway->run_pathway_tests(comm, time));
 
     foo_data[2] = 8.0;
-    time = {1991, 7200};
+    time = {19910701, 7200};
     REQUIRE(!pathway->run_pathway_tests(comm, time));
 
     foo_data[2] = -1.0;
-    time = {1991, 10800};
+    time = {19910701, 10800};
     REQUIRE(!pathway->run_pathway_tests(comm, time));
 
     foo_data[2] = 1.0;
     bar_data[2] = 2.0;
-    time = {1991, 14400};
+    time = {19910701, 14400};
     REQUIRE(!pathway->run_pathway_tests(comm, time));
 
     bar_data[2] = -1.0;
-    time = {1991, 18000};
+    time = {19910701, 18000};
     REQUIRE(!pathway->run_pathway_tests(comm, time));
 
     bar_data[2] = 1.0;
-    time = {1991, 21600};
+    time = {19910701, 21600};
     //REQUIRE(pathway->run_pathway_tests(comm, time)); // TODO: is this a bug?
 
     pathway->dump_test_history_to_yaml("test_history.yaml");

@@ -3,6 +3,7 @@
 #include "cldera_profiling_session.hpp"
 #include "cldera_profiling_archive.hpp"
 #include "stats/cldera_field_stat_factory.hpp"
+#include "stats/cldera_field_bounding_box.hpp"
 #include "cldera_pathway_factory.hpp"
 
 #include <ekat/ekat_parameter_list.hpp>
@@ -255,6 +256,16 @@ void cldera_compute_stats_c (const int ymd, const int tod)
     const auto& f = archive.get_field(fname);
     fields[fname] = std::make_shared<const cldera::Field>(f);
     for (auto stat : stats) {
+      // Initialize bounding box with lat/lon
+      if (stat->name() == "bounding_box") {
+        const auto& lat = archive.get_field("lat");
+        const auto lat_ptr = std::make_shared<const cldera::Field>(lat);
+        const auto& lon = archive.get_field("lon");
+        const auto lon_ptr = std::make_shared<const cldera::Field>(lon);
+        auto bounding_box_stat = dynamic_cast<cldera::FieldBoundingBox *>(stat.get());
+        bounding_box_stat->initialize(lat_ptr, lon_ptr);
+      }
+
       archive.append_stat(fname,stat->name(),stat->compute(f));
     }
   }

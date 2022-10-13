@@ -1,4 +1,5 @@
 #include "profiling/stats/cldera_field_stat_factory.hpp"
+#include "profiling/stats/cldera_field_bounding_box.hpp"
 
 #include <ekat/mpi/ekat_comm.hpp>
 
@@ -159,4 +160,83 @@ TEST_CASE ("stats along columns with parts") {
   for (auto sname : stats_names)
     for (int i = 0; i < dim0*dim1; ++i)
       REQUIRE (expected.at(sname).data<Real>()[i]==stat_fields.at(sname).data<Real>()[i]);
+}
+
+TEST_CASE ("stats - bounds") {
+  using namespace cldera;
+
+  ekat::Comm comm(MPI_COMM_WORLD);
+
+  // Allocate field
+  constexpr int dim0 = 2;
+  constexpr int dim1 = 3;
+  constexpr int dim2 = 4;
+  constexpr int nparts = 4;
+  constexpr int part_dim = 2;
+  Field foo("foo", {dim0,dim1,dim2}, {"lev", "dim", "ncol"}, nparts, part_dim);
+  std::vector<std::vector<Real>> foo_data (dim2,std::vector<Real>(dim0*dim1));
+  for (int i = 0; i < nparts; ++i) {
+    std::iota(foo_data[i].begin(), foo_data[i].end(), i*dim0*dim1);
+    const int part_size = 1;
+    foo.set_part_size(i, part_size);
+    foo.set_part_data(i, foo_data[i].data());
+  }
+  foo.commit();
+
+  // Test bounded field
+  // bounds set to 12.1, 20.1
+  const auto bounded_sname = "bounded";
+  const auto bounded_stat = create_stat(bounded_sname, comm);
+  const auto bounded_field = bounded_stat->compute(foo);
+  const Real bounded_expected[] = {
+      0.0, 0.0, 0.0, 18.0, 0.0, 0.0, 13.0, 19.0, 0.0, 0.0, 14.0, 20.0,
+      0.0, 0.0, 15.0, 0.0, 0.0, 0.0, 16.0, 0.0, 0.0, 0.0, 17.0, 0.0};
+  for (int i = 0; i < dim0*dim1*dim2; ++i)
+    REQUIRE (bounded_expected[i]==bounded_field.data()[i]);
+
+  // Allocate lat/lon
+  std::shared_ptr<Field> lat(new Field("lat", {dim2}, {"ncol"}, nparts, 0));
+  std::shared_ptr<Field> lon(new Field("lon", {dim2}, {"ncol"}, nparts, 0));
+  const Real lat_data[] = {-0.5, 0.5, 0.5, -0.5};
+  const Real lon_data[] = {-0.5, -0.5, 0.5, 0.5};
+  for (int i = 0; i < nparts; ++i) {
+    const int part_size = 1;
+    lat->set_part_size(i, part_size);
+    lat->set_part_data(i, &lat_data[i]);
+    lon->set_part_size(i, part_size);
+    lon->set_part_data(i, &lon_data[i]);
+  }
+  lat->commit();
+  lon->commit();
+
+  // Allocate dummy lat/lon
+  const int dum_nparts = nparts-1;
+  std::shared_ptr<Field> dum_lat(new Field("dum_lat", {dim1}, {"ncol"}, dum_nparts, 0));
+  std::shared_ptr<Field> dum_lon(new Field("lon", {dim1}, {"ncol"}, dum_nparts, 0));
+  for (int i = 0; i < dum_nparts; ++i) {
+    const int part_size = 1;
+    dum_lat->set_part_size(i, part_size);
+    dum_lat->set_part_data(i, &lat_data[i]);
+    dum_lon->set_part_size(i, part_size);
+    dum_lon->set_part_data(i, &lon_data[i]);
+  }
+  dum_lat->commit();
+  dum_lon->commit();
+
+  // Test bounding box field
+  // bounds set to lat = {0.0, 1.0}, lon = {0.0, 1.0}
+  const auto bounding_box_sname = "bounding_box";
+  auto stat = create_stat(bounding_box_sname, comm);
+  auto bounding_box_stat = dynamic_cast<FieldBoundingBox *>(stat.get());
+  REQUIRE_THROWS(bounding_box_stat->compute(foo)); // initialize() required
+  REQUIRE_THROWS(bounding_box_stat->initialize(dum_lat, dum_lon)); // dum_lat wrong name
+  bounding_box_stat->initialize(lat, dum_lon);
+  REQUIRE_THROWS(bounding_box_stat->compute(foo)); // dum_lon wrong size
+  bounding_box_stat->initialize(lat, lon);
+  const auto bounding_box_field = bounding_box_stat->compute(foo);
+  const Real bounding_box_expected[] = {
+      0.0, 0.0, 12.0, 0.0, 0.0, 0.0, 13.0, 0.0, 0.0, 0.0, 14.0, 0.0,
+      0.0, 0.0, 15.0, 0.0, 0.0, 0.0, 16.0, 0.0, 0.0, 0.0, 17.0, 0.0};
+  for (int i = 0; i < dim0*dim1*dim2; ++i)
+    REQUIRE (bounding_box_expected[i]==bounding_box_field.data()[i]);
 }

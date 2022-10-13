@@ -18,6 +18,12 @@ using KokkosTypesHost = ekat::KokkosTypes<ekat::HostDevice>;
 template<typename T, typename MT = Kokkos::MemoryManaged>
 using view_1d_host = typename KokkosTypesHost::template view_1d<T,MT>;
 
+// A pair used to store min/max bounds
+struct Bounds {
+  Real min;
+  Real max;
+};
+
 // Type of statistics to be tracked on a Field
 enum class StatType {
   Max,

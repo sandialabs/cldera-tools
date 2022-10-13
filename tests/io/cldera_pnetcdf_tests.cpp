@@ -33,8 +33,8 @@ void write ()
   add_var(*file,"T","double",{"lat","lon"},true);
   add_var(*file,"V","float",{"lat","lon","dim2"},false);
   add_var(*file,"I","long long",{"lat","lon"},true);
+  add_var(*file,"V","float",{"lat","lon","dim2"},false); // Var already added, but with same specs, so should be fine
 
-  REQUIRE_THROWS (add_var(*file,"V","float",{"lat","lon","dim2"},false)); // Var already added
   REQUIRE_THROWS (add_var(*file,"W","floatsies",{"lat","lon","dim2"},false)); // Unknown dtype
   REQUIRE_THROWS (add_var(*file,"W","float",{"lat","lon","dim3"},false)); // Unknown dim
 

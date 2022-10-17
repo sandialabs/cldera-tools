@@ -1,0 +1,16 @@
+%YAML 1.0
+---
+Tests:
+  foobounds:
+    Field: foo
+    Type: Bounds
+    Params: [0.0,6.0]
+  foomin:
+    Field: foo
+    Type: Min
+    Params: [0.0]
+  foomax:
+    Field: foo
+    Type: Max
+    Params: [6.0]
+...

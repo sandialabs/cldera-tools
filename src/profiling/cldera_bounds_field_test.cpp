@@ -4,28 +4,40 @@
 
 namespace cldera {
 
-BoundsFieldTest::
-BoundsFieldTest(const std::string& name,
-                const std::shared_ptr<const Field>& field,
-                const Bounds& bounds,
-                const ekat::Comm& comm)
- : FieldTest(name)
- , m_field(field)
+BoundsFieldTest::BoundsFieldTest(const std::string& name, 
+                                 const std::shared_ptr<const Field>& field,
+                                 const Bounds& bounds,
+                                 const ekat::Comm& comm) 
+ : FieldTest(name, field)
  , m_bounds(bounds)
 {
   m_max_stat = create_stat("global_max",comm);
   m_min_stat = create_stat("global_min",comm);
 }
 
-bool BoundsFieldTest::test() const
+bool BoundsFieldTest::test(const TimeStamp& t)
 {
   const auto field_min = m_min_stat->compute(*m_field);
   if (field_min.data()[0] < m_bounds.min)
+  {
+    if(m_save_history_on_failure)
+    {
+      std::cout << "Storing history on min bounds failure..." << std::endl;
+      m_history.store(t, field_min.data()[0]);
+    }
     return false;
+  }
 
   const auto field_max = m_max_stat->compute(*m_field);
   if (field_max.data()[0] > m_bounds.max)
+  {
+    if(m_save_history_on_failure)
+    {
+      std::cout << "Storing history on max bounds failure..." << std::endl;
+      m_history.store(t, field_max.data()[0]);
+    }
     return false;
+  }
 
   return true;
 }

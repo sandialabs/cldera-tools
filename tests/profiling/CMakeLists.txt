@@ -39,9 +39,19 @@ EkatCreateUnitTest (compute_stats compute_stats.cpp
 EkatCreateUnitTest (bounds_field_test bounds_field_test.cpp
   LIBS cldera-profiling ekat)
 
+# Test Pathway
+EkatCreateUnitTest (pathway pathway.cpp
+  LIBS cldera-profiling ekat)
+
 # Test ProfilingTestManager
 EkatCreateUnitTest (test_manager test_manager.cpp
   LIBS cldera-profiling ekat)
 
-FILE(COPY cldera_graph_input.yaml DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+# Set yaml files for tests that utilize input decks
+set (CLDERA_TEST_YAMLS
+  cldera_field_test_input.yaml
+  cldera_graph_input.yaml
+  cldera_pathway_input.yaml)
 
+# Copy the yaml files to the destination
+FILE(COPY ${CLDERA_TEST_YAMLS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})

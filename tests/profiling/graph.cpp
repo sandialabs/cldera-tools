@@ -13,7 +13,7 @@
 
 TEST_CASE ("graph") {
 
-  // A graph from an input file
+  // A graph from an input file via GraphFactory
   {
     std::string filename = "./cldera_graph_input.yaml";
     
@@ -26,7 +26,20 @@ TEST_CASE ("graph") {
     REQUIRE(graph->is_cyclic() == false);
   }
 
-  // A graph with a cycle A->B, B->A
+  // A graph from an ekat::ParameterList via GraphFactory
+  {
+    std::string filename = "./cldera_graph_input.yaml";
+    ekat::ParameterList params = ekat::parse_yaml_file(filename);
+    cldera::GraphFactory factory(params, true);
+
+    std::shared_ptr<cldera::Graph> graph = factory.build_graph();
+
+    REQUIRE(graph->get_num_vertices() == 4);
+    REQUIRE(graph->get_num_edges() == 3);
+    REQUIRE(graph->is_cyclic() == false);
+  }
+
+  // A manual graph with a cycle A->B, B->A
   {
     using cldera::GraphVertex;
     std::map<std::string, std::shared_ptr<GraphVertex> > graph_vertices 

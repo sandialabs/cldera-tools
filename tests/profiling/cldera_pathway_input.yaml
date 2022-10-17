@@ -1,0 +1,19 @@
+%YAML 1.0
+---
+Pathway:
+  DAG:
+    foo:
+      Activation Tests: ["foobounds"]
+      Affects: bar
+    bar:
+      Activation Tests: ["barbounds"]
+Tests:
+  foobounds:
+    Field: foo
+    Type: Bounds
+    Params: [0.0,5.0]
+  barbounds:
+    Field: bar
+    Type: Bounds
+    Params: [0.0,1.1]  
+...

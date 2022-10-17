@@ -3,6 +3,7 @@
 #include "cldera_profiling_session.hpp"
 #include "cldera_profiling_archive.hpp"
 #include "stats/cldera_field_stat_factory.hpp"
+#include "cldera_pathway_factory.hpp"
 
 #include <ekat/ekat_parameter_list.hpp>
 #include <ekat/io/ekat_yaml.hpp>
@@ -80,6 +81,12 @@ void cldera_clean_up_c ()
   if (am_i_root) {
     printf(" [CLDERA] Shutting down profiling session ...\n");
   }
+
+  std::string history_filename = "cldera_pathway_history.yaml";
+  auto& pathway = s.get<std::shared_ptr<cldera::Pathway>>("pathway");
+  printf("cldera-tools: Dumping pathway test history...\n");
+  pathway->dump_test_history_to_yaml(history_filename);
+
   s.clean_up();
   if (am_i_root) {
     printf(" [CLDERA] Shutting down profiling session ... done!\n");
@@ -248,20 +255,41 @@ void cldera_compute_stats_c (const int ymd, const int tod)
 
   auto& archive = s.get<ProfilingArchive>("archive");
 
+  std::map<std::string, std::shared_ptr<const cldera::Field> > fields;
+
   for (const auto& it : requests) {
     const auto& fname = it.first;
     const auto& stats = it.second;
     const auto& f = archive.get_field(fname);
-
+    fields[fname] = std::make_shared<const cldera::Field>(f);
     for (auto stat : stats) {
       archive.append_stat(fname,stat->name(),stat->compute(f));
     }
   }
 
-  archive.update_time(TimeStamp{ymd,tod});
+  cldera::TimeStamp time = {ymd, tod};
+  archive.update_time(time);
 
   if (comm.am_i_root()) {
     printf(" [CLDERA] Computing stats ... done!\n");
+  }
+
+  printf("cldera-tools: Running pathway...\n");
+
+  // this solves the issue of fields not being initialized
+  if(!s.has_data("pathway")) {
+    printf("cldera-tools: ProfilingSession does not have pathway... creating initial pathway...\n");
+    // create the pathway then throw it in the ProfilingSession
+    std::string filename = "./cldera_profiling_config.yaml";
+    cldera::PathwayFactory pathway_factory(filename, fields, comm, true);
+    auto& pathway = s.create_or_get<std::shared_ptr<cldera::Pathway>>("pathway",pathway_factory.build_pathway());
+    printf("cldera-tools: Running pathway tests after creation...\n");
+    pathway->run_pathway_tests(comm, time);
+  } else {
+    // otherwise, grab it
+    auto& pathway = s.get<std::shared_ptr<cldera::Pathway>>("pathway");
+    printf("cldera-tools: Running pathway tests...\n");
+    pathway->run_pathway_tests(comm, time);
   }
 }
 

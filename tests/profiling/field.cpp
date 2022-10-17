@@ -9,11 +9,11 @@ TEST_CASE ("field") {
   std::vector<Real> bar_data (20);
   std::vector<std::vector<Real>> baz_data (3,std::vector<Real>(20));
 
-  std::iota(foo_data.begin(),foo_data.end(),0);
-  std::iota(bar_data.begin(),bar_data.end(),0);
-  std::iota(baz_data[0].begin(),baz_data[0].end(),0);
-  std::iota(baz_data[1].begin(),baz_data[1].end(),20);
-  std::iota(baz_data[2].begin(),baz_data[2].end(),40);
+  std::iota(foo_data.begin(),foo_data.end(),0.0);
+  std::iota(bar_data.begin(),bar_data.end(),0.0);
+  std::iota(baz_data[0].begin(),baz_data[0].end(),0.0);
+  std::iota(baz_data[1].begin(),baz_data[1].end(),20.0);
+  std::iota(baz_data[2].begin(),baz_data[2].end(),40.0);
 
   Field foo("foo",{5},{"col"},foo_data.data());
   Field bar("bar",{5,4},{"col","lev"});

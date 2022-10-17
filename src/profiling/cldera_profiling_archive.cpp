@@ -60,7 +60,11 @@ setup_output_file ()
     for (const auto& it2 : it1.second) {
       const auto& sname = it2.first;
       const auto& stat  = it2.second;
-
+      const auto& stat_layout = stat.layout();
+      const auto& stat_dims = stat_layout.dims();
+      const auto& stat_names = stat_layout.names();
+      for (int axis = 0; axis < stat_layout.rank(); ++axis)
+        add_dim(*m_output_file, stat_names[axis], stat_dims[axis]);
       add_var (*m_output_file,
                stat.name(),
                io::pnetcdf::get_io_dtype_name<Real>(),
@@ -113,13 +117,14 @@ append_stat (const std::string& fname, const std::string& stat_name,
       "[ProfilingArchive::get_field] Error! Field '" + fname + "' not found.\n"
       "  List of current fields: " + ekat::join(m_fields_names,", "));
 
-  if (m_fields_stats.size()==0) {
+  if (m_fields_stats.size()==0)
     EKAT_REQUIRE_MSG (m_time_stamps.size()==0,
         "Error! You had time stamps stored, but not stats.\n"
         "       You should have already gotten an error.\n"
         "       Please, contact developers.\n");
+
+  if (m_fields_stats.size()==m_time_stamps.size())
     m_fields_stats.emplace_back();
-  }
   m_fields_stats.back()[fname][stat_name] = stat;
 }
 

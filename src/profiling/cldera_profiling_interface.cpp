@@ -61,7 +61,13 @@ void cldera_init_c (const MPI_Fint fcomm, const int ymd, const int tod)
       req_stats.push_back(create_stat(stat,comm));
     }
   }
-  s.create<ProfilingArchive>("archive",comm,TimeStamp(ymd,tod),params.sublist("Profiling Output"));
+
+  if(params.isSublist("Profiling Output")) {
+    s.create<ProfilingArchive>("archive",comm,TimeStamp(ymd,tod),params.sublist("Profiling Output"));
+  } else {
+    ekat::ParameterList profiling_output_list("Profiling Output");
+    s.create<ProfilingArchive>("archive",comm,TimeStamp(ymd,tod),profiling_output_list);
+  }
 
   if (comm.am_i_root()) {
     printf(" [CLDERA] Initializing profiling session ... done!\n");

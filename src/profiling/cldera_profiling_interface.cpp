@@ -90,7 +90,6 @@ void cldera_clean_up_c ()
 
   std::string history_filename = "cldera_pathway_history.yaml";
   auto& pathway = s.get<std::shared_ptr<cldera::Pathway>>("pathway");
-  printf("cldera-tools: Dumping pathway test history...\n");
   pathway->dump_test_history_to_yaml(history_filename);
 
   s.clean_up();
@@ -280,21 +279,16 @@ void cldera_compute_stats_c (const int ymd, const int tod)
     printf(" [CLDERA] Computing stats ... done!\n");
   }
 
-  printf("cldera-tools: Running pathway...\n");
-
   // this solves the issue of fields not being initialized
   if(!s.has_data("pathway")) {
-    printf("cldera-tools: ProfilingSession does not have pathway... creating initial pathway...\n");
     // create the pathway then throw it in the ProfilingSession
     std::string filename = "./cldera_profiling_config.yaml";
-    cldera::PathwayFactory pathway_factory(filename, fields, comm, true);
+    cldera::PathwayFactory pathway_factory(filename, fields, comm, false); // TODO: make pathway verbosity a yaml option
     auto& pathway = s.create_or_get<std::shared_ptr<cldera::Pathway>>("pathway",pathway_factory.build_pathway());
-    printf("cldera-tools: Running pathway tests after creation...\n");
     pathway->run_pathway_tests(comm, time);
   } else {
     // otherwise, grab it
     auto& pathway = s.get<std::shared_ptr<cldera::Pathway>>("pathway");
-    printf("cldera-tools: Running pathway tests...\n");
     pathway->run_pathway_tests(comm, time);
   }
 }

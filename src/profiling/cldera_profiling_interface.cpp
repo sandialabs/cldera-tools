@@ -69,6 +69,8 @@ void cldera_init_c (const MPI_Fint fcomm, const int ymd, const int tod)
     s.create<ProfilingArchive>("archive",comm,TimeStamp(ymd,tod),profiling_output_list);
   }
 
+  s.create<bool>("doPathway",params.isSublist("Pathway"));
+
   if (comm.am_i_root()) {
     printf(" [CLDERA] Initializing profiling session ... done!\n");
   }
@@ -88,9 +90,11 @@ void cldera_clean_up_c ()
     printf(" [CLDERA] Shutting down profiling session ...\n");
   }
 
-  std::string history_filename = "cldera_pathway_history.yaml";
-  auto& pathway = s.get<std::shared_ptr<cldera::Pathway>>("pathway");
-  pathway->dump_test_history_to_yaml(history_filename);
+  if(s.get<bool>("doPathway")) {
+    std::string history_filename = "cldera_pathway_history.yaml";
+    auto& pathway = s.get<std::shared_ptr<cldera::Pathway>>("pathway");
+    pathway->dump_test_history_to_yaml(history_filename);
+  }
 
   s.clean_up();
   if (am_i_root) {
@@ -279,17 +283,19 @@ void cldera_compute_stats_c (const int ymd, const int tod)
     printf(" [CLDERA] Computing stats ... done!\n");
   }
 
-  // this solves the issue of fields not being initialized
-  if(!s.has_data("pathway")) {
-    // create the pathway then throw it in the ProfilingSession
-    std::string filename = "./cldera_profiling_config.yaml";
-    cldera::PathwayFactory pathway_factory(filename, fields, comm, false); // TODO: make pathway verbosity a yaml option
-    auto& pathway = s.create_or_get<std::shared_ptr<cldera::Pathway>>("pathway",pathway_factory.build_pathway());
-    pathway->run_pathway_tests(comm, time);
-  } else {
-    // otherwise, grab it
-    auto& pathway = s.get<std::shared_ptr<cldera::Pathway>>("pathway");
-    pathway->run_pathway_tests(comm, time);
+  if(s.get<bool>("doPathway")) {
+    // this solves the issue of fields not being initialized
+    if(!s.has_data("pathway")) {
+      // create the pathway then throw it in the ProfilingSession
+      std::string filename = "./cldera_profiling_config.yaml";
+      cldera::PathwayFactory pathway_factory(filename, fields, comm, false); // TODO: make pathway verbosity a yaml option
+      auto& pathway = s.create_or_get<std::shared_ptr<cldera::Pathway>>("pathway",pathway_factory.build_pathway());
+      pathway->run_pathway_tests(comm, time);
+    } else {
+      // otherwise, grab it
+      auto& pathway = s.get<std::shared_ptr<cldera::Pathway>>("pathway");
+      pathway->run_pathway_tests(comm, time);
+    }
   }
 }
 

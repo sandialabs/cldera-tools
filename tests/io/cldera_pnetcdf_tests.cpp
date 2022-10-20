@@ -47,7 +47,6 @@ void write ()
   }
   add_decomp (*file,"lat",my_lat);
 
-  REQUIRE_THROWS (add_decomp (*file,"lat",my_lat)); // Decomp for "lat" already added
   REQUIRE_THROWS (add_var(*file,"W","float",{"lon","lat","dim2"},false)); // Decomp dim is not first
 
   set_att (*file,"my_int","NC_GLOBAL",static_cast<int>(42));

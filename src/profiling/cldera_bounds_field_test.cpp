@@ -22,7 +22,6 @@ bool BoundsFieldTest::test(const TimeStamp& t)
   {
     if(m_save_history_on_failure)
     {
-      std::cout << "Storing history on min bounds failure..." << std::endl;
       m_history.store(t, field_min.data()[0]);
     }
     return false;
@@ -33,7 +32,6 @@ bool BoundsFieldTest::test(const TimeStamp& t)
   {
     if(m_save_history_on_failure)
     {
-      std::cout << "Storing history on max bounds failure..." << std::endl;
       m_history.store(t, field_max.data()[0]);
     }
     return false;

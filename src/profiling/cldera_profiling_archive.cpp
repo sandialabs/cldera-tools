@@ -32,8 +32,13 @@ ProfilingArchive::
 void ProfilingArchive::
 create_output_file (const ekat::ParameterList& params)
 {
-  const auto& file_name = params.get<std::string>("Filename");
-  m_output_file = open_file (file_name, m_comm, io::pnetcdf::IOMode::Write);
+  if (params.isParameter("Filename")) {
+    const auto& file_name = params.get<std::string>("Filename");
+    m_output_file = open_file (file_name, m_comm, io::pnetcdf::IOMode::Write);
+  } else {
+    const std::string file_name = "cldera_stats.nc";
+    m_output_file = open_file (file_name, m_comm, io::pnetcdf::IOMode::Write);
+  }
   if (params.isParameter("Flush Frequency")) {
     m_flush_freq = params.get<int>("Flush Frequency");
   } else {

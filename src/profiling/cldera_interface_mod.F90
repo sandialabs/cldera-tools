@@ -46,18 +46,20 @@ contains
   end subroutine cldera_set_masterproc
 
   ! Add a partitioned field to cldera data base
-  subroutine cldera_add_partitioned_field(fname,rank,dims,dimnames,nparts,part_dim)
-    use iso_c_binding, only: c_char, c_int, c_loc, c_ptr
+  subroutine cldera_add_partitioned_field(fname,rank,dims,dimnames,nparts,part_dim,view)
+    use iso_c_binding, only: c_char, c_int, c_bool, c_loc, c_ptr
     use cldera_interface_f2c_mod, only: capf_c => cldera_add_partitioned_field_c
     character (len=*), intent(in) :: fname
     character (len=*), intent(in) :: dimnames(:)
     integer, intent(in) :: nparts, part_dim
     integer, intent(in) :: dims(:)
     integer, intent(in) :: rank
+    logical, intent(in), optional :: view
 
     type(c_ptr),allocatable :: c_dimnames_ptrs(:)
 
     integer :: part_dim_c, i
+    logical (kind=c_bool) view_c
     integer(kind=c_int), allocatable :: c_dims(:)
     character (kind=c_char, len=max_str_len), target :: fname_c
     character (kind=c_char, len=max_str_len), allocatable, target :: c_dimnames(:)
@@ -82,9 +84,17 @@ contains
       c_dimnames_ptrs(rank-i+1) = c_loc(c_dimnames(i))
     enddo
 
+    ! We default to fields being views of Model data, but the user can
+    ! override this, and register them as hard copies
+    if (present(view)) then
+      view_c = LOGICAL(view,kind=c_bool)
+    else
+      view_c = LOGICAL(.true.,kind=c_bool)
+    endif
     ! Flip part_dim, since we flipped the dimensions
     ! Also, flip dims, since in C the first is the slowest striding
-    call capf_c(c_loc(fname_c),f2c(rank),c_dims,c_dimnames_ptrs,f2c(nparts),f2c(rank-part_dim))
+    call capf_c(c_loc(fname_c),f2c(rank),c_dims,c_dimnames_ptrs, &
+                f2c(nparts),f2c(rank-part_dim),view_c)
   end subroutine cldera_add_partitioned_field
 
   ! Set data of a particular field partition in the cldera data base

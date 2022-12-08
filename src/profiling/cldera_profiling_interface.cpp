@@ -106,9 +106,10 @@ void cldera_clean_up_c ()
 void cldera_add_field_c (const char*& name,
                          const int    rank,
                          const int*   dims,
-                         const char** dimnames)
+                         const char** dimnames,
+                         const bool   is_view)
 {
-  cldera_add_partitioned_field_c(name,rank,dims,dimnames,1,0);
+  cldera_add_partitioned_field_c(name,rank,dims,dimnames,1,0,is_view);
 }
 
 void cldera_add_partitioned_field_c (
@@ -117,7 +118,8 @@ void cldera_add_partitioned_field_c (
     const int*    dims,
     const char**  dimnames,
     const int     num_parts,
-    const int     part_dim)
+    const int     part_dim,
+    const bool    is_view)
 {
   auto& s = ProfilingSession::instance();
 
@@ -146,7 +148,8 @@ void cldera_add_partitioned_field_c (
 
   // Set data in the archive structure
   auto& archive = s.get<ProfilingArchive>("archive");
-  archive.add_field(Field(name,fl,num_parts,part_dim));
+  const auto access = is_view ? DataAccess::View : DataAccess::Copy;
+  archive.add_field(Field(name,fl,num_parts,part_dim,access));
 }
 
 void cldera_set_field_part_size_c (
@@ -176,7 +179,12 @@ void cldera_set_field_part_data_c (
 
   auto& archive = s.get<ProfilingArchive>("archive");
 
-  archive.get_field(name).set_part_data (part,data);
+  auto& f = archive.get_field(name);
+  if (f.data_access()==DataAccess::View) {
+    f.set_part_data (part,data);
+  } else {
+    f.copy_part_data (part,data);
+  }
 }
 
 void cldera_set_field_c (
@@ -191,35 +199,6 @@ void cldera_set_field_c (
   auto& archive = s.get<ProfilingArchive>("archive");
 
   archive.get_field(name).set_data (data);
-}
-
-void cldera_copy_field_partition_c (
-    const char*& name,
-    const int part,
-    const Real*& data)
-{
-  auto& s = ProfilingSession::instance();
-
-  // If input file was not provided, cldera does nothing
-  if (not s.inited()) { return; }
-
-  auto& archive = s.get<ProfilingArchive>("archive");
-
-  archive.get_field(name).copy_part_data (part,data);
-}
-
-void cldera_copy_field_c (
-    const char*& name,
-    const Real*& data)
-{
-  auto& s = ProfilingSession::instance();
-
-  // If input file was not provided, cldera does nothing
-  if (not s.inited()) { return; }
-
-  auto& archive = s.get<ProfilingArchive>("archive");
-
-  archive.get_field(name).copy_data (data);
 }
 
 void cldera_commit_field_c (const char*& name)

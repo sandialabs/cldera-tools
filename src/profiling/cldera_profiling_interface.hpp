@@ -30,14 +30,16 @@ void cldera_add_partitioned_field_c (
     const int*    dims,
     const char**  dimnames,
     const int     num_parts,
-    const int     part_dim);
+    const int     part_dim,
+    const bool    is_view);
 
 // Shortcut in case of single partition
 void cldera_add_field_c (
     const char*&  name,
     const int     rank,
     const int*    dims,
-    const char**  dimnames);
+    const char**  dimnames,
+    const bool    is_view);
 
 void cldera_set_field_partition_c (
     const char*& name,

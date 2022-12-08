@@ -39,7 +39,7 @@ struct TimeStamp {
   TimeStamp (const int ymd, const int tod)
    : m_ymd(ymd), m_tod(tod)
   {
-    EKAT_REQUIRE_MSG (year()>=1 && month()<=3000,
+    EKAT_REQUIRE_MSG (year()>=1 && year()<=3000,
         "Error! Invalid year in YYYYMMDD input.\n"
         " - YYYYMMDD: " + std::to_string(m_ymd) + "\n"
         " - year   : " + std::to_string(year()) + "\n");

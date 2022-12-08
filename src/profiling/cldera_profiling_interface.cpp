@@ -20,13 +20,15 @@ namespace cldera {
 
 void cldera_init_c (const MPI_Fint fcomm, const int ymd, const int tod)
 {
-  ekat::initialize_ekat_session ();
-
   // Convert F90 comm to C comm, create ekat::Comm, and init session
   MPI_Comm mpiComm = MPI_Comm_f2c(fcomm);
   EKAT_REQUIRE_MSG (mpiComm!=nullptr, "Error! Input fortran comm seems invalid.\n");
 
   ekat::Comm comm(mpiComm);
+
+  ekat::initialize_ekat_session (/* argc = */ 0,
+                                 /* argv = */ nullptr,
+                                 /* print config = */ comm.am_i_root());
 
   //TODO: make the filename configurable
   std::string filename = "./cldera_profiling_config.yaml";

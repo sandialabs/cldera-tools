@@ -95,6 +95,7 @@ public:
   int nparts () const { return m_nparts; }
   int part_dim () const { return m_part_dim; }
   bool committed () const { return m_committed; }
+  DataAccess data_access () const { return m_data_access; }
 
 private:
 

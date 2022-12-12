@@ -17,10 +17,10 @@ MaxFieldTest::MaxFieldTest(const std::string& name,
 bool MaxFieldTest::test(const TimeStamp& t)
 {
   const auto field_max = m_max_stat->compute(*m_field);
-  if (field_max.data()[0] > m_max)
+  if (field_max.data<Real>()[0] > m_max)
   {
     if(m_save_history_on_failure)
-      m_history.store(t, field_max.data()[0]);
+      m_history.store(t, field_max.data<Real>()[0]);
     return false;
   }
 

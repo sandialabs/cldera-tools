@@ -26,24 +26,24 @@ protected:
 
     const auto& stat_strides = compute_stat_strides(f.layout());
 
-    auto max_field = view_1d_host<Real>("max_field", stat.view().size());
-    Kokkos::deep_copy(max_field, -std::numeric_limits<Real>::infinity());
+    auto stat_view = stat.view_nonconst<Real>();
+    Kokkos::deep_copy(stat_view, -std::numeric_limits<Real>::infinity());
 
     const int field_rank = f.layout().rank();
     const int field_part_dim = f.part_dim();
     for (int ipart = 0; ipart < f.nparts(); ++ipart) {
-      const auto& part_data = f.part_data(ipart);
+      const auto& part_data = f.part_data<const Real>(ipart);
       const auto& part_layout = f.part_layout(ipart);
       const auto& part_dims = part_layout.dims();
       for (int part_index = 0; part_index < part_layout.size(); ++part_index) {
         const int stat_index = compute_stat_index(
             ipart, part_index, field_rank, field_part_dim, part_dims, stat_strides);
-        max_field(stat_index) = std::max(max_field(stat_index), part_data[part_index]);
+        stat_view(stat_index) = std::max(stat_view(stat_index), part_data[part_index]);
       }
     }
 
-    // Since only columns are distributed, max_field is the same size across ranks
-    m_comm.all_reduce(max_field.data(), stat.data_nonconst(), max_field.size(), MPI_MAX);
+    // Since only columns are distributed, stat_view is the same size across ranks
+    m_comm.all_reduce(stat_view.data(), stat_view.size(), MPI_MAX); // Use MPI_IN_PLACE
   }
 
   const ekat::Comm m_comm;

@@ -28,7 +28,7 @@ protected:
     long long global_size;
     m_comm.all_reduce(&size,&global_size,1,MPI_SUM);
 
-    stat.data_nonconst()[0] /= global_size;
+    stat.data_nonconst<Real>()[0] /= global_size;
   }
 };
 

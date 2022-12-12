@@ -19,9 +19,10 @@ module cldera_interface_mod
   end interface c2f
 
   interface cldera_set_field_part_data
-    module procedure cldera_set_field_part_data_1d, &
-                     cldera_set_field_part_data_2d, &
-                     cldera_set_field_part_data_3d
+    module procedure cldera_set_field_part_data_real_1d, &
+                     cldera_set_field_part_data_real_2d, &
+                     cldera_set_field_part_data_real_3d, &
+                     cldera_set_field_part_data_int_1d
   end interface cldera_set_field_part_data
 contains
 
@@ -46,7 +47,7 @@ contains
   end subroutine cldera_set_masterproc
 
   ! Add a partitioned field to cldera data base
-  subroutine cldera_add_partitioned_field(fname,rank,dims,dimnames,nparts,part_dim,view)
+  subroutine cldera_add_partitioned_field(fname,rank,dims,dimnames,nparts,part_dim,view,dtype)
     use iso_c_binding, only: c_char, c_int, c_bool, c_loc, c_ptr
     use cldera_interface_f2c_mod, only: capf_c => cldera_add_partitioned_field_c
     character (len=*), intent(in) :: fname
@@ -55,6 +56,7 @@ contains
     integer, intent(in) :: dims(:)
     integer, intent(in) :: rank
     logical, intent(in), optional :: view
+    character (len=*), intent(in), optional :: dtype
 
     type(c_ptr),allocatable :: c_dimnames_ptrs(:)
 
@@ -63,6 +65,13 @@ contains
     integer(kind=c_int), allocatable :: c_dims(:)
     character (kind=c_char, len=max_str_len), target :: fname_c
     character (kind=c_char, len=max_str_len), allocatable, target :: c_dimnames(:)
+    character (kind=c_char, len=max_str_len), target :: dtype_c
+
+    if (present(dtype)) then
+      dtype_c = f2c(dtype)
+    else
+      dtype_c = f2c("real")
+    endif
 
     if (masterproc) then
       write(iulog,fmt='(a)',advance='no') "[cldera profiling] Adding field "//trim(fname)//"("
@@ -94,7 +103,7 @@ contains
     ! Flip part_dim, since we flipped the dimensions
     ! Also, flip dims, since in C the first is the slowest striding
     call capf_c(c_loc(fname_c),f2c(rank),c_dims,c_dimnames_ptrs, &
-                f2c(nparts),f2c(rank-part_dim),view_c)
+                f2c(nparts),f2c(rank-part_dim),view_c,c_loc(dtype_c))
   end subroutine cldera_add_partitioned_field
 
   ! Set data of a particular field partition in the cldera data base
@@ -110,45 +119,65 @@ contains
     ! Subtract 1 to part, b/c of C-vs-Fortran index base
     call csfps_c(c_loc(fname_c),f2c(part-1),f2c(part_size))
   end subroutine cldera_set_field_part_size
-  subroutine cldera_set_field_part_data_1d (fname,part,data)
+  subroutine cldera_set_field_part_data_real_1d (fname,part,data)
     use iso_c_binding, only: c_char, c_loc
     use cldera_interface_f2c_mod, only: csfpd_c => cldera_set_field_part_data_c
     character (len=*), intent(in) :: fname
     integer,  intent(in) :: part
     real(r8), intent(in), target :: data(:)
 
-    character (kind=c_char, len=max_str_len), target :: fname_c
+    character (kind=c_char, len=max_str_len), target :: fname_c, dtype_c
 
     fname_c = f2c(fname)
+    dtype_c = f2c("real")
+
     ! Subtract 1 to part, b/c of C-vs-Fortran index base
-    call csfpd_c(c_loc(fname_c),f2c(part-1),c_loc(data(1)))
-  end subroutine cldera_set_field_part_data_1d
-  subroutine cldera_set_field_part_data_2d (fname,part,data)
+    call csfpd_c(c_loc(fname_c),f2c(part-1),c_loc(data(1)),c_loc(dtype_c))
+  end subroutine cldera_set_field_part_data_real_1d
+  subroutine cldera_set_field_part_data_real_2d (fname,part,data)
     use iso_c_binding, only: c_char, c_loc
     use cldera_interface_f2c_mod, only: csfpd_c => cldera_set_field_part_data_c
     character (len=*), intent(in) :: fname
     integer,  intent(in) :: part
     real(r8), intent(in), target :: data(:,:)
 
-    character (kind=c_char, len=max_str_len), target :: fname_c
+    character (kind=c_char, len=max_str_len), target :: fname_c, dtype_c
 
     fname_c = f2c(fname)
+    dtype_c = f2c("real")
     ! Subtract 1 to part, b/c of C-vs-Fortran index base
-    call csfpd_c(c_loc(fname_c),f2c(part-1),c_loc(data(1,1)))
-  end subroutine cldera_set_field_part_data_2d
-  subroutine cldera_set_field_part_data_3d (fname,part,data)
+    call csfpd_c(c_loc(fname_c),f2c(part-1),c_loc(data(1,1)),c_loc(dtype_c))
+  end subroutine cldera_set_field_part_data_real_2d
+  subroutine cldera_set_field_part_data_real_3d (fname,part,data)
     use iso_c_binding, only: c_char, c_loc
     use cldera_interface_f2c_mod, only: csfpd_c => cldera_set_field_part_data_c
     character (len=*), intent(in) :: fname
     integer,  intent(in) :: part
     real(r8), intent(in), target :: data(:,:,:)
 
-    character (kind=c_char, len=max_str_len), target :: fname_c
+    character (kind=c_char, len=max_str_len), target :: fname_c, dtype_c
 
     fname_c = f2c(fname)
+    dtype_c = f2c("real")
+
     ! Subtract 1 to part, b/c of C-vs-Fortran index base
-    call csfpd_c(c_loc(fname_c),f2c(part-1),c_loc(data(1,1,1)))
-  end subroutine cldera_set_field_part_data_3d
+    call csfpd_c(c_loc(fname_c),f2c(part-1),c_loc(data(1,1,1)),c_loc(dtype_c))
+  end subroutine cldera_set_field_part_data_real_3d
+  subroutine cldera_set_field_part_data_int_1d (fname,part,data)
+    use iso_c_binding, only: c_char, c_loc
+    use cldera_interface_f2c_mod, only: csfpd_c => cldera_set_field_part_data_c
+    character (len=*), intent(in) :: fname
+    integer,  intent(in) :: part
+    integer, intent(in), target :: data(:)
+
+    character (kind=c_char, len=max_str_len), target :: fname_c, dtype_c
+
+    fname_c = f2c(fname)
+    dtype_c = f2c("int")
+
+    ! Subtract 1 to part, b/c of C-vs-Fortran index base
+    call csfpd_c(c_loc(fname_c),f2c(part-1),c_loc(data(1)),c_loc(dtype_c))
+  end subroutine cldera_set_field_part_data_int_1d
 
   ! Check all parts have been set in each field
   subroutine cldera_commit_all_fields ()

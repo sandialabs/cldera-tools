@@ -9,9 +9,9 @@ module cldera_interface_f2c_mod
     end subroutine cldera_init_c
 
     ! Add a partitioned field to cldera data base
-    subroutine cldera_add_partitioned_field_c (fname, rank, dims, dimnames, nparts, part_dim,view) bind(c)
+    subroutine cldera_add_partitioned_field_c (fname, rank, dims, dimnames, nparts, part_dim, view, dtype) bind(c)
       use iso_c_binding, only: c_int, c_char, c_bool, c_ptr
-      type(c_ptr), intent(in) :: fname
+      type(c_ptr), intent(in) :: fname, dtype
       integer (kind=c_int), value, intent(in) :: rank,nparts,part_dim
       integer (kind=c_int), intent(in) :: dims(rank)
       logical (kind=c_bool), value, intent(in) :: view
@@ -26,10 +26,10 @@ module cldera_interface_f2c_mod
     end subroutine cldera_set_field_part_size_c
 
     ! Set pointer to host app data for a particular field partition
-    subroutine cldera_set_field_part_data_c (fname, part, data) bind(c)
+    subroutine cldera_set_field_part_data_c (fname, part, data, dtype) bind(c)
       use iso_c_binding, only: c_int, c_char, c_double, c_ptr
       integer (kind=c_int), value, intent(in) :: part
-      type(c_ptr), intent(in) :: fname
+      type(c_ptr), intent(in) :: fname, dtype
       type(c_ptr), intent(in) :: data
     end subroutine cldera_set_field_part_data_c
 

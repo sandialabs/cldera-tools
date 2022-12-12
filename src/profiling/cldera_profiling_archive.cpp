@@ -176,7 +176,7 @@ void ProfilingArchive::flush_to_file ()
 
           const auto var_name = fname + "_" + sname;
 
-          write_var (*m_output_file,var_name,stat.data());
+          write_var (*m_output_file,var_name,stat.data<Real>());
         }
       }
       io::pnetcdf::update_time(*m_output_file,ts-m_start_date);

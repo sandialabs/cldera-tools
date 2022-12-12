@@ -9,8 +9,9 @@ namespace cldera
 {
 
 Field::
-Field(const std::string& n, const FieldLayout& fl, const DataAccess cv)
- : Field(n,fl,1,0,cv)
+Field(const std::string& n, const FieldLayout& fl,
+      const DataAccess cv, const DataType dt)
+ : Field(n,fl,1,0,cv,dt)
 {
   // We can go ahead and set sizes
   if (m_layout.rank()>0) {
@@ -18,47 +19,28 @@ Field(const std::string& n, const FieldLayout& fl, const DataAccess cv)
   } else {
     set_part_size(m_part_dim,1);
   }
-
-  if (cv==DataAccess::Copy) {
-    // We might as well...
-    commit ();
-  }
 }
 
 Field::
-Field (const std::string& n,
-       const std::vector<int>& dims,
+Field (const std::string& n, const std::vector<int>& dims,
        const std::vector<std::string>& dimnames,
-       const Real* data)
- : Field(n,FieldLayout(dims,dimnames),data)
-{
-  // Nothing to do here
-}
-
-Field::
-Field(const std::string& n, const FieldLayout& fl, const Real* data)
- : Field(n,fl,DataAccess::View)
-{
-  set_data(data);
-}
-
-Field::
-Field (const std::string& n,
-       const std::vector<int>& dims,
-       const std::vector<std::string>& dimnames,
-       const DataAccess cv)
- : Field(n,FieldLayout(dims,dimnames),cv)
+       const DataAccess cv, const DataType dt)
+ : Field(n,FieldLayout(dims,dimnames),cv, dt)
 {
   // Nothing to do here
 }
 
 Field::
 Field (const std::string& n, const FieldLayout& fl,
-       const int nparts, const int part_dim, const DataAccess cv)
+       const int nparts, const int part_dim,
+       const DataAccess cv, const DataType dt)
  : m_name(n)
  , m_layout(fl)
  , m_data_access(cv)
+ , m_data_type(dt)
 {
+  EKAT_REQUIRE_MSG (is_valid(m_data_type),
+      "Error! Invalid input data type: " + e2str(dt) + "\n");
   EKAT_REQUIRE_MSG (part_dim>=0 && part_dim<(m_layout.rank()==0 ? 1 : m_layout.rank()),
       "Error! Invalid partition dimension.\n"
       "  - Field name: " + m_name + "\n"
@@ -82,8 +64,8 @@ Field (const std::string& n,
        const std::vector<int>& dims,
        const std::vector<std::string>& dimnames,
        const int nparts, const int part_dim,
-       const DataAccess cv)
- : Field(n,FieldLayout(dims,dimnames),nparts,part_dim,cv)
+       const DataAccess cv, const DataType dt)
+ : Field(n,FieldLayout(dims,dimnames),nparts,part_dim,cv,dt)
 {
   // Nothing to do here
 }
@@ -127,42 +109,6 @@ set_part_size (const int ipart, const int part_size)
   m_part_sizes[ipart] = part_size;
 }
 
-void Field::
-copy_part_data (const int ipart, const Real* data)
-{
-  EKAT_REQUIRE_MSG (m_data_access==DataAccess::Copy,
-      "[Field::copy_part_data]\n"
-      "  Error! Attempt to copy data, but field data access is not 'Copy'.\n"
-      "    - Field name: " + m_name + "\n");
-
-  check_part_idx(ipart);
-  EKAT_REQUIRE_MSG (data!=nullptr,
-      "[Field::copy_part_data]\n"
-      "  Error! Invalid part data pointer.\n"
-      "    - Field name: " + m_name + "\n"
-      "    - Part index: " + std::to_string(ipart) + "\n");
-
-  view_1d_host<const Real,Kokkos::MemoryUnmanaged> v(data,part_layout(ipart).size());
-  Kokkos::deep_copy(m_data_nonconst[ipart],v);
-}
-
-void Field::
-set_data (const Real* data)
-{
-  EKAT_REQUIRE_MSG (m_nparts==1,
-      "Error! Field::set_data is only available for non-partitioned fields.\n");
-  set_part_data(0,data);
-
-  // Since there's only one part, we can commit here
-  commit();
-}
-
-void Field::
-copy_data (const Real* data)
-{
-  copy_part_data(0,data);
-}
-
 void Field::commit () {
   if (m_committed) {
     // Should we error out instead?
@@ -174,7 +120,7 @@ void Field::commit () {
     m_data_nonconst.resize(m_nparts);
     for (int i=0; i<m_nparts; ++i) {
       auto iname = m_name + "_" + std::to_string(i);
-      m_data_nonconst[i] = view_1d_host<Real> (iname,part_layout(i).size());
+      m_data_nonconst[i] = view_1d_host<char> (iname,size_of(m_data_type)*part_layout(i).size());
       m_data[i] = m_data_nonconst[i];
     }
   }
@@ -212,34 +158,18 @@ void Field::commit () {
 }
 
 void Field::
+check_single_part (const std::string& method_name) const {
+  EKAT_REQUIRE_MSG (m_nparts==1,
+      "Error! Method Field::" + method_name + " only available for single-part fields.\n");
+}
+
+void Field::
 check_part_idx (const int ipart) const {
   EKAT_REQUIRE_MSG (ipart>=0 && ipart<m_nparts,
       "Error! Invalid part index.\n"
       "  - Field name: " + m_name + "\n"
       "  - Part index: " + std::to_string(ipart) + "\n"
       "  - Num parts : " + std::to_string(m_nparts) + "\n");
-}
-
-void Field::
-set_part_data (const int ipart, const Real* data)
-{
-  EKAT_REQUIRE_MSG (m_data_access==DataAccess::View,
-      "[Field::set_part_data]\n"
-      "  Error! Attempt to set data pointer, but data access is 'Copy'.\n"
-      "    - Field name: " + m_name + "\n");
-
-  EKAT_REQUIRE_MSG (m_data[ipart].data()==nullptr,
-      "[Field::set_part_data]\n"
-      "  Error! Part data was already set.\n"
-      "    - Field name: " + m_name + "\n"
-      "    - Part index: " + std::to_string(ipart) + "\n");
-  EKAT_REQUIRE_MSG (data!=nullptr,
-      "[Field::set_part_data]\n"
-      "  Error! Invalid part data pointer.\n"
-      "    - Field name: " + m_name + "\n"
-      "    - Part index: " + std::to_string(ipart) + "\n");
-
-  m_data[ipart] = view_1d_host<const Real> (data,part_layout(ipart).size());
 }
 
 } // namespace cldera

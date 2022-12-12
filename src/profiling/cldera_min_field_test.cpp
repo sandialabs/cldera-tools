@@ -17,10 +17,10 @@ MinFieldTest::MinFieldTest(const std::string& name,
 bool MinFieldTest::test(const TimeStamp& t)
 {
   const auto field_min = m_min_stat->compute(*m_field);
-  if (field_min.data()[0] < m_min)
+  if (field_min.data<Real>()[0] < m_min)
   {
     if(m_save_history_on_failure)
-      m_history.store(t, field_min.data()[0]);
+      m_history.store(t, field_min.data<Real>()[0]);
     return false;
   }
 

@@ -26,13 +26,13 @@ protected:
     Real min = std::numeric_limits<Real>::infinity();
     for (int p=0; p<f.nparts(); ++p) {
       const auto& pl = f.part_layout(p);
-      const auto& data = f.part_data(p);
+      const auto& data = f.part_data<const Real>(p);
       for (int i=0; i<pl.size(); ++i) {
         min = std::min(min,data[i]);
       }
     }
 
-    m_comm.all_reduce(&min,stat.data_nonconst(),1,MPI_MIN);
+    m_comm.all_reduce(&min,stat.data_nonconst<Real>(),1,MPI_MIN);
   }
 
   ekat::Comm    m_comm;

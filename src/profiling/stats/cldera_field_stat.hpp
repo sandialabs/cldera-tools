@@ -32,6 +32,7 @@ public:
   // Shortcut if you don't have a pre-built field
   Field compute (const Field& f) const {
     Field stat (f.name() + "_" + name(), stat_layout(f.layout()), DataAccess::Copy);
+    stat.commit();
     compute(f,stat);
     return stat;
   }

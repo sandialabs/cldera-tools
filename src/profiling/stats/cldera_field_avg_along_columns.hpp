@@ -33,7 +33,7 @@ protected:
     long long global_size;
     m_comm.all_reduce(&size, &global_size, 1, MPI_SUM);
 
-    auto avg_field = stat.view_nonconst();
+    auto avg_field = stat.view_nonconst<Real>();
     auto stat_size = avg_field.size();
     for (int i = 0; i < stat_size; ++i)
       avg_field(i) /= global_size;

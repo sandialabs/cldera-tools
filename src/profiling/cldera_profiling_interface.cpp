@@ -172,7 +172,8 @@ void cldera_set_field_part_size_c (
 void cldera_set_field_part_data_c (
     const char*& name,
     const int   part,
-    const Real*& data)
+    const void*& data_in,
+    const char*& dtype_in)
 {
   auto& s = ProfilingSession::instance();
 
@@ -182,25 +183,24 @@ void cldera_set_field_part_data_c (
   auto& archive = s.get<ProfilingArchive>("archive");
 
   auto& f = archive.get_field(name);
-  if (f.data_access()==DataAccess::View) {
-    f.set_part_data (part,data);
+  std::string dtype = dtype_in;
+  if (dtype=="real") {
+    const Real* data = reinterpret_cast<const Real*>(data_in);
+    if (f.data_access()==DataAccess::View) {
+      f.set_part_data<Real> (part,data);
+    } else {
+      f.copy_part_data<Real> (part,data);
+    }
+  } else if (dtype=="int") {
+    const int* data = reinterpret_cast<const int*>(data_in);
+    if (f.data_access()==DataAccess::View) {
+      f.set_part_data<int> (part,data);
+    } else {
+      f.copy_part_data<int> (part,data);
+    }
   } else {
-    f.copy_part_data (part,data);
+    EKAT_ERROR_MSG ("Invalid/unsupported data type: " + dtype + "\n");
   }
-}
-
-void cldera_set_field_c (
-    const char*& name,
-    const Real*& data)
-{
-  auto& s = ProfilingSession::instance();
-
-  // If input file was not provided, cldera does nothing
-  if (not s.inited()) { return; }
-
-  auto& archive = s.get<ProfilingArchive>("archive");
-
-  archive.get_field(name).set_data (data);
 }
 
 void cldera_commit_field_c (const char*& name)

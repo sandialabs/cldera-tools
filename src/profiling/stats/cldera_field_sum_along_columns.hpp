@@ -23,30 +23,30 @@ protected:
   void compute_impl (const Field& f, Field& stat) const  override {
     const auto& stat_strides = compute_stat_strides(f.layout());
 
-    auto temp_c = stat.view_nonconst();
-    auto sum_field = view_1d_host<Real>("sum_field", stat.view().size());
+    auto temp_c = view_1d_host<Real>("sum_field", stat.layout().size());
+    auto stat_view = stat.view_nonconst<Real>();
     Kokkos::deep_copy(temp_c, 0.0);
-    Kokkos::deep_copy(sum_field, 0.0);
+    Kokkos::deep_copy(stat_view, 0.0);
 
     Real temp, y;
     const int field_rank = f.layout().rank();
     const int field_part_dim = f.part_dim();
     for (int ipart = 0; ipart < f.nparts(); ++ipart) {
-      const auto& part_data = f.part_data(ipart);
+      const auto& part_data = f.part_data<const Real>(ipart);
       const auto& part_layout = f.part_layout(ipart);
       const auto& part_dims = part_layout.dims();
       for (int part_index = 0; part_index < part_layout.size(); ++part_index) {
         const int stat_index = compute_stat_index(
             ipart, part_index, field_rank, field_part_dim, part_dims, stat_strides);
         y = part_data[part_index] - temp_c(stat_index);
-        temp = sum_field(stat_index) + y;
-        temp_c(stat_index) = (temp - sum_field(stat_index)) - y;
-        sum_field(stat_index) = temp;
+        temp = stat_view(stat_index) + y;
+        temp_c(stat_index) = (temp - stat_view(stat_index)) - y;
+        stat_view(stat_index) = temp;
       }
     }
 
     // Since only columns are distributed, sum_field is the same size across ranks
-    m_comm.all_reduce(sum_field.data(), stat.data_nonconst(), sum_field.size(), MPI_SUM);
+    m_comm.all_reduce(stat_view.data(), stat.layout().size(), MPI_SUM); // Use MPI_IN_PLACE
   }
 
   const ekat::Comm m_comm;

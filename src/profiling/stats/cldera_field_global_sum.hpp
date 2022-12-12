@@ -26,7 +26,7 @@ protected:
     Real temp,y;
     for (int p=0; p<f.nparts(); ++p) {
       const auto& pl = f.part_layout(p);
-      const auto& data = f.part_data(p);
+      const auto& data = f.part_data<const Real>(p);
       for (int i=0; i<pl.size(); ++i) {
         y = data[i] - c;
         temp = sum + y;
@@ -35,7 +35,7 @@ protected:
       }
     }
 
-    m_comm.all_reduce(&sum,stat.data_nonconst(),1,MPI_SUM);
+    m_comm.all_reduce(&sum,stat.data_nonconst<Real>(),1,MPI_SUM);
   }
 
   ekat::Comm    m_comm;

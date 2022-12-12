@@ -18,21 +18,21 @@ BoundsFieldTest::BoundsFieldTest(const std::string& name,
 bool BoundsFieldTest::test(const TimeStamp& t)
 {
   const auto field_min = m_min_stat->compute(*m_field);
-  if (field_min.data()[0] < m_bounds.min)
+  if (field_min.data<Real>()[0] < m_bounds.min)
   {
     if(m_save_history_on_failure)
     {
-      m_history.store(t, field_min.data()[0]);
+      m_history.store(t, field_min.data<Real>()[0]);
     }
     return false;
   }
 
   const auto field_max = m_max_stat->compute(*m_field);
-  if (field_max.data()[0] > m_bounds.max)
+  if (field_max.data<Real>()[0] > m_bounds.max)
   {
     if(m_save_history_on_failure)
     {
-      m_history.store(t, field_max.data()[0]);
+      m_history.store(t, field_max.data<Real>()[0]);
     }
     return false;
   }

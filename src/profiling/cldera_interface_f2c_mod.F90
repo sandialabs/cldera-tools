@@ -33,7 +33,12 @@ module cldera_interface_f2c_mod
       type(c_ptr), intent(in) :: data
     end subroutine cldera_set_field_part_data_c
 
-    ! Check all parts have been set in each field
+    ! Check all parts have been set in the field
+    subroutine cldera_commit_field_c (fname) bind(c)
+      use iso_c_binding, only: c_ptr
+      type(c_ptr), intent(in) :: fname
+    end subroutine cldera_commit_field_c
+
     subroutine cldera_commit_all_fields_c () bind(c)
     end subroutine cldera_commit_all_fields_c
 

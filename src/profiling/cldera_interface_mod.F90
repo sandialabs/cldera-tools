@@ -100,8 +100,7 @@ contains
     else
       view_c = LOGICAL(.true.,kind=c_bool)
     endif
-    ! Flip part_dim, since we flipped the dimensions
-    ! Also, flip dims, since in C the first is the slowest striding
+
     call capf_c(c_loc(fname_c),f2c(rank),c_dims,c_dimnames_ptrs, &
                 f2c(nparts),f2c(rank-part_dim),view_c,c_loc(dtype_c))
   end subroutine cldera_add_partitioned_field
@@ -178,6 +177,19 @@ contains
     ! Subtract 1 to part, b/c of C-vs-Fortran index base
     call csfpd_c(c_loc(fname_c),f2c(part-1),c_loc(data(1)),c_loc(dtype_c))
   end subroutine cldera_set_field_part_data_int_1d
+
+  ! Commit a single field
+  subroutine cldera_commit_field (fname)
+    use iso_c_binding, only: c_char, c_loc
+    use cldera_interface_f2c_mod, only: cldera_commit_field_c
+
+    character (len=*), intent(in) :: fname
+    character (kind=c_char, len=max_str_len), target :: fname_c
+
+    fname_c = f2c(fname)
+
+    call cldera_commit_field_c(c_loc(fname_c))
+  end subroutine cldera_commit_field
 
   ! Check all parts have been set in each field
   subroutine cldera_commit_all_fields ()

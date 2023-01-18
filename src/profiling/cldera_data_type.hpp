@@ -13,6 +13,8 @@ enum DataType {
 
 std::string e2str (const DataType dt);
 
+DataType str2data_type (const std::string& dt);
+
 bool is_valid (const DataType dt);
 
 template<typename T>

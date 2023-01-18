@@ -111,7 +111,8 @@ set_part_size (const int ipart, const int part_size)
 
 void Field::commit () {
   if (m_committed) {
-    // Should we error out instead?
+    // It's better to allow this, in case we commit one field, and later
+    // call commit_all_fields in the profiling interface.
     return;
   }
 

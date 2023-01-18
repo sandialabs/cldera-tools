@@ -1,6 +1,8 @@
 #include "cldera_data_type.hpp"
 #include "cldera_profiling_types.hpp"
 
+#include <ekat/util/ekat_string_utils.hpp>
+
 namespace cldera {
 
 std::string e2str (const DataType dt) {
@@ -14,6 +16,16 @@ std::string e2str (const DataType dt) {
       s = "invalid";
   }
   return s;
+}
+
+DataType str2data_type (const std::string& dt)
+{
+  for (auto e : {RealType, IntType}) {
+    if (e2str(e)==ekat::CaseInsensitiveString(dt)) {
+      return e;
+    }
+  }
+  return Invalid;
 }
 
 bool is_valid (const DataType dt) {

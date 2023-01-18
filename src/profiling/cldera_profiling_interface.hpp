@@ -15,7 +15,8 @@ void cldera_add_field_c (const char*& name,
                          const int    rank,
                          const int*   dims,
                          const char** dimnames,
-                         const bool   is_view);
+                         const bool   is_view,
+                         const char*& data_type);
 
 void cldera_add_partitioned_field_c (
     const char*&  name,
@@ -24,7 +25,8 @@ void cldera_add_partitioned_field_c (
     const char**  dimnames,
     const int     num_parts,
     const int     part_dim,
-    const bool    is_view);
+    const bool    is_view,
+    const char*&  dtype);
 
 void cldera_set_field_part_size_c (
     const char*& name,

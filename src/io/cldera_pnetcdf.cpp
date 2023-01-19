@@ -480,6 +480,13 @@ void read_var (const NCFile& file, const std::string& vname,
       "  - var dims  : " + dims_str(var->dims) + "\n"
       "  - record    : " + std::to_string(record) + "\n");
 
+  EKAT_REQUIRE_MSG (!has_time || record<=var->nrecords,
+      "Error! Record out of bounds.\n"
+      "  - file name : " + file.name + "\n"
+      "  - var name  : " + var->name + "\n"
+      "  - var nrecords  : " + std::to_string(var->nrecords) + "\n"
+      "  - requested record    : " + std::to_string(record) + "\n");
+
   int first_non_time_idx = has_time ? 1 : 0;
   if (has_time) {
     start[0] = record>=0 ? record : var->nrecords-1;
@@ -539,9 +546,6 @@ void read_var (const NCFile& file, const std::string& vname,
           "  - err code : " + std::to_string(ret) + "\n");
 #endif
   }
-
-  // Update number of records
-  ++var->nrecords;
 }
 
 // Instantiations 

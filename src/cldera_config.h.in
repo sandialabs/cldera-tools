@@ -8,4 +8,4 @@
 
 #define CLDERA_MAX_NAME_LEN 256
 
-#endif // CLDERA_CONFIG_H
+#endif

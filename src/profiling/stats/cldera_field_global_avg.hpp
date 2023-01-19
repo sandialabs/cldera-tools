@@ -19,7 +19,9 @@ public:
   std::string name () const override { return "global_avg"; }
 
 protected:
-  void compute_impl (const Field& f, Field& stat) const  override {
+  // NOTE: unlike global max/min/sum, we don't support IntType,
+  //       so no need for extra template function
+  void compute_impl (const Field& f, Field& stat) const override {
     // Sum
     FieldGlobalSum::compute_impl(f,stat);
 

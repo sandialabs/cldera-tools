@@ -29,9 +29,17 @@ public:
     compute_impl(f,stat);
   }
 
+  // NOTE: For most stats, the stat data type matches the field one, but it might not be.
+  //       E.g., a stat that stores max location would have stat data type IntType,
+  //       regardless of the field data type. So make method virtual, to allow flexibility.
+  virtual DataType stat_data_type(const Field& f) const {
+    return f.data_type();
+  }
+
+
   // Shortcut if you don't have a pre-built field
   Field compute (const Field& f) const {
-    Field stat (f.name() + "_" + name(), stat_layout(f.layout()), DataAccess::Copy);
+    Field stat (f.name() + "_" + name(), stat_layout(f.layout()), DataAccess::Copy, stat_data_type(f));
     stat.commit();
     compute(f,stat);
     return stat;

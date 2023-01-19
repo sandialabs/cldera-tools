@@ -116,6 +116,7 @@ public:
   int part_dim () const { return m_part_dim; }
   bool committed () const { return m_committed; }
   DataAccess data_access () const { return m_data_access; }
+  DataType data_type () const { return m_data_type; }
 
 private:
 

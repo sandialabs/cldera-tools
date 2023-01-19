@@ -19,14 +19,26 @@ public:
   std::string name () const override { return "global_sum"; }
 
 protected:
-  void compute_impl (const Field& f, Field& stat) const  override {
+  void compute_impl (const Field& f, Field& stat) const override {
+    const auto dt = f.data_type();
+    if (dt==IntType) {
+      do_compute_impl<int>(f,stat);
+    } else if (dt==RealType) {
+      do_compute_impl<Real>(f,stat);
+    } else {
+      EKAT_ERROR_MSG ("[FieldGlobalSum] Unrecognized/unsupported data type (" + e2str(dt) + ")\n");
+    }
+  }
+  
+  template<typename T>
+  void do_compute_impl (const Field& f, Field& stat) const {
     // Note: use Kahan summation to increase accuracy
-    Real sum = 0;
-    Real c = 0;
-    Real temp,y;
+    T sum = 0;
+    T c = 0;
+    T temp,y;
     for (int p=0; p<f.nparts(); ++p) {
       const auto& pl = f.part_layout(p);
-      const auto& data = f.part_data<const Real>(p);
+      const auto& data = f.part_data<const T>(p);
       for (int i=0; i<pl.size(); ++i) {
         y = data[i] - c;
         temp = sum + y;
@@ -35,7 +47,7 @@ protected:
       }
     }
 
-    m_comm.all_reduce(&sum,stat.data_nonconst<Real>(),1,MPI_SUM);
+    m_comm.all_reduce(&sum,stat.data_nonconst<T>(),1,MPI_SUM);
   }
 
   ekat::Comm    m_comm;

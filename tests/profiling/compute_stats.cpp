@@ -45,6 +45,28 @@ TEST_CASE ("stats") {
   }
 }
 
+TEST_CASE ("stat_int_field") {
+  using namespace cldera;
+
+  ekat::Comm comm(MPI_COMM_WORLD);
+
+  constexpr int dim0 = 10;
+
+  // Create raw data
+  int raw_data[dim0];
+  for (int i=0; i<dim0; ++i) {
+    raw_data[i] = i+1;
+  }
+
+  Field f("f",{dim0},{"dim0"},DataAccess::View,IntType);
+  f.set_data(raw_data);
+
+  auto stat = create_stat("global_sum",comm);
+  const auto computed = stat->compute(f).data<int>()[0];
+  const auto expected = (dim0+1)*dim0/2;
+  REQUIRE (computed==expected);
+}
+
 TEST_CASE ("stats along columns") {
   using namespace cldera;
 

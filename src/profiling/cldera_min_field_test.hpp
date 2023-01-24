@@ -9,8 +9,6 @@
 
 namespace cldera {
 
-class Field;
-
 /*
  *  Field test class used to test whether a field is above the min bounds specified
  */
@@ -28,7 +26,7 @@ public:
 
 private:
   const Real m_min;
-  
+
   std::shared_ptr<FieldStat>  m_min_stat;
 };
 

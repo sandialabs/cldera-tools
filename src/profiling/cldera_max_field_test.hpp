@@ -9,8 +9,6 @@
 
 namespace cldera {
 
-class Field;
-
 /*
  *  Field test class used to test whether a field is below the max bounds specified
  */

@@ -20,6 +20,8 @@ public:
   std::string name () const override { return "avg_along_columns"; }
 
 protected:
+  // NOTE: unlike global max/min/sum, we don't support IntType,
+  //       so no need for extra template function
   void compute_impl (const Field& f, Field& stat) const  override {
     // Sum along columns
     FieldSumAlongColumns::compute_impl(f,stat);
@@ -33,7 +35,7 @@ protected:
     long long global_size;
     m_comm.all_reduce(&size, &global_size, 1, MPI_SUM);
 
-    auto avg_field = stat.view_nonconst();
+    auto avg_field = stat.view_nonconst<Real>();
     auto stat_size = avg_field.size();
     for (int i = 0; i < stat_size; ++i)
       avg_field(i) /= global_size;

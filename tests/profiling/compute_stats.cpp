@@ -32,16 +32,39 @@ TEST_CASE ("stats") {
     stat_fields.emplace(sname,stat->compute(f));
 
     expected.emplace(sname,Field(sname,stat_fields.at(sname).layout(),DataAccess::Copy));
+    expected.at(sname).commit();
   }
 
-  expected["global_max"].data_nonconst()[0] = 5;
-  expected["global_min"].data_nonconst()[0] = 0;
-  expected["global_sum"].data_nonconst()[0] = 15;
-  expected["global_avg"].data_nonconst()[0] = 15.0/6;
+  expected["global_max"].data_nonconst<Real>()[0] = 5;
+  expected["global_min"].data_nonconst<Real>()[0] = 0;
+  expected["global_sum"].data_nonconst<Real>()[0] = 15;
+  expected["global_avg"].data_nonconst<Real>()[0] = 15.0/6;
 
   for (auto sname : stats_names) {
-    REQUIRE (expected.at(sname).data()[0]==stat_fields.at(sname).data()[0]);
+    REQUIRE (expected.at(sname).data<Real>()[0]==stat_fields.at(sname).data<Real>()[0]);
   }
+}
+
+TEST_CASE ("stat_int_field") {
+  using namespace cldera;
+
+  ekat::Comm comm(MPI_COMM_WORLD);
+
+  constexpr int dim0 = 10;
+
+  // Create raw data
+  int raw_data[dim0];
+  for (int i=0; i<dim0; ++i) {
+    raw_data[i] = i+1;
+  }
+
+  Field f("f",{dim0},{"dim0"},DataAccess::View,IntType);
+  f.set_data(raw_data);
+
+  auto stat = create_stat("global_sum",comm);
+  const auto computed = stat->compute(f).data<int>()[0];
+  const auto expected = (dim0+1)*dim0/2;
+  REQUIRE (computed==expected);
 }
 
 TEST_CASE ("stats along columns") {
@@ -70,6 +93,7 @@ TEST_CASE ("stats along columns") {
     auto stat = create_stat(sname, comm);
     stat_fields.emplace(sname, stat->compute(f));
     expected.emplace(sname, Field(sname, stat_fields.at(sname).layout(), DataAccess::Copy));
+    expected.at(sname).commit();
   }
 
   Real max_values[] = {3,7,11,15,19,23};
@@ -77,15 +101,15 @@ TEST_CASE ("stats along columns") {
   Real sum_values[] = {6,22,38,54,70,86};
   Real avg_values[] = {6.0/4,22.0/4,38.0/4,54.0/4,70.0/4,86.0/4};
   for (int i = 0; i < dim0*dim1; ++i) {
-    expected["max_along_columns"].data_nonconst()[i] = max_values[i];
-    expected["min_along_columns"].data_nonconst()[i] = min_values[i];
-    expected["sum_along_columns"].data_nonconst()[i] = sum_values[i];
-    expected["avg_along_columns"].data_nonconst()[i] = avg_values[i];
+    expected["max_along_columns"].data_nonconst<Real>()[i] = max_values[i];
+    expected["min_along_columns"].data_nonconst<Real>()[i] = min_values[i];
+    expected["sum_along_columns"].data_nonconst<Real>()[i] = sum_values[i];
+    expected["avg_along_columns"].data_nonconst<Real>()[i] = avg_values[i];
   }
 
   for (auto sname : stats_names)
     for (int i = 0; i < dim0*dim1; ++i)
-      REQUIRE (expected.at(sname).data()[i]==stat_fields.at(sname).data()[i]);
+      REQUIRE (expected.at(sname).data<Real>()[i]==stat_fields.at(sname).data<Real>()[i]);
 }
 
 TEST_CASE ("stats along columns with parts") {
@@ -118,6 +142,7 @@ TEST_CASE ("stats along columns with parts") {
     auto stat = create_stat(sname, comm);
     stat_fields.emplace(sname, stat->compute(foo));
     expected.emplace(sname, Field(sname, stat_fields.at(sname).layout(), DataAccess::Copy));
+    expected.at(sname).commit();
   }
 
   Real max_values[] = {18,19,20,21,22,23};
@@ -125,13 +150,13 @@ TEST_CASE ("stats along columns with parts") {
   Real sum_values[] = {36,40,44,48,52,56};
   Real avg_values[] = {36.0/4,40.0/4,44.0/4,48.0/4,52.0/4,56.0/4};
   for (int i = 0; i < dim0*dim1; ++i) {
-    expected["max_along_columns"].data_nonconst()[i] = max_values[i];
-    expected["min_along_columns"].data_nonconst()[i] = min_values[i];
-    expected["sum_along_columns"].data_nonconst()[i] = sum_values[i];
-    expected["avg_along_columns"].data_nonconst()[i] = avg_values[i];
+    expected["max_along_columns"].data_nonconst<Real>()[i] = max_values[i];
+    expected["min_along_columns"].data_nonconst<Real>()[i] = min_values[i];
+    expected["sum_along_columns"].data_nonconst<Real>()[i] = sum_values[i];
+    expected["avg_along_columns"].data_nonconst<Real>()[i] = avg_values[i];
   }
 
   for (auto sname : stats_names)
     for (int i = 0; i < dim0*dim1; ++i)
-      REQUIRE (expected.at(sname).data()[i]==stat_fields.at(sname).data()[i]);
+      REQUIRE (expected.at(sname).data<Real>()[i]==stat_fields.at(sname).data<Real>()[i]);
 }

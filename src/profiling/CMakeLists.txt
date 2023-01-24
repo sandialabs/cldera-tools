@@ -13,6 +13,7 @@ endif()
 
 add_library (cldera-profiling
     cldera_bounds_field_test.cpp
+    cldera_data_type.cpp
     cldera_max_field_test.cpp
     cldera_min_field_test.cpp
     cldera_field_test_factory.cpp

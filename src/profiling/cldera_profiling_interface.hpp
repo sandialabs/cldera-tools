@@ -3,27 +3,21 @@
 
 #include <mpi.h>
 
-#include "cldera_profiling_types.hpp"
-
-#ifdef __cplusplus
 extern "C" {
-#endif
 
-/*
- * This file contains the declaration of cldera interface routines
- *
- * These routines are meant to be called from Fortran code,
- * which will then not need this header file. However, we still
- * provide this file for the sake of testing, and possibly
- * other C/C++ codes that might use the profiling library,
- * so that they do not need to declare all the external functions.
- */
+namespace cldera {
 
-// Initialize/finalize the cldera profiling session
 void cldera_init_c (const MPI_Fint fcomm, const int ymd, const int tod);
+
 void cldera_clean_up_c ();
 
-// Set a field ptr/metadata in the profiling archive
+void cldera_add_field_c (const char*& name,
+                         const int    rank,
+                         const int*   dims,
+                         const char** dimnames,
+                         const bool   is_view,
+                         const char*& data_type);
+
 void cldera_add_partitioned_field_c (
     const char*&  name,
     const int     rank,
@@ -31,40 +25,28 @@ void cldera_add_partitioned_field_c (
     const char**  dimnames,
     const int     num_parts,
     const int     part_dim,
-    const bool    is_view);
+    const bool    is_view,
+    const char*&  dtype);
 
-// Shortcut in case of single partition
-void cldera_add_field_c (
-    const char*&  name,
-    const int     rank,
-    const int*    dims,
-    const char**  dimnames,
-    const bool    is_view);
-
-void cldera_set_field_partition_c (
+void cldera_set_field_part_size_c (
     const char*& name,
     const int   part,
-    const int   part_size,
-    const cldera::Real*&  data);
+    const int   part_size);
 
-// Shortcut in case of single partition
-void cldera_set_field_c (
+void cldera_set_field_part_data_c (
     const char*& name,
-    const cldera::Real*&  data);
+    const int   part,
+    const void*& data,
+    const char*& dtype);
 
-void cldera_commit_fields_c ();
 void cldera_commit_field_c (const char*& name);
 
-// Read from yaml file the list of fields to profile,
-// as well as what statistics to be profiled
-void cldera_init_requests_c ();
+void cldera_commit_all_fields_c ();
 
-// Compute all the reuqested stats and store results
-// in the profiling archive
 void cldera_compute_stats_c (const int ymd, const int tod);
 
-#ifdef __cplusplus
+} // namespace cldera
+
 } // extern "C"
-#endif
 
 #endif // CLDERA_PROFILING_INTERFACE_HPP

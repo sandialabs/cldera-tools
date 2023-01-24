@@ -10,6 +10,9 @@ TEST_CASE ("test_manager") {
   using namespace cldera;
   const ekat::Comm comm(MPI_COMM_WORLD);
 
+  // 12pm on Dec 8th 2022
+  TimeStamp t(20221208,43200);
+
   // Initialize test manager
   ProfilingTestManager test_manager;
 
@@ -42,14 +45,14 @@ TEST_CASE ("test_manager") {
   REQUIRE(test_manager.has_field_test(field_test_name) == true);
 
   // Test field test running
-  REQUIRE_THROWS(test_manager.run_field_test("Test does not exist"));
+  REQUIRE_THROWS(test_manager.run_field_test("Test does not exist",t));
   std::iota(foo_data.begin(), foo_data.end(), 1.0); // field within bounds
-  REQUIRE(test_manager.run_field_test(field_test_name) == true);
-  REQUIRE(test_manager.run_field_test(field_test_name2) == false);
+  REQUIRE(test_manager.run_field_test(field_test_name,t) == true);
+  REQUIRE(test_manager.run_field_test(field_test_name2,t) == false);
 
   // Test field test runner
   std::map<std::string, bool> expected_results = {{field_test_name, true}, {field_test_name2, false}};
-  const auto results = test_manager.run_all_field_tests();
+  const auto results = test_manager.run_all_field_tests(t);
   for (const auto& result : results)
     REQUIRE(expected_results.at(result.first) == result.second);
 }

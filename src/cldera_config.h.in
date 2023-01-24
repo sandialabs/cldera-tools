@@ -1,6 +1,11 @@
+#ifndef CLDERA_CONFIG_H
+#define CLDERA_CONFIG_H
+
 // Add all needed config options for cldera here
 // See https://cmake.org/cmake/help/latest/command/configure_file.html for details
 
 #cmakedefine CLDERA_DEBUG
 
 #define CLDERA_MAX_NAME_LEN 256
+
+#endif

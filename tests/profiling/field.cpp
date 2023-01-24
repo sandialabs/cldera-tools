@@ -6,17 +6,17 @@ TEST_CASE ("field") {
   using namespace cldera;
 
   std::vector<Real> foo_data (5);
-  std::vector<Real> bar_data (20);
+  std::vector<int> bar_data (20);
   std::vector<std::vector<Real>> baz_data (3,std::vector<Real>(20));
 
   std::iota(foo_data.begin(),foo_data.end(),0.0);
-  std::iota(bar_data.begin(),bar_data.end(),0.0);
+  std::iota(bar_data.begin(),bar_data.end(),0);
   std::iota(baz_data[0].begin(),baz_data[0].end(),0.0);
   std::iota(baz_data[1].begin(),baz_data[1].end(),20.0);
   std::iota(baz_data[2].begin(),baz_data[2].end(),40.0);
 
   Field foo("foo",{5},{"col"},foo_data.data());
-  Field bar("bar",{5,4},{"col","lev"});
+  Field bar("bar",{5,4},{"col","lev"},DataAccess::View,DataType::IntType);
   Field baz("baz",{5,4,3},{"col","cmp","lev"},3,2); // 3 partitions along last dim
   Field foobar("foobar",{5},{"col"},DataAccess::Copy);
   REQUIRE_THROWS (Field("",{5},{"col"},6,0)); // Too many parts
@@ -31,8 +31,9 @@ TEST_CASE ("field") {
   REQUIRE_THROWS (foo.set_data(foo_data.data())); // Data already set
   REQUIRE_THROWS (baz.set_part_size(3,1)); // part idx OOB
   REQUIRE_THROWS (baz.set_part_size(1,10)); // part size OOB
-  REQUIRE_THROWS (foobar.set_part_data(0,foo_data.data())); // Not a View field
-  REQUIRE_THROWS (bar.set_data(nullptr)); // Invalid pointer
+  REQUIRE_THROWS (foobar.set_part_data<Real>(0,foo_data.data())); // Not a View field
+  REQUIRE_THROWS (bar.set_data<int>(nullptr)); // Invalid pointer
+  REQUIRE_THROWS (bar.set_data(foo_data.data())); // Invalid data type
   bar.set_data(bar_data.data());
   baz.set_part_size(0,1);
   baz.set_part_size(2,1);
@@ -42,12 +43,13 @@ TEST_CASE ("field") {
   baz.set_part_data(1,baz_data[1].data());
 
   // Commit
-  REQUIRE_THROWS (baz.part_data(0)); // Field not yet committed
+  REQUIRE_THROWS (baz.part_data<Real>(0)); // Field not yet committed
   bar.commit();
   baz.commit();
   foobar.commit();
+  REQUIRE_THROWS (bar.data<Real>()); // Wrong data type
   REQUIRE_THROWS (bar.set_data(foo_data.data())); // Can't reset data pointer
-  REQUIRE_THROWS (baz.data()); // Can't call data on partitioned field
+  REQUIRE_THROWS (baz.data<Real>()); // Can't call data on partitioned field
 
   // Copy data
   REQUIRE_THROWS (foo.copy_data(foo_data.data())); // Can't copy in a View field.
@@ -64,15 +66,15 @@ TEST_CASE ("field") {
 
   // Check data
   for (int i=0; i<foo.layout().size(); ++i) {
-    REQUIRE (foo.data()[i]==i);
-    REQUIRE (foo.data()[i]==foobar.data()[i]);
+    REQUIRE (foo.data<Real>()[i]==i);
+    REQUIRE (foo.data<Real>()[i]==foobar.data<Real>()[i]);
   }
   for (int i=0; i<bar.layout().size(); ++i) {
-    REQUIRE (bar.data()[i]==i);
+    REQUIRE (bar.data<int>()[i]==i);
   }
   for (int p=0,offset=0; p<baz.nparts(); ++p) {
     for (int i=0; i<baz.part_layout(p).size(); ++i) {
-      REQUIRE (baz.part_data(p)[i]==(i+offset));
+      REQUIRE (baz.part_data<Real>(p)[i]==(i+offset));
     }
     offset += baz.part_layout(p).size();
   }

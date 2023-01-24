@@ -2,7 +2,7 @@
 #define CLDERA_FIELD_HPP
 
 #include "cldera_field_layout.hpp"
-#include "cldera_profiling_types.hpp"
+#include "cldera_data_type.hpp"
 
 #include <ekat/ekat_assert.hpp>
 
@@ -42,25 +42,33 @@ public:
 
   Field (const std::string& n, const FieldLayout& fl,
          const int nparts, const int part_dim,
-         const DataAccess cv = DataAccess::View);
+         const DataAccess cv = DataAccess::View,
+         const DataType dt = RealType);
   Field (const std::string& n,
          const std::vector<int>& dims,
          const std::vector<std::string>& dimnames,
          const int nparts, const int part_dim,
-         const DataAccess cv = DataAccess::View);
+         const DataAccess cv = DataAccess::View,
+         const DataType dt = RealType);
 
   // Shortcuts for single-partition field
   Field (const std::string& n, const FieldLayout& fl,
-         const DataAccess cv = DataAccess::View);
+         const DataAccess cv = DataAccess::View,
+         const DataType dt = RealType);
   Field (const std::string& n,
          const std::vector<int>& dims,
          const std::vector<std::string>& dimnames,
-         const DataAccess cv = DataAccess::View);
-  Field (const std::string& n, const FieldLayout& fl, const Real* data);
+         const DataAccess cv = DataAccess::View,
+         const DataType dt = RealType);
+
+  template<typename T>
+  Field (const std::string& n, const FieldLayout& fl, const T* data);
+
+  template<typename T>
   Field (const std::string& n,
          const std::vector<int>& dims,
          const std::vector<std::string>& dimnames,
-         const Real* data);
+         const T* data);
 
   const std::string& name () const { return m_name; }
 
@@ -70,35 +78,63 @@ public:
 
   // Set part specs
   void set_part_size  (const int ipart, const int part_size);
-  void set_part_data  (const int ipart, const Real* data);
-  void set_data (const Real* data);
+  template<typename T>
+  void set_part_data  (const int ipart, const T* data);
+  template<typename T>
+  void set_data (const T* data);
 
   void commit ();
 
   // Copy into managed views, if m_data_access=Copy
-  void copy_part_data (const int ipart, const Real* data);
-  void copy_data (const Real* data);
+  template<typename T>
+  void copy_part_data (const int ipart, const T* data);
+  template<typename T>
+  void copy_data (const T* data);
 
   // Get data as view
-  view_1d_host<const Real> part_view (const int ipart) const;
-  view_1d_host<      Real> part_view_nonconst (const int ipart);
-  view_1d_host<const Real> view () const;
-  view_1d_host<      Real> view_nonconst ();
+  template<typename T>
+  view_1d_host<const T> part_view (const int ipart) const;
+  template<typename T>
+  view_1d_host<      T> part_view_nonconst (const int ipart);
+  template<typename T>
+  view_1d_host<const T> view () const;
+  template<typename T>
+  view_1d_host<      T> view_nonconst ();
 
   // Get raw data
-  const Real* part_data (const int ipart) const;
-        Real* part_data_nonconst (const int ipart);
-  const Real* data () const;
-        Real* data_nonconst ();
+  template<typename T>
+  const T* part_data (const int ipart) const;
+  template<typename T>
+        T* part_data_nonconst (const int ipart);
+  template<typename T>
+  const T* data () const;
+  template<typename T>
+        T* data_nonconst ();
 
   // Query status
   int nparts () const { return m_nparts; }
   int part_dim () const { return m_part_dim; }
   bool committed () const { return m_committed; }
   DataAccess data_access () const { return m_data_access; }
+  DataType data_type () const { return m_data_type; }
 
 private:
 
+  // Methods to go to and from the internal char* storage
+  template<typename T>
+  char* ptr2char (T* p) const { return reinterpret_cast<char*>(p); }
+  template<typename T>
+  const char* ptr2char (const T* p) const { return reinterpret_cast<const char*>(p); }
+
+  template<typename T>
+  T* char2ptr (char* p) const { return reinterpret_cast<T*>(p); }
+  template<typename T>
+  const T* char2ptr (const char* p) const { return reinterpret_cast<const T*>(p); }
+
+  // Check methods are called with the right inputs for this field
+  template<typename T>
+  void check_data_type () const;
+  void check_single_part (const std::string& method_name) const;
   void check_part_idx (const int i) const;
 
   std::string             m_name;
@@ -108,71 +144,177 @@ private:
   std::vector<long long>  m_part_sizes;
   bool                    m_committed = false;
   DataAccess              m_data_access;
+  DataType                m_data_type;
 
-  std::vector<view_1d_host<const Real>>   m_data;
-  std::vector<view_1d_host<      Real>>   m_data_nonconst;
+  // Store data as char
+  std::vector<view_1d_host<const char>>   m_data;
+  std::vector<view_1d_host<      char>>   m_data_nonconst;
 };
 
 // =================== IMPLEMENTATION =================== //
 
-inline const Real*
+template<typename T>
+Field::
+Field (const std::string& n,
+       const std::vector<int>& dims,
+       const std::vector<std::string>& dimnames,
+       const T* data)
+ : Field(n,FieldLayout(dims,dimnames),data)
+{
+  // Nothing to do here
+}
+
+template<typename T>
+Field::
+Field(const std::string& n, const FieldLayout& fl, const T* data)
+ : Field(n,fl,DataAccess::View)
+{
+  set_data(data);
+}
+
+template<typename T>
+void Field::
+set_data (const T* data)
+{
+  check_single_part("set_data");
+  set_part_data(0,data);
+
+  // Since there's only one part, we can commit here
+  commit();
+}
+
+template<typename T>
+void Field::
+set_part_data (const int ipart, const T* data)
+{
+  EKAT_REQUIRE_MSG (m_data_access==DataAccess::View,
+      "[Field::set_part_data]\n"
+      "  Error! Attempt to set data pointer, but data access is 'Copy'.\n"
+      "    - Field name: " + m_name + "\n");
+
+  EKAT_REQUIRE_MSG (m_data[ipart].data()==nullptr,
+      "[Field::set_part_data]\n"
+      "  Error! Part data was already set.\n"
+      "    - Field name: " + m_name + "\n"
+      "    - Part index: " + std::to_string(ipart) + "\n");
+  EKAT_REQUIRE_MSG (data!=nullptr,
+      "[Field::set_part_data]\n"
+      "  Error! Invalid part data pointer.\n"
+      "    - Field name: " + m_name + "\n"
+      "    - Part index: " + std::to_string(ipart) + "\n");
+  check_data_type<T>();
+
+  const auto alloc_size = size_of(m_data_type)*part_layout(ipart).size();
+  m_data[ipart] = view_1d_host<const char> (ptr2char(data),alloc_size);
+}
+
+template<typename T>
+void Field::
+copy_data (const T* data)
+{
+  check_single_part("copy_data");
+  copy_part_data(0,data);
+}
+
+template<typename T>
+void Field::
+copy_part_data (const int ipart, const T* data)
+{
+  EKAT_REQUIRE_MSG (m_data_access==DataAccess::Copy,
+      "[Field::copy_part_data]\n"
+      "  Error! Attempt to copy data, but field data access is not 'Copy'.\n"
+      "    - Field name: " + m_name + "\n");
+  EKAT_REQUIRE_MSG (data!=nullptr,
+      "[Field::copy_part_data]\n"
+      "  Error! Invalid part data pointer.\n"
+      "    - Field name: " + m_name + "\n"
+      "    - Part index: " + std::to_string(ipart) + "\n");
+
+  check_data_type<T>();
+  check_part_idx(ipart);
+
+  view_1d_host<const T,Kokkos::MemoryUnmanaged> v(data,part_layout(ipart).size());
+  Kokkos::deep_copy(part_view_nonconst<T>(ipart),v);
+}
+
+template<typename T>
+const T*
 Field::part_data (const int ipart) const {
-  return part_view(ipart).data();
+  return part_view<const T>(ipart).data();
 }
 
-inline Real*
+template<typename T>
+T*
 Field::part_data_nonconst (const int ipart) {
-  return part_view_nonconst(ipart).data();
+  return part_view_nonconst<T>(ipart).data();
 }
 
-inline const Real*
+template<typename T>
+const T*
 Field::data () const {
-  return view().data();
+  return view<const T>().data();
 }
 
-inline Real*
+template<typename T>
+T*
 Field::data_nonconst () {
-  return view_nonconst().data();
+  return view_nonconst<T>().data();
 }
 
-inline  view_1d_host<const Real>
+template<typename T>
+view_1d_host<const T>
 Field::part_view (const int ipart) const
 {
   EKAT_REQUIRE_MSG (m_committed,
       "Error! Field '" + m_name + "' was not committed yet.\n");
 
+  check_data_type<T>();
   check_part_idx(ipart);
 
-  return m_data[ipart];
+  const auto data = char2ptr<const T>(m_data[ipart].data());
+  const auto size = part_layout(ipart).size();
+  return view_1d_host<const T>(data,size);
 }
 
-inline  view_1d_host<Real>
+template<typename T>
+view_1d_host<T>
 Field::part_view_nonconst (const int ipart)
 {
   EKAT_REQUIRE_MSG (m_committed,
       "Error! Field '" + m_name + "' was not committed yet.\n");
 
+  check_data_type<T>();
   check_part_idx(ipart);
 
-  return m_data_nonconst[ipart];
+  const auto data = char2ptr<T>(m_data_nonconst[ipart].data());
+  const auto size = part_layout(ipart).size();
+  return view_1d_host<T>(data,size);
 }
 
-inline view_1d_host<const Real>
+template<typename T>
+view_1d_host<const T>
 Field::view () const
 {
-  EKAT_REQUIRE_MSG (m_nparts==1,
-      "Error! Field::view is only available for non-partitioned fields.\n");
-
-  return part_view(0);
+  check_single_part("view");
+  return part_view<const T>(0);
 }
 
-inline view_1d_host<Real>
+template<typename T>
+view_1d_host<T>
 Field::view_nonconst ()
 {
-  EKAT_REQUIRE_MSG (m_nparts==1,
-      "Error! Field::view is only available for non-partitioned fields.\n");
+  check_single_part("view_nonconst");
+  return part_view_nonconst<T>(0);
+}
 
-  return part_view_nonconst(0);
+template<typename T>
+void Field::check_data_type () const
+{
+  EKAT_REQUIRE_MSG (m_data_type==get_data_type<T>(),
+      "Error! Attempt to use wrong data type for this field:\n"
+      "  - field name: " + m_name + "\n"
+      "  - stored data type: " + e2str(m_data_type) + "\n"
+      "  - input  data type: " + e2str(get_data_type<T>()) + "\n");
 }
 
 } // namespace cldera

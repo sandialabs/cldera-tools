@@ -70,9 +70,20 @@ setup_output_file ()
       const auto& stat_names = stat_layout.names();
       for (int axis = 0; axis < stat_layout.rank(); ++axis)
         add_dim(*m_output_file, stat_names[axis], stat_dims[axis]);
+
+      std::string io_dtype;
+      if (stat.data_type()==DataType::RealType) {
+        io_dtype = io::pnetcdf::get_io_dtype_name<Real>();
+      } else if (stat.data_type()==DataType::IntType) {
+        io_dtype = io::pnetcdf::get_io_dtype_name<int>();
+      } else {
+        EKAT_ERROR_MSG ("[ProfilingArchive::setup_output_file] Unsupported data type for IO.\n"
+                        "  - stat name: " + stat.name() + "\n"
+                        "  - data type: " + e2str(stat.data_type()) + "\n");
+      }
       add_var (*m_output_file,
                stat.name(),
-               io::pnetcdf::get_io_dtype_name<Real>(),
+               io_dtype,
                stat.layout().names(),
                true);
     }
@@ -176,7 +187,15 @@ void ProfilingArchive::flush_to_file ()
 
           const auto var_name = fname + "_" + sname;
 
-          write_var (*m_output_file,var_name,stat.data());
+          if (stat.data_type()==DataType::RealType) {
+            write_var (*m_output_file,var_name,stat.data<Real>());
+          } else if (stat.data_type()==DataType::IntType) {
+            write_var (*m_output_file,var_name,stat.data<int>());
+          } else {
+            EKAT_ERROR_MSG ("[ProfilingArchive::flush_to_file] Unsupported data type for IO.\n"
+                            "  - stat name: " + stat.name() + "\n"
+                            "  - data type: " + e2str(stat.data_type()) + "\n");
+          }
         }
       }
       io::pnetcdf::update_time(*m_output_file,ts-m_start_date);

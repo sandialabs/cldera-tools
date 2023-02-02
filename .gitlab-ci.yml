@@ -16,9 +16,9 @@ configure-build-test:
     - module load acme-netcdf/4.7.4/acme
     - mkdir build
     - cd build
-    - ../scripts/configure-cldera-tools-runner ../ | tee ../runner_log.txt
+    - ../scripts/configure/configure-cldera-tools-runner.sh ../ | tee ../runner_log.txt
     - make -j4 | tee -a ../runner_log.txt
-    - ctest | tee -a ../runner_log.txt
+    - ctest --output-on-failure | tee -a ../runner_log.txt
 
   artifacts:
     paths:

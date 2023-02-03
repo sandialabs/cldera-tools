@@ -31,7 +31,7 @@ public:
   }
 
 protected:
-  void compute_impl (const Field& f, Field& stat) const  override {
+  void compute_impl (const Field& f, Field& stat) const override {
     EKAT_REQUIRE_MSG (m_lat != nullptr && m_lon != nullptr,
         "Error! lat/lon fields not initialized!\n");
 
@@ -39,14 +39,28 @@ protected:
     EKAT_REQUIRE_MSG (nparts == m_lat->nparts() && nparts == m_lon->nparts(),
         "Error! Field " + f.name() + " should have the same number of parts as lat/lon!\n");
 
+    const auto dt = f.data_type();
+    if (dt==IntType) {
+      do_compute_impl<int>(f,stat);
+    } else if (dt==RealType) {
+      do_compute_impl<Real>(f,stat);
+    } else {
+      // WARNING: if you add support for stuff like unsigned int, the line
+      //          of do_compute_impl that uses numeric_limits has to be changed!
+      EKAT_ERROR_MSG ("[FieldBoundingBox] Unrecognized/unsupported data type (" + e2str(dt) + ")\n");
+    }
+  }
+
+  template <typename T>
+  void do_compute_impl (const Field& f, Field& stat) const {
     const auto& stat_strides = compute_stat_strides(f.layout());
-    auto bounding_box_field = stat.view_nonconst();
+    auto bounding_box_field = stat.view_nonconst<T>();
     const int field_rank = f.layout().rank();
     const int field_part_dim = f.part_dim();
-    for (int ipart = 0; ipart < nparts; ++ipart) {
-      const auto& field_part_data = f.part_data(ipart);
-      const auto& lat_part_data = m_lat->part_data(ipart);
-      const auto& lon_part_data = m_lon->part_data(ipart);
+    for (int ipart = 0; ipart < f.nparts(); ++ipart) {
+      const auto& field_part_data = f.part_data<const T>(ipart);
+      const auto& lat_part_data = m_lat->part_data<const Real>(ipart);
+      const auto& lon_part_data = m_lon->part_data<const Real>(ipart);
       const auto& field_part_layout = f.part_layout(ipart);
       const auto& field_part_dims = field_part_layout.dims();
       const auto& field_part_names = field_part_layout.names();

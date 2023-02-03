@@ -192,7 +192,7 @@ TEST_CASE ("stats - bounds") {
       0.0, 0.0, 0.0, 18.0, 0.0, 0.0, 13.0, 19.0, 0.0, 0.0, 14.0, 20.0,
       0.0, 0.0, 15.0, 0.0, 0.0, 0.0, 16.0, 0.0, 0.0, 0.0, 17.0, 0.0};
   for (int i = 0; i < dim0*dim1*dim2; ++i)
-    REQUIRE (bounded_expected[i]==bounded_field.data()[i]);
+    REQUIRE (bounded_expected[i]==bounded_field.data<Real>()[i]);
 
   // Allocate lat/lon
   std::shared_ptr<Field> lat(new Field("lat", {dim2}, {"ncol"}, nparts, 0));
@@ -238,5 +238,5 @@ TEST_CASE ("stats - bounds") {
       0.0, 0.0, 12.0, 0.0, 0.0, 0.0, 13.0, 0.0, 0.0, 0.0, 14.0, 0.0,
       0.0, 0.0, 15.0, 0.0, 0.0, 0.0, 16.0, 0.0, 0.0, 0.0, 17.0, 0.0};
   for (int i = 0; i < dim0*dim1*dim2; ++i)
-    REQUIRE (bounding_box_expected[i]==bounding_box_field.data()[i]);
+    REQUIRE (bounding_box_expected[i]==bounding_box_field.data<Real>()[i]);
 }

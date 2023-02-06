@@ -33,6 +33,9 @@ public:
     EKAT_REQUIRE_MSG (names.size()==m_dims.size(),
         "Error! Size of names and dims array must match.\n");
     m_names = names;
+    for (int i=0; i<rank(); ++i) {
+      m_kokkos_layout.dimension[i] = m_dims[i];
+    }
   }
 
   const std::vector<int>& dims () const { return m_dims; }
@@ -50,10 +53,13 @@ public:
     return s;
   }
 
+  Kokkos::LayoutRight kokkos_layout () const { return m_kokkos_layout; }
+
   friend bool operator== (const FieldLayout& lhs, const FieldLayout& rhs);
 private:
   std::vector<int>          m_dims;
   std::vector<std::string>  m_names;
+  Kokkos::LayoutRight       m_kokkos_layout;
 };
 
 inline bool operator== (const FieldLayout& lhs, const FieldLayout& rhs) {

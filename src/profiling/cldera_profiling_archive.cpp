@@ -88,6 +88,22 @@ setup_output_file ()
                true);
     }
   }
+
+  // If any of the stats is distributed over columns,
+  // register column decomposition
+  if (m_output_file->dims.count("ncol")==1) {
+    auto f = get_field("col_gids");
+    std::vector<int> gids(f.layout().size());
+    for (int p=0; p<f.nparts(); ++p) {
+      auto d = f.part_data<int>(p);
+      auto n = f.part_layout(p).size();
+      for (int i=0; i<n; ++i) {
+        gids.push_back(d[i]);
+      }
+    }
+    add_decomp (*m_output_file,"ncol",gids);
+  }
+
   io::pnetcdf::enddef (*m_output_file);
 
   if (m_comm.am_i_root()) {

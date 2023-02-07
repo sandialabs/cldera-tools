@@ -96,7 +96,7 @@ std::shared_ptr<NCFile>
 open_file (const std::string& fname, const ekat::Comm& comm, const IOMode mode);
 void close_file (NCFile& file);
 
-void add_dim (NCFile& file, const std::string& dname, const int len);
+void add_dim (NCFile& file, const std::string& dname, const int len, const bool partitioned = false);
 
 void add_var (      NCFile& file,
               const std::string& vname,

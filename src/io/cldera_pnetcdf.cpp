@@ -280,21 +280,47 @@ void redef (NCFile& file)
   file.enddef = false;
 }
 
-void add_dim (NCFile& file, const std::string& dname, const int len)
+void add_dim (NCFile& file, const std::string& dname, const int len, const bool partitioned)
 {
   if (has_dim(file,dname)) {
-    EKAT_REQUIRE_MSG (file.dims.at(dname)->len==len,
+    // Check that the dimension is being re-registered in the same way
+    const auto& dim = file.dims.at(dname);
+    auto mpi_sum = [&] (const int val) -> int {
+      int gval;
+      file.comm.all_reduce(&val,&gval,1,MPI_SUM);
+      return gval;
+    };
+    EKAT_REQUIRE_MSG ( partitioned==dim->decomp,
+        "Error! Could not add dimension to NC file. Dimension already added with different decomp flag.\n"
+        "   - file name: " + file.name + "\n"
+        "   - dim name : " + dname + "\n"
+        "   - dim decomp : " + (dim->decomp ? "yes" : "no") + "\n"
+        "   - input decomp : " + (partitioned ? "yes" : "no") + "\n");
+
+    EKAT_REQUIRE_MSG ( partitioned || dim->len==len,
         "Error! Could not add dimension to NC file. Dimension already added with different length.\n"
         "   - file name: " + file.name + "\n"
         "   - dim name : " + dname + "\n"
-        "   - dim len  : " + std::to_string(len) + "\n"
-        "   - input len: " + std::to_string(file.dims.at(dname)->len) + "\n");
+        "   - decomp: no\n"
+        "   - dim len  : " + std::to_string(dim->len) + "\n"
+        "   - input len: " + std::to_string(len) + "\n");
+    EKAT_REQUIRE_MSG ( not partitioned || dim->len==mpi_sum(len),
+        "Error! Could not add dimension to NC file. Dimension already added with different length.\n"
+        "   - file name: " + file.name + "\n"
+        "   - dim name : " + dname + "\n"
+        "   - decomp: yes\n"
+        "   - dim len  : " + std::to_string(dim->len) + "\n"
+        "   - input len: " + std::to_string(mpi_sum(len)) + "\n");
     return;
   }
 
   auto dim = std::make_shared<NCDim>();
   dim->name = dname;
   dim->len = len;
+  if (partitioned) {
+    file.comm.all_reduce(&dim->len,1,MPI_SUM);
+    dim->decomp = true;
+  }
   int ret = ncmpi_def_dim(file.ncid, dname.c_str(),len,&dim->ncid);
 
   EKAT_REQUIRE_MSG (ret==NC_NOERR,
@@ -323,7 +349,12 @@ void add_decomp (      NCFile& file,
       "   - decomp dim : " + dim_name + "\n");
   auto dim = dim_it->second;
 
-  EKAT_REQUIRE_MSG (not dim->decomp or dim->entries==entries,
+  EKAT_REQUIRE_MSG (dim->decomp,
+      "Error! This dimension was not marked as decomposed.\n"
+      "   - file name : " + file.name + "\n"
+      "   - dim name  : " + dim_name + "\n");
+
+  EKAT_REQUIRE_MSG (dim->entries.size()==0 || dim->entries==entries,
       "Error! Decomposition was already added for this dimension, with different entries.\n"
       "   - file name : " + file.name + "\n"
       "   - dim name  : " + dim_name + "\n"

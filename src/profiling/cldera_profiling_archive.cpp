@@ -55,22 +55,18 @@ setup_output_file ()
   io::pnetcdf::set_att(*m_output_file,"start_time","NC_GLOBAL",m_start_date.tod());
 
   for (const auto& it1 : m_fields_stats.front()) {
-    const auto& fname = it1.first;
-    const auto& f = get_field(fname);
     for (const auto& it2 : it1.second) {
-      const auto& sname = it2.first;
       const auto& stat  = it2.second;
       const auto& stat_layout = stat.layout();
       const auto& stat_dims = stat_layout.dims();
       const auto& stat_names = stat_layout.names();
       for (int axis = 0; axis < stat_layout.rank(); ++axis) {
-        if (stat_names[axis]=="ncol") {
-          int dim = stat_dims[axis];
-          m_comm.all_reduce(&dim,1,MPI_SUM);
-          add_dim(*m_output_file, stat_names[axis], dim);
-        } else {
-          add_dim(*m_output_file, stat_names[axis], stat_dims[axis]);
-        }
+        // TODO: this hard codes an E3SM impl detail (MPI decomposition over ncols)
+        //       Add a setter method for host app to tell cldera which dim is decomposed
+        //       over MPI.
+        const bool decomposed = stat_names[axis]=="ncol";
+        int dim = stat_dims[axis];
+        add_dim(*m_output_file, stat_names[axis], dim, decomposed);
       }
 
       std::string io_dtype;

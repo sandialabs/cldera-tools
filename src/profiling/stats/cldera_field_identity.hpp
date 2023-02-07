@@ -62,16 +62,29 @@ private:
         {
           view_Nd_host<T,2> stat_view (stat_data,fdims[0],fdims[1]);
           view_Nd_host<const T,2> fpart_view (fpart_data,part_layout.kokkos_layout());
-          auto stat_subview = Kokkos::subview(stat_view,pair_t(part_start,part_end),ALL);
-          Kokkos::deep_copy(stat_subview,fpart_view);
+          if (part_dim==0) {
+            auto stat_subview = Kokkos::subview(stat_view,pair_t(part_start,part_end),ALL);
+            Kokkos::deep_copy(stat_subview,fpart_view);
+          } else {
+            auto stat_subview = Kokkos::subview(stat_view,ALL,pair_t(part_start,part_end));
+            Kokkos::deep_copy(stat_subview,fpart_view);
+          }
           break;
         }
         case 3:
         {
           view_Nd_host<T,3> stat_view (stat_data,fdims[0],fdims[1],fdims[2]);
           view_Nd_host<const T,3> fpart_view (fpart_data,part_layout.kokkos_layout());
-          auto stat_subview = Kokkos::subview(stat_view,pair_t(part_start,part_end),ALL,ALL);
-          Kokkos::deep_copy(stat_subview,fpart_view);
+          if (part_dim==0) {
+            auto stat_subview = Kokkos::subview(stat_view,pair_t(part_start,part_end),ALL,ALL);
+            Kokkos::deep_copy(stat_subview,fpart_view);
+          } else if (part_dim==1) {
+            auto stat_subview = Kokkos::subview(stat_view,ALL,pair_t(part_start,part_end),ALL);
+            Kokkos::deep_copy(stat_subview,fpart_view);
+          } else {
+            auto stat_subview = Kokkos::subview(stat_view,ALL,ALL,pair_t(part_start,part_end));
+            Kokkos::deep_copy(stat_subview,fpart_view);
+          }
           break;
         }
         default:

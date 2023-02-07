@@ -58,12 +58,13 @@ public:
 
   void update_time (const TimeStamp& ts);
 private:
-  void create_output_file (const ekat::ParameterList& params);
+  void create_output_file ();
   void setup_output_file ();
 
   void flush_to_file ();
 
   ekat::Comm                              m_comm;
+  ekat::ParameterList                     m_params;
 
   std::list<std::string>                  m_fields_names;
 

@@ -6,6 +6,8 @@
 #include <ekat/util/ekat_string_utils.hpp>
 #include <ekat/ekat_assert.hpp>
 
+#include <numeric>
+
 namespace cldera {
 
 ProfilingArchive::
@@ -13,9 +15,10 @@ ProfilingArchive(const ekat::Comm& comm,
                  const TimeStamp& start_date,
                  const ekat::ParameterList& params)
  : m_comm (comm)
+ , m_params (params)
  , m_start_date (start_date)
 {
-  create_output_file(params);
+  create_output_file();
 }
 
 ProfilingArchive::
@@ -30,20 +33,12 @@ ProfilingArchive::
 }
 
 void ProfilingArchive::
-create_output_file (const ekat::ParameterList& params)
+create_output_file ()
 {
-  if (params.isParameter("Filename")) {
-    const auto& file_name = params.get<std::string>("Filename");
-    m_output_file = open_file (file_name, m_comm, io::pnetcdf::IOMode::Write);
-  } else {
-    const std::string file_name = "cldera_stats.nc";
-    m_output_file = open_file (file_name, m_comm, io::pnetcdf::IOMode::Write);
-  }
-  if (params.isParameter("Flush Frequency")) {
-    m_flush_freq = params.get<int>("Flush Frequency");
-  } else {
-    m_flush_freq = 10;
-  }
+  const auto& file_name = m_params.get<std::string>("Filename","cldera_stats.nc");
+
+  m_output_file = open_file (file_name, m_comm, io::pnetcdf::IOMode::Write);
+  m_flush_freq = m_params.get("Flush Frequency",10);
 }
 
 void ProfilingArchive::
@@ -68,8 +63,15 @@ setup_output_file ()
       const auto& stat_layout = stat.layout();
       const auto& stat_dims = stat_layout.dims();
       const auto& stat_names = stat_layout.names();
-      for (int axis = 0; axis < stat_layout.rank(); ++axis)
-        add_dim(*m_output_file, stat_names[axis], stat_dims[axis]);
+      for (int axis = 0; axis < stat_layout.rank(); ++axis) {
+        if (stat_names[axis]=="ncol") {
+          int dim = stat_dims[axis];
+          m_comm.all_reduce(&dim,1,MPI_SUM);
+          add_dim(*m_output_file, stat_names[axis], dim);
+        } else {
+          add_dim(*m_output_file, stat_names[axis], stat_dims[axis]);
+        }
+      }
 
       std::string io_dtype;
       if (stat.data_type()==DataType::RealType) {
@@ -91,20 +93,68 @@ setup_output_file ()
 
   // If any of the stats is distributed over columns,
   // register column decomposition
+  std::list<std::string> non_stat_fields_to_write;
   if (m_output_file->dims.count("ncol")==1) {
     auto f = get_field("col_gids");
-    std::vector<int> gids(f.layout().size());
-    for (int p=0; p<f.nparts(); ++p) {
-      auto d = f.part_data<int>(p);
-      auto n = f.part_layout(p).size();
-      for (int i=0; i<n; ++i) {
-        gids.push_back(d[i]);
+    EKAT_REQUIRE_MSG (f.layout().rank()==1,
+        "Error! Wrong layout for field 'col_gids'.\n"
+        "  - expected layout: (ncol)\n"
+        "  - actual layout  : (" + ekat::join(f.layout().names(),",") + ")\n");
+
+    int my_ngids = f.layout().size();
+    int ngids_scan;
+    m_comm.scan(&my_ngids,&ngids_scan,1,MPI_SUM);
+    int my_start = ngids_scan - my_ngids;
+    std::vector<int> gids(my_ngids);
+    std::iota(gids.data(),gids.data()+my_ngids,my_start);
+    io::pnetcdf::add_decomp (*m_output_file,"ncol",gids);
+
+    // If we decide to split the output in N files (for size purposes), we need to
+    // be careful, and not add the proc_rank field to the database more than once
+    if (not has_field("proc_rank")) {
+      // Also add the 'proc_rank' field, containing the owner of each col
+      Field proc_rank("proc_rank",f.layout(),DataAccess::Copy,DataType::IntType);
+      proc_rank.commit();
+      add_field(proc_rank);
+      Kokkos::deep_copy(proc_rank.view_nonconst<int>(),m_comm.rank());
+    }
+    io::pnetcdf::add_var (*m_output_file, "proc_rank", io::pnetcdf::get_io_dtype_name<int>(),{"ncol"},false);
+
+    io::pnetcdf::add_var (*m_output_file, "col_gids", io::pnetcdf::get_io_dtype_name<int>(),{"ncol"},false);
+
+    non_stat_fields_to_write.push_back("proc_rank");
+    non_stat_fields_to_write.push_back("col_gids");
+  }
+
+  // If requested, save geometry-related fields (if present)
+  if (m_params.get<bool>("Save Geometry Fields",true)) {
+    for (const auto& n : {"lat","lon","area"}) {
+      if (has_field(n)) {
+        io::pnetcdf::add_var (*m_output_file, n, io::pnetcdf::get_io_dtype_name<Real>(),{"ncol"},false);
+        non_stat_fields_to_write.push_back(n);
       }
     }
-    add_decomp (*m_output_file,"ncol",gids);
   }
 
   io::pnetcdf::enddef (*m_output_file);
+
+  // Immediately write the non-time dep fields
+  for (const auto& n : non_stat_fields_to_write) {
+    const auto& f = get_field(n);
+    // f might be partitioned, but our IO interface needs a single pointer to
+    // the whole array. Therefore, if partitioned, we create a FieldIdentity
+    // stat on the fly, compute it, and use the resulting 'stat' to pass the
+    // data to the IO interface. Since this "stat" is computed only once, when
+    // we setup the output file, the cost is tiny compared to the whole run.
+    const int np = f.nparts();
+    auto I = create_stat("identity",m_comm);
+    const auto f1p = np==1 ? f : I->compute(f);
+    if (f.data_type()==DataType::RealType) {
+      io::pnetcdf::write_var (*m_output_file,n,f1p.data<Real>());
+    } else if (f.data_type()==DataType::IntType) {
+      io::pnetcdf::write_var (*m_output_file,n,f1p.data<int>());
+    }
+  }
 
   if (m_comm.am_i_root()) {
     printf("done!\n");

@@ -126,6 +126,10 @@ setup_output_file ()
   if (m_params.get<bool>("Save Geometry Fields",true)) {
     for (const auto& n : {"lat","lon","area"}) {
       if (has_field(n)) {
+        // TODO: this hard codes an E3SM impl detail (MPI decomposition over ncols)
+        //       Add a setter method for host app to tell cldera which dim is decomposed
+        //       over MPI.
+        io::pnetcdf::add_dim (*m_output_file, "ncol", get_field(n).layout().size(),true);
         io::pnetcdf::add_var (*m_output_file, n, io::pnetcdf::get_io_dtype_name<Real>(),{"ncol"},false);
         non_stat_fields_to_write.push_back(n);
       }

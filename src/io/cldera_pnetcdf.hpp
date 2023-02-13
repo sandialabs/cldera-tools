@@ -85,7 +85,6 @@ struct NCFile {
   strmap_t<var_ptr_t>  vars;
 
   bool enddef = false;
-  std::map<int,std::string> dim_id2name;
 
   ekat::Comm    comm;
 };

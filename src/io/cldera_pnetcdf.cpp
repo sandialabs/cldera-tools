@@ -168,6 +168,7 @@ open_file (const std::string& fname, const ekat::Comm& comm, const IOMode mode)
     // Read dims
     MPI_Offset dimlen;
     std::shared_ptr<NCDim> dim;
+    std::map<int,std::string> dim_id2name;
     for (int idim=0; idim<ndims; ++idim) {
       dim = std::make_shared<NCDim>();
       ret = ncmpi_inq_dim(file->ncid, idim, name, &dimlen);
@@ -180,7 +181,7 @@ open_file (const std::string& fname, const ekat::Comm& comm, const IOMode mode)
       dim->name = name;
       dim->len = dimlen;
       file->dims.emplace(name,dim);
-      file->dim_id2name[idim] = name;
+      dim_id2name[idim] = name;
     }
 
     // Read vars
@@ -221,7 +222,7 @@ open_file (const std::string& fname, const ekat::Comm& comm, const IOMode mode)
         EKAT_ERROR_MSG ("Error! Unrecognized/unsupported data type: " + std::to_string(dtype) + "\n");
       }
       for (int idim=0; idim<var_ndims; ++idim) {
-        auto dname = file->dim_id2name.at(var_dimids[idim]);
+        auto dname = dim_id2name.at(var_dimids[idim]);
         var->dims.push_back(file->dims.at(dname));
       }
       compute_var_chunk_len(*var);
@@ -254,7 +255,6 @@ void close_file (NCFile& file)
   file.name = "";
   file.dims.clear();
   file.vars.clear();
-  file.dim_id2name.clear();
 }
 
 void enddef (NCFile& file)

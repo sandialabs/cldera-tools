@@ -282,6 +282,12 @@ void redef (NCFile& file)
 
 void add_dim (NCFile& file, const std::string& dname, const int len, const bool partitioned)
 {
+  EKAT_REQUIRE_MSG (not file.enddef,
+      "Error! Cannot add dimensions after enddef was called.\n"
+      "  - file name: " + file.name + "\n"
+      "  - dim name : " + dname + "\n"
+      "  - dim len  : " + std::to_string(len) + "\n");
+
   if (has_dim(file,dname)) {
     // Check that the dimension is being re-registered in the same way
     const auto& dim = file.dims.at(dname);
@@ -349,10 +355,19 @@ void add_decomp (      NCFile& file,
       "   - decomp dim : " + dim_name + "\n");
   auto dim = dim_it->second;
 
-  EKAT_REQUIRE_MSG (dim->is_partitioned,
-      "Error! This dimension was not marked as partitioned.\n"
-      "   - file name : " + file.name + "\n"
-      "   - dim name  : " + dim_name + "\n");
+  // When reading from file, all dims are created as not partitioned.
+  // The user is allowed to tell the IO layer that a certain dim is
+  // partitioned in a subsequent phase. On the other hand, when we
+  // open a file for writing, the dimension must have been registered
+  // as partitioned.
+  if (file.mode==IOMode::Read) {
+    dim->is_partitioned = true;
+  } else {
+    EKAT_REQUIRE_MSG (dim->is_partitioned,
+        "Error! This dimension was not marked as partitioned.\n"
+        "   - file name : " + file.name + "\n"
+        "   - dim name  : " + dim_name + "\n");
+  }
 
   EKAT_REQUIRE_MSG (not dim->decomp_set || dim->entries==entries,
       "Error! Decomposition was already added for this dimension, with different entries.\n"
@@ -404,6 +419,12 @@ void add_var (      NCFile& file,
                     std::vector<std::string> dims,
               const bool time_dep)
 {
+  EKAT_REQUIRE_MSG (not file.enddef,
+      "Error! Cannot add variables after enddef was called.\n"
+      "  - file name: " + file.name + "\n"
+      "  - var name : " + vname + "\n"
+      "  - var dims : (" + ekat::join(dims,",") + ")\n");
+
   if (has_var(file,vname)) {
     // Check that they're the same, then early return
     const auto& var = *file.vars.at(vname);

@@ -115,7 +115,7 @@ void compute_var_chunk_len (NCVar& var)
   for (int pos=dim_start; pos<dim_end; ++pos) {
     const auto& dim = var.dims[pos];
 
-    if (dim->decomp) {
+    if (dim->is_partitioned) {
       EKAT_REQUIRE_MSG (pos==dim_start,
           "Error! Decomposition allowed only on the first non-time dimension.\n"
           "  - var name  : " + var.name + "\n"
@@ -290,25 +290,25 @@ void add_dim (NCFile& file, const std::string& dname, const int len, const bool 
       file.comm.all_reduce(&val,&gval,1,MPI_SUM);
       return gval;
     };
-    EKAT_REQUIRE_MSG ( partitioned==dim->decomp,
-        "Error! Could not add dimension to NC file. Dimension already added with different decomp flag.\n"
+    EKAT_REQUIRE_MSG ( partitioned==dim->is_partitioned,
+        "Error! Could not add dimension to NC file. Dimension already added with different partitioned flag.\n"
         "   - file name: " + file.name + "\n"
         "   - dim name : " + dname + "\n"
-        "   - dim decomp : " + (dim->decomp ? "yes" : "no") + "\n"
-        "   - input decomp : " + (partitioned ? "yes" : "no") + "\n");
+        "   - dim partitioned : " + (dim->is_partitioned ? "yes" : "no") + "\n"
+        "   - input partitioned : " + (partitioned ? "yes" : "no") + "\n");
 
     EKAT_REQUIRE_MSG ( partitioned || dim->len==len,
         "Error! Could not add dimension to NC file. Dimension already added with different length.\n"
         "   - file name: " + file.name + "\n"
         "   - dim name : " + dname + "\n"
-        "   - decomp: no\n"
+        "   - partitioned: no\n"
         "   - dim len  : " + std::to_string(dim->len) + "\n"
         "   - input len: " + std::to_string(len) + "\n");
     EKAT_REQUIRE_MSG ( not partitioned || dim->len==mpi_sum(len),
         "Error! Could not add dimension to NC file. Dimension already added with different length.\n"
         "   - file name: " + file.name + "\n"
         "   - dim name : " + dname + "\n"
-        "   - decomp: yes\n"
+        "   - partitioned: yes\n"
         "   - dim len  : " + std::to_string(dim->len) + "\n"
         "   - input len: " + std::to_string(mpi_sum(len)) + "\n");
     return;
@@ -319,9 +319,9 @@ void add_dim (NCFile& file, const std::string& dname, const int len, const bool 
   dim->len = len;
   if (partitioned) {
     file.comm.all_reduce(&dim->len,1,MPI_SUM);
-    dim->decomp = true;
+    dim->is_partitioned = true;
   }
-  int ret = ncmpi_def_dim(file.ncid, dname.c_str(),len,&dim->ncid);
+  int ret = ncmpi_def_dim(file.ncid, dname.c_str(),dim->len,&dim->ncid);
 
   EKAT_REQUIRE_MSG (ret==NC_NOERR,
       "Error! Could not add dimension to NC file.\n"
@@ -349,19 +349,19 @@ void add_decomp (      NCFile& file,
       "   - decomp dim : " + dim_name + "\n");
   auto dim = dim_it->second;
 
-  EKAT_REQUIRE_MSG (dim->decomp,
-      "Error! This dimension was not marked as decomposed.\n"
+  EKAT_REQUIRE_MSG (dim->is_partitioned,
+      "Error! This dimension was not marked as partitioned.\n"
       "   - file name : " + file.name + "\n"
       "   - dim name  : " + dim_name + "\n");
 
-  EKAT_REQUIRE_MSG (dim->entries.size()==0 || dim->entries==entries,
+  EKAT_REQUIRE_MSG (not dim->decomp_set || dim->entries==entries,
       "Error! Decomposition was already added for this dimension, with different entries.\n"
       "   - file name : " + file.name + "\n"
       "   - dim name  : " + dim_name + "\n"
       "   - decomp entries: [" + ekat::join(dim->entries," ") + "]\n"
       "   - input entries: [" + ekat::join(entries," ") + "]\n");
 
-  if (dim->decomp) {
+  if (dim->decomp_set) {
     return;
   }
 
@@ -386,7 +386,7 @@ void add_decomp (      NCFile& file,
       "   - decomp dim : " + dim_name + "\n"
       "   - min entry  : " + std::to_string(min) + "\n");
 
-  dim->decomp = true;
+  dim->decomp_set = true;
   dim->entries = entries;
 
   // If vars are already registered, set the decomp (if needed)
@@ -533,7 +533,7 @@ void read_var (const NCFile& file, const std::string& vname,
   auto mpi_dtype = get_io_mpi_dtype<T>();
   // If partitioned, write one decomposed-dim entry at a time
   auto first_non_time_dim = var->dims[first_non_time_idx];
-  if (first_non_time_dim->decomp) {
+  if (first_non_time_dim->is_partitioned) {
     // Correct start/count for partitioned dimension
     count[first_non_time_idx] = 1;
     ret = ncmpi_begin_indep_data(file.ncid);
@@ -607,16 +607,16 @@ void write_var (const NCFile& file,const std::string& vname,
       "  - var dtype  : " + var->dtype + "\n"
       "  - input type : " + get_io_dtype_name<T>() + "\n");
 
-  std::vector<MPI_Offset> start(var->dims.size()), count(var->dims.size());
+  const int ndims = var->dims.size();
+  std::vector<MPI_Offset> start(ndims), count(ndims);
   const bool has_time = has_dim(*var,"time");
-  int first_non_time_idx = has_time ? 1 : 0;
-  int rank = var->dims.size();
+  const int first_non_time_idx = has_time ? 1 : 0;
+  const int has_non_time_dims = first_non_time_idx<ndims;
   if (has_time) {
-    --rank;
     start[0] = var->nrecords;
     count[0] = 1;
   }
-  if (rank>0) {
+  if (has_non_time_dims) {
     for (size_t idim=first_non_time_idx; idim<var->dims.size(); ++idim) {
       start[idim] = 0;
       count[idim] = var->dims[idim]->len;
@@ -633,9 +633,11 @@ void write_var (const NCFile& file,const std::string& vname,
       "  - err code : " + std::to_string(ret) + "\n");
 
   auto mpi_dtype = get_io_mpi_dtype<T>();
-  // If partitioned, write one decomposed-dim entry at a time
-  if (rank>0 && var->dims[first_non_time_idx]->decomp) {
-    auto first_non_time_dim = var->dims[first_non_time_idx];
+  auto first_non_time_dim = has_non_time_dims ? var->dims[first_non_time_idx] : nullptr;
+  // If partitioned, write one partitioned-dim entry at a time
+  if (has_non_time_dims && first_non_time_dim->is_partitioned) {
+    EKAT_REQUIRE_MSG (first_non_time_dim->entries.size()>0,
+        "Error! Decomp was not set for partitioned dimension '" + first_non_time_dim->name + "'.\n");
     // Correct start/count for partitioned dimension
     count[first_non_time_idx] = 1;
     for (size_t i=0; i<first_non_time_dim->entries.size(); ++i) {
@@ -649,7 +651,7 @@ void write_var (const NCFile& file,const std::string& vname,
                            pt_data,var->chunk_len,mpi_dtype);
 #ifdef CLDERA_DEBUG
       EKAT_REQUIRE_MSG (ret==NC_NOERR,
-          "Error! Could not write decomposed variable.\n"
+          "Error! Could not write partitioned variable.\n"
           "  - file name : " + file.name + "\n"
           "  - var name  : " + var->name + "\n"
           "  - point idx : " + std::to_string(entry) + "\n"
@@ -667,7 +669,7 @@ void write_var (const NCFile& file,const std::string& vname,
                            data,var->chunk_len,mpi_dtype);
 #ifdef CLDERA_DEBUG
       EKAT_REQUIRE_MSG (ret==NC_NOERR,
-          "Error! Could not write non-decomposed variable.\n"
+          "Error! Could not write non-partitioned variable.\n"
           "  - file name : " + file.name + "\n"
           "  - var name  : " + var->name + "\n"
           "  - err code : " + std::to_string(ret) + "\n");

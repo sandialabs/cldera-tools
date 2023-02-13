@@ -48,8 +48,9 @@ struct NCDim {
   int           len;
 
   // Information for MPI-based decomposition (if any)
-  bool          decomp = false;
+  bool          is_partitioned = false;
   std::vector<int>  entries; // On-proc entries along partitioned dim
+  bool          decomp_set = false;
 };
 
 // A small struct to hold Netcdf variables info

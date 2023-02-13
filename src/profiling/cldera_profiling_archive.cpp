@@ -87,9 +87,26 @@ setup_output_file ()
     }
   }
 
-  // If any of the stats is distributed over columns,
-  // register column decomposition
+  // List of fields (not stats) that we may need to write.
+  // These are geometry-dep fields, like lat, lon, proc-rank,...
   std::list<std::string> non_stat_fields_to_write;
+
+  // If requested, save geometry-related fields (if present)
+  if (m_params.get<bool>("Save Geometry Fields",true)) {
+    for (const auto& n : {"lat","lon","area"}) {
+      if (has_field(n)) {
+        // TODO: this hard codes an E3SM impl detail (MPI decomposition over ncols)
+        //       Add a setter method for host app to tell cldera which dim is decomposed
+        //       over MPI.
+        io::pnetcdf::add_dim (*m_output_file, "ncol", get_field(n).layout().size(),true);
+        io::pnetcdf::add_var (*m_output_file, n, io::pnetcdf::get_io_dtype_name<Real>(),{"ncol"},false);
+        non_stat_fields_to_write.push_back(n);
+      }
+    }
+  }
+
+  // If any of the registered fields is distributed over columns,
+  // we need to register the column MPI decomposition
   if (m_output_file->dims.count("ncol")==1) {
     auto f = get_field("col_gids");
     EKAT_REQUIRE_MSG (f.layout().rank()==1,
@@ -97,12 +114,22 @@ setup_output_file ()
         "  - expected layout: (ncol)\n"
         "  - actual layout  : (" + ekat::join(f.layout().names(),",") + ")\n");
 
+    // Compute min gid. This is 1 in E3SM, but just in case...
+    auto min_stat = create_stat("global_min",m_comm);
+    auto min_gid = min_stat->compute(f).data<int>()[0];
+
     int my_ngids = f.layout().size();
     int ngids_scan;
     m_comm.scan(&my_ngids,&ngids_scan,1,MPI_SUM);
     int my_start = ngids_scan - my_ngids;
     std::vector<int> gids(my_ngids);
-    std::iota(gids.data(),gids.data()+my_ngids,my_start);
+    for (int p=0,i=0; p<f.nparts(); ++p) {
+      const auto pl = f.part_layout(p);
+      const auto pdata = f.part_data<int>(p);
+      for (int j=0; j<pl.size(); ++j,++i) {
+        gids[i] = pdata[j] - min_gid;
+      }
+    }
     io::pnetcdf::add_decomp (*m_output_file,"ncol",gids);
 
     // If we decide to split the output in N files (for size purposes), we need to
@@ -120,20 +147,6 @@ setup_output_file ()
 
     non_stat_fields_to_write.push_back("proc_rank");
     non_stat_fields_to_write.push_back("col_gids");
-  }
-
-  // If requested, save geometry-related fields (if present)
-  if (m_params.get<bool>("Save Geometry Fields",true)) {
-    for (const auto& n : {"lat","lon","area"}) {
-      if (has_field(n)) {
-        // TODO: this hard codes an E3SM impl detail (MPI decomposition over ncols)
-        //       Add a setter method for host app to tell cldera which dim is decomposed
-        //       over MPI.
-        io::pnetcdf::add_dim (*m_output_file, "ncol", get_field(n).layout().size(),true);
-        io::pnetcdf::add_var (*m_output_file, n, io::pnetcdf::get_io_dtype_name<Real>(),{"ncol"},false);
-        non_stat_fields_to_write.push_back(n);
-      }
-    }
   }
 
   io::pnetcdf::enddef (*m_output_file);

@@ -48,8 +48,9 @@ struct NCDim {
   int           len;
 
   // Information for MPI-based decomposition (if any)
-  bool          decomp = false;
+  bool          is_partitioned = false;
   std::vector<int>  entries; // On-proc entries along partitioned dim
+  bool          decomp_set = false;
 };
 
 // A small struct to hold Netcdf variables info
@@ -84,7 +85,6 @@ struct NCFile {
   strmap_t<var_ptr_t>  vars;
 
   bool enddef = false;
-  std::map<int,std::string> dim_id2name;
 
   ekat::Comm    comm;
 };
@@ -96,7 +96,7 @@ std::shared_ptr<NCFile>
 open_file (const std::string& fname, const ekat::Comm& comm, const IOMode mode);
 void close_file (NCFile& file);
 
-void add_dim (NCFile& file, const std::string& dname, const int len);
+void add_dim (NCFile& file, const std::string& dname, const int len, const bool partitioned = false);
 
 void add_var (      NCFile& file,
               const std::string& vname,

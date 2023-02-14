@@ -18,12 +18,13 @@ void write ()
 
   const int nglat = 12;
   const int nglon = 36;
+  const int nlat = nglat / size;
 
   // Create file
   auto file = open_file ("test_np" + std::to_string(size) +".nc",comm,IOMode::Write);
 
   // Add dims
-  add_dim (*file,"lat",nglat);
+  add_dim (*file,"lat",nlat,true);
   add_dim (*file,"lon",nglon);
   add_dim (*file,"dim2",2);
 

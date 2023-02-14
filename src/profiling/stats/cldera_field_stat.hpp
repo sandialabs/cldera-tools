@@ -36,7 +36,6 @@ public:
     return f.data_type();
   }
 
-
   // Shortcut if you don't have a pre-built field
   Field compute (const Field& f) const {
     Field stat (f.name() + "_" + name(), stat_layout(f.layout()), DataAccess::Copy, stat_data_type(f));
@@ -44,6 +43,7 @@ public:
     compute(f,stat);
     return stat;
   }
+
 protected:
   virtual void compute_impl (const Field& f, Field& stat) const = 0;
 };

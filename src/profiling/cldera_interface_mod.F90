@@ -60,7 +60,7 @@ contains
 
     type(c_ptr),allocatable :: c_dimnames_ptrs(:)
 
-    integer :: part_dim_c, i
+    integer :: i
     logical (kind=c_bool) view_c
     integer(kind=c_int), allocatable :: c_dims(:)
     character (kind=c_char, len=max_str_len), target :: fname_c
@@ -87,7 +87,11 @@ contains
     allocate(c_dimnames(rank))
     allocate(c_dimnames_ptrs(rank))
     ! Flip dims,dimnames arrays, since in C the first is the slowest striding
+    ! part_dim_c = rank-part_dim+1
     do i=1,rank
+      ! c_dims(i) = f2c(dims(i))
+      ! c_dimnames(i) = f2c(dimnames(i))
+      ! c_dimnames_ptrs(i) = c_loc(c_dimnames(i))
       c_dims(i) = f2c(dims(rank-i+1))
       c_dimnames(i) = f2c(dimnames(i))
       c_dimnames_ptrs(rank-i+1) = c_loc(c_dimnames(i))
@@ -101,6 +105,7 @@ contains
       view_c = LOGICAL(.true.,kind=c_bool)
     endif
 
+    ! print *, "capf, name="//trim(fname_c)//", dims:", c_dims, "part_dim:",part_dim
     call capf_c(c_loc(fname_c),f2c(rank),c_dims,c_dimnames_ptrs, &
                 f2c(nparts),f2c(rank-part_dim),view_c,c_loc(dtype_c))
   end subroutine cldera_add_partitioned_field

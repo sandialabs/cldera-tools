@@ -184,6 +184,16 @@ add_field (const Field& field)
 
   m_fields_names.push_back(field.name());
   m_fields.emplace(name,field);
+
+  std::cout << "added " << name;
+  const auto& l = field.layout();
+  if (l.rank()>0) {
+    std::cout << "(" << l.name(0);
+    for (int i=1; i<l.rank(); ++i) {
+      std::cout << "," << l.name(i);
+    }
+  }
+  std::cout << ")\n";
 }
 
 const Field& ProfilingArchive::

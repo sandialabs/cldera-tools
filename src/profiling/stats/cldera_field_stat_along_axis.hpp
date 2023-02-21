@@ -52,7 +52,6 @@ protected:
       }
     }
     return stat_strides;
-
   }
 
   inline int compute_stat_index(const int ipart, const int part_index, const int field_rank, const int field_part_dim,
@@ -60,8 +59,10 @@ protected:
   {
     int field_ijk, work_index = part_index, stat_index = 0;
     for (int axis = field_rank-1; axis >= 0; --axis) { // layout right
-      if (axis == field_part_dim)
-        field_ijk = ipart + work_index % part_dims[axis];
+      if (axis == field_part_dim) {
+        int part_size = part_dims[field_part_dim];
+        field_ijk = ipart * part_size + work_index % part_size;
+      }
       else
         field_ijk = work_index % part_dims[axis];
       stat_index += field_ijk * stat_strides[axis];

@@ -122,13 +122,13 @@ TEST_CASE ("stats along columns with parts") {
   constexpr int dim0 = 2;
   constexpr int dim1 = 3;
   constexpr int dim2 = 4;
-  constexpr int nparts = 4;
+  constexpr int nparts = 2;
+  constexpr int part_size = dim2 / nparts;
   constexpr int part_dim = 2;
   Field foo("foo", {dim0,dim1,dim2}, {"lev", "dim", "ncol"}, nparts, part_dim);
-  std::vector<std::vector<Real>> foo_data (dim2,std::vector<Real>(dim0*dim1));
-  for (int i = 0; i < dim2; ++i) {
-    std::iota(foo_data[i].begin(), foo_data[i].end(), i*dim0*dim1);
-    const int part_size = 1;
+  std::vector<std::vector<Real>> foo_data (nparts,std::vector<Real>(dim0*dim1*part_size));
+  for (int i = 0; i < nparts; ++i) {
+    std::iota(foo_data[i].begin(), foo_data[i].end(), i*dim0*dim1*part_size);
     foo.set_part_size(i, part_size);
     foo.set_part_data(i, foo_data[i].data());
   }
@@ -146,10 +146,10 @@ TEST_CASE ("stats along columns with parts") {
     expected.at(sname).commit();
   }
 
-  Real max_values[] = {18,19,20,21,22,23};
-  Real min_values[] = {0,1,2,3,4,5};
-  Real sum_values[] = {36,40,44,48,52,56};
-  Real avg_values[] = {36.0/4,40.0/4,44.0/4,48.0/4,52.0/4,56.0/4};
+  Real max_values[] = {13,15,17,19,21,23};
+  Real min_values[] = {0,2,4,6,8,10};
+  Real sum_values[] = {26,34,42,50,58,66};
+  Real avg_values[] = {26.0/4,34.0/4,42.0/4,50.0/4,58.0/4,66.0/4};
   for (int i = 0; i < dim0*dim1; ++i) {
     expected["max_along_columns"].data_nonconst<Real>()[i] = max_values[i];
     expected["min_along_columns"].data_nonconst<Real>()[i] = min_values[i];
@@ -171,13 +171,13 @@ TEST_CASE ("stats - bounds") {
   constexpr int dim0 = 2;
   constexpr int dim1 = 3;
   constexpr int dim2 = 4;
-  constexpr int nparts = 4;
+  constexpr int nparts = 2;
+  constexpr int part_size = dim2 / nparts;
   constexpr int part_dim = 2;
   Field foo("foo", {dim0,dim1,dim2}, {"lev", "dim", "ncol"}, nparts, part_dim);
-  std::vector<std::vector<Real>> foo_data (dim2,std::vector<Real>(dim0*dim1));
+  std::vector<std::vector<Real>> foo_data (nparts,std::vector<Real>(dim0*dim1*part_size));
   for (int i = 0; i < nparts; ++i) {
-    std::iota(foo_data[i].begin(), foo_data[i].end(), i*dim0*dim1);
-    const int part_size = 1;
+    std::iota(foo_data[i].begin(), foo_data[i].end(), i*dim0*dim1*part_size);
     foo.set_part_size(i, part_size);
     foo.set_part_data(i, foo_data[i].data());
   }
@@ -189,8 +189,8 @@ TEST_CASE ("stats - bounds") {
   const auto bounded_stat = create_stat(bounded_sname, comm);
   const auto bounded_field = bounded_stat->compute(foo);
   const Real bounded_expected[] = {
-      0.0, 0.0, 0.0, 18.0, 0.0, 0.0, 13.0, 19.0, 0.0, 0.0, 14.0, 20.0,
-      0.0, 0.0, 15.0, 0.0, 0.0, 0.0, 16.0, 0.0, 0.0, 0.0, 17.0, 0.0};
+      0.0, 0.0, 0.0, 13.0, 0.0, 0.0, 14.0, 15.0, 0.0, 0.0, 16.0, 17.0,
+      0.0, 0.0, 18.0, 19.0, 0.0, 0.0, 20.0, 0.0, 0.0, 0.0, 0.0, 0.0};
   for (int i = 0; i < dim0*dim1*dim2; ++i)
     REQUIRE (bounded_expected[i]==bounded_field.data<Real>()[i]);
 
@@ -200,25 +200,24 @@ TEST_CASE ("stats - bounds") {
   const Real lat_data[] = {-0.5, 0.5, 0.5, -0.5};
   const Real lon_data[] = {-0.5, -0.5, 0.5, 0.5};
   for (int i = 0; i < nparts; ++i) {
-    const int part_size = 1;
     lat->set_part_size(i, part_size);
-    lat->set_part_data(i, &lat_data[i]);
+    lat->set_part_data(i, &lat_data[part_size*i]);
     lon->set_part_size(i, part_size);
-    lon->set_part_data(i, &lon_data[i]);
+    lon->set_part_data(i, &lon_data[part_size*i]);
   }
   lat->commit();
   lon->commit();
 
   // Allocate dummy lat/lon
   const int dum_nparts = nparts-1;
-  std::shared_ptr<Field> dum_lat(new Field("dum_lat", {dim1}, {"ncol"}, dum_nparts, 0));
-  std::shared_ptr<Field> dum_lon(new Field("lon", {dim1}, {"ncol"}, dum_nparts, 0));
+  const int dum_part_size = dim2 / dum_nparts;
+  std::shared_ptr<Field> dum_lat(new Field("dum_lat", {dim2}, {"ncol"}, dum_nparts, 0));
+  std::shared_ptr<Field> dum_lon(new Field("lon", {dim2}, {"ncol"}, dum_nparts, 0));
   for (int i = 0; i < dum_nparts; ++i) {
-    const int part_size = 1;
-    dum_lat->set_part_size(i, part_size);
-    dum_lat->set_part_data(i, &lat_data[i]);
-    dum_lon->set_part_size(i, part_size);
-    dum_lon->set_part_data(i, &lon_data[i]);
+    dum_lat->set_part_size(i, dum_part_size);
+    dum_lat->set_part_data(i, &lat_data[dum_part_size*i]);
+    dum_lon->set_part_size(i, dum_part_size);
+    dum_lon->set_part_data(i, &lon_data[dum_part_size*i]);
   }
   dum_lat->commit();
   dum_lon->commit();
@@ -235,8 +234,8 @@ TEST_CASE ("stats - bounds") {
   bounding_box_stat->initialize(lat, lon);
   const auto bounding_box_field = bounding_box_stat->compute(foo);
   const Real bounding_box_expected[] = {
-      0.0, 0.0, 12.0, 0.0, 0.0, 0.0, 13.0, 0.0, 0.0, 0.0, 14.0, 0.0,
-      0.0, 0.0, 15.0, 0.0, 0.0, 0.0, 16.0, 0.0, 0.0, 0.0, 17.0, 0.0};
+      0.0, 0.0, 12.0, 0.0, 0.0, 0.0, 14.0, 0.0, 0.0, 0.0, 16.0, 0.0,
+      0.0, 0.0, 18.0, 0.0, 0.0, 0.0, 20.0, 0.0, 0.0, 0.0, 22.0, 0.0};
   for (int i = 0; i < dim0*dim1*dim2; ++i)
     REQUIRE (bounding_box_expected[i]==bounding_box_field.data<Real>()[i]);
 }

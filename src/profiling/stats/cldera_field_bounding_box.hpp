@@ -63,13 +63,12 @@ protected:
       const auto& lon_part_data = m_lon->part_data<const Real>(ipart);
       const auto& field_part_layout = f.part_layout(ipart);
       const auto& field_part_dims = field_part_layout.dims();
-      const auto& field_part_names = field_part_layout.names();
       for (int field_part_index = 0; field_part_index < field_part_layout.size(); ++field_part_index) {
         const int stat_index = compute_stat_index(
             ipart, field_part_index, field_rank, field_part_dim, field_part_dims, stat_strides);
-        const int latlon_part_index = compute_latlon_part_index(field_part_index, field_rank, field_part_dims, field_part_names);
-        const Real lat_val = lat_part_data[latlon_part_index];
-        const Real lon_val = lon_part_data[latlon_part_index];
+        const int geo_part_index = compute_geo_part_index(field_part_index, field_rank, field_part_dim, field_part_dims);
+        const Real lat_val = lat_part_data[geo_part_index];
+        const Real lon_val = lon_part_data[geo_part_index];
         if (lat_val > m_lat_bounds.min && lat_val < m_lat_bounds.max &&
             lon_val > m_lon_bounds.min && lon_val < m_lon_bounds.max)
           bounding_box_field(stat_index) = field_part_data[field_part_index];
@@ -91,7 +90,6 @@ protected:
       stat_dims.push_back(field_dims[axis]);
     }
     return stat_strides;
-
   }
 
   inline int compute_stat_index(const int ipart, const int part_index, const int field_rank, const int field_part_dim,
@@ -99,8 +97,10 @@ protected:
   {
     int field_ijk, work_index = part_index, stat_index = 0;
     for (int axis = field_rank-1; axis >= 0; --axis) { // layout right
-      if (axis == field_part_dim)
-        field_ijk = ipart + work_index % part_dims[axis];
+      if (axis == field_part_dim) {
+        int part_size = part_dims[field_part_dim];
+        field_ijk = ipart * part_size + work_index % part_size;
+      }
       else
         field_ijk = work_index % part_dims[axis];
       stat_index += field_ijk * stat_strides[axis];
@@ -109,16 +109,18 @@ protected:
     return stat_index;
   }
 
-  inline int compute_latlon_part_index(const int field_part_index, const int field_rank,
-      const std::vector<int>& field_part_dims, const std::vector<std::string>& field_part_names) const
+  inline int compute_geo_part_index(const int field_part_index, const int field_rank, const int field_part_dim,
+      const std::vector<int>& field_part_dims) const
   {
-    int latlon_part_index = field_part_index;
+    int work_index = field_part_index, geo_part_index;
     for (int axis = field_rank-1; axis >= 0; --axis) { // layout right
-      if (field_part_names[axis] != "ncol") {
-        latlon_part_index /= field_part_dims[axis];
+      if (axis == field_part_dim) {
+        int part_size = field_part_dims[field_part_dim];
+        geo_part_index = work_index % part_size;
       }
+      work_index /= field_part_dims[axis];
     }
-    return latlon_part_index;
+    return geo_part_index;
   }
 
   const ekat::Comm m_comm;

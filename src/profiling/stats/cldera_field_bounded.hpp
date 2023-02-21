@@ -81,8 +81,10 @@ protected:
   {
     int field_ijk, work_index = part_index, stat_index = 0;
     for (int axis = field_rank-1; axis >= 0; --axis) { // layout right
-      if (axis == field_part_dim)
-        field_ijk = ipart + work_index % part_dims[axis];
+      if (axis == field_part_dim) {
+        int part_size = part_dims[field_part_dim];
+        field_ijk = ipart * part_size + work_index % part_size;
+      }
       else
         field_ijk = work_index % part_dims[axis];
       stat_index += field_ijk * stat_strides[axis];
@@ -94,6 +96,7 @@ protected:
   //// TODO: This should be an input parameter
   // const Bounds m_bounds = {0.5e-4, 1.0e-4}; // for HSW++
   const Bounds m_bounds = {12.1, 20.1}; // for testing
+  // const Bounds m_bounds = {-1.0, 25.0}; // for testing
   const ekat::Comm m_comm;
 };
 

@@ -9,6 +9,7 @@
 #include "cldera_field_avg_along_columns.hpp"
 #include "cldera_field_bounded.hpp"
 #include "cldera_field_bounding_box.hpp"
+#include "cldera_field_zonal_mean.hpp"
 
 #include <ekat/util/ekat_string_utils.hpp>
 
@@ -40,6 +41,8 @@ create_stat (const std::string& name, const ekat::Comm& comm) {
     stat = std::make_shared<FieldBounded>(comm);
   } else if (name_ci=="bounding_box") {
     stat = std::make_shared<FieldBoundingBox>(comm);
+  } else if (name_ci=="zonal_mean") {
+    stat = std::make_shared<FieldZonalMean>(comm);
   } else {
     EKAT_ERROR_MSG ("Unrecognized/unsupported stat '" + name + "'.\n");
   }

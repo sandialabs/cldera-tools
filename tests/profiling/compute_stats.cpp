@@ -1,5 +1,6 @@
 #include "profiling/stats/cldera_field_stat_factory.hpp"
 #include "profiling/stats/cldera_field_bounding_box.hpp"
+#include "profiling/stats/cldera_field_zonal_mean.hpp"
 
 #include <ekat/mpi/ekat_comm.hpp>
 
@@ -189,8 +190,12 @@ TEST_CASE ("stats - bounds") {
   const auto bounded_stat = create_stat(bounded_sname, comm);
   const auto bounded_field = bounded_stat->compute(foo);
   const Real bounded_expected[] = {
-      0.0, 0.0, 0.0, 13.0, 0.0, 0.0, 14.0, 15.0, 0.0, 0.0, 16.0, 17.0,
-      0.0, 0.0, 18.0, 19.0, 0.0, 0.0, 20.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+      0.0, 0.0, 0.0, 13.0,
+      0.0, 0.0, 14.0, 15.0,
+      0.0, 0.0, 16.0, 17.0,
+      0.0, 0.0, 18.0, 19.0,
+      0.0, 0.0, 20.0, 0.0,
+      0.0, 0.0, 0.0, 0.0};
   for (int i = 0; i < dim0*dim1*dim2; ++i)
     REQUIRE (bounded_expected[i]==bounded_field.data<Real>()[i]);
 
@@ -225,8 +230,8 @@ TEST_CASE ("stats - bounds") {
   // Test bounding box field
   // bounds set to lat = {0.0, 1.0}, lon = {0.0, 1.0}
   const auto bounding_box_sname = "bounding_box";
-  auto stat = create_stat(bounding_box_sname, comm);
-  auto bounding_box_stat = dynamic_cast<FieldBoundingBox *>(stat.get());
+  auto bb_stat = create_stat(bounding_box_sname, comm);
+  auto bounding_box_stat = dynamic_cast<FieldBoundingBox *>(bb_stat.get());
   REQUIRE_THROWS(bounding_box_stat->compute(foo)); // initialize() required
   REQUIRE_THROWS(bounding_box_stat->initialize(dum_lat, dum_lon)); // dum_lat wrong name
   bounding_box_stat->initialize(lat, dum_lon);
@@ -234,8 +239,50 @@ TEST_CASE ("stats - bounds") {
   bounding_box_stat->initialize(lat, lon);
   const auto bounding_box_field = bounding_box_stat->compute(foo);
   const Real bounding_box_expected[] = {
-      0.0, 0.0, 12.0, 0.0, 0.0, 0.0, 14.0, 0.0, 0.0, 0.0, 16.0, 0.0,
-      0.0, 0.0, 18.0, 0.0, 0.0, 0.0, 20.0, 0.0, 0.0, 0.0, 22.0, 0.0};
+      0.0, 0.0, 12.0, 0.0,
+      0.0, 0.0, 14.0, 0.0,
+      0.0, 0.0, 16.0, 0.0,
+      0.0, 0.0, 18.0, 0.0,
+      0.0, 0.0, 20.0, 0.0,
+      0.0, 0.0, 22.0, 0.0};
   for (int i = 0; i < dim0*dim1*dim2; ++i)
     REQUIRE (bounding_box_expected[i]==bounding_box_field.data<Real>()[i]);
+
+  // Allocate area
+  std::shared_ptr<Field> area(new Field("area", {dim2}, {"ncol"}, nparts, 0));
+  const Real area_data[] = {0.5, 1.0, 1.5, 2.0};
+  for (int i = 0; i < nparts; ++i) {
+    area->set_part_size(i, part_size);
+    area->set_part_data(i, &area_data[part_size*i]);
+  }
+  area->commit();
+
+  // Allocate dummy area
+  std::shared_ptr<Field> dum_area(new Field("area", {dim2}, {"ncol"}, dum_nparts, 0));
+  for (int i = 0; i < dum_nparts; ++i) {
+    dum_area->set_part_size(i, dum_part_size);
+    dum_area->set_part_data(i, &area_data[dum_part_size*i]);
+  }
+  dum_area->commit();
+
+  // Test zonal mean
+  // bounds set to lat = {0.0, 1.0}
+  const auto zonal_mean_sname = "zonal_mean";
+  auto zm_stat = create_stat(zonal_mean_sname, comm);
+  auto zonal_mean_stat = dynamic_cast<FieldZonalMean *>(zm_stat.get());
+  REQUIRE_THROWS(zonal_mean_stat->compute(foo)); // initialize() required
+  REQUIRE_THROWS(zonal_mean_stat->initialize(dum_lat, dum_area)); // dum_lat wrong name
+  REQUIRE_THROWS(zonal_mean_stat->initialize(lat, dum_area)); // dum_area wrong size
+  zonal_mean_stat->initialize(lat, area);
+  const auto zonal_mean_field = zonal_mean_stat->compute(foo);
+  const Real zonal_area = area_data[1] + area_data[2];
+  const Real zonal_mean_expected[] = {
+    ((1.0 * area_data[1]) + (12.0 * area_data[2])) / zonal_area,
+    ((3.0 * area_data[1]) + (14.0 * area_data[2])) / zonal_area,
+    ((5.0 * area_data[1]) + (16.0 * area_data[2])) / zonal_area,
+    ((7.0 * area_data[1]) + (18.0 * area_data[2])) / zonal_area,
+    ((9.0 * area_data[1]) + (20.0 * area_data[2])) / zonal_area,
+    ((11.0 * area_data[1]) + (22.0 * area_data[2])) / zonal_area};
+  for (int i = 0; i < dim0*dim1; ++i)
+    REQUIRE (zonal_mean_expected[i]==zonal_mean_field.data<Real>()[i]);
 }

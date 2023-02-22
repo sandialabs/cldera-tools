@@ -22,10 +22,12 @@ public:
     }
 
     // Check for valid stat layout
-    EKAT_REQUIRE_MSG (!stat_dims.empty(),
-        "Error! Field layout only contains " + m_axis_name + "!\n");
     EKAT_REQUIRE_MSG (field_dims.size() != stat_dims.size(),
         "Error! Field layout does not contain " + m_axis_name + "!\n");
+
+    // Scalar stat
+    if (stat_dims.empty())
+      return FieldLayout();
 
     return FieldLayout(stat_dims, stat_names);
   }

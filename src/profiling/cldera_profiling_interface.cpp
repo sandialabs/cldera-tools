@@ -62,7 +62,8 @@ void cldera_init_c (const MPI_Fint fcomm, const int ymd, const int tod)
     const auto& req_pl = params.sublist(fname);
     auto& req_stats = requests[fname];
     for (auto stat : req_pl.get<vos_t>("Compute Stats")) {
-      req_stats.push_back(create_stat(stat,comm));
+      auto& stat_pl = req_pl.sublist(stat);
+      req_stats.push_back(create_stat(stat_pl,comm));
     }
   }
 

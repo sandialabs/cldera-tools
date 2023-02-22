@@ -3,6 +3,7 @@
 
 #include "profiling/stats/cldera_field_stat_along_axis.hpp"
 
+#include <ekat/ekat_parameter_list.hpp>
 #include <ekat/mpi/ekat_comm.hpp>
 
 #include <memory>
@@ -12,9 +13,10 @@ namespace cldera {
 class FieldZonalMean : public FieldStatAlongAxis
 {
 public:
-  FieldZonalMean (const ekat::Comm& comm)
-   : FieldStatAlongAxis("ncol"),
-     m_comm (comm)
+  FieldZonalMean (const ekat::Comm& comm, const ekat::ParameterList& pl)
+    : FieldStatAlongAxis("ncol")
+    , m_lat_bounds({pl.get<std::vector<Real>>("Latitude Bounds").at(0), pl.get<std::vector<Real>>("Latitude Bounds").at(1)})
+    , m_comm (comm)
   { /* Nothing to do here */ }
 
   std::string name () const override { return "zonal_mean"; }
@@ -125,12 +127,10 @@ protected:
     return geo_part_index;
   }
 
+  const Bounds m_lat_bounds;
   const ekat::Comm m_comm;
   std::shared_ptr<const Field> m_lat, m_area;
   Real m_zonal_area = 0.0;
-  //// TODO: These should be input parameters
-  // const Bounds m_lat_bounds = {14.0, 16.0}; // for HSW++
-  const Bounds m_lat_bounds = {0.0, 1.0}; // for testing
 };
 
 } // namespace cldera

@@ -11,7 +11,7 @@ MaxFieldTest::MaxFieldTest(const std::string& name,
 : FieldTest(name, field)
 , m_max(max)
 {
-  m_max_stat = create_stat("global_max",comm);
+  m_max_stat = create_stat(ekat::ParameterList("global_max"),comm);
 }
 
 bool MaxFieldTest::test(const TimeStamp& t)

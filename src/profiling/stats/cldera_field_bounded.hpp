@@ -3,6 +3,7 @@
 
 #include "profiling/stats/cldera_field_stat.hpp"
 
+#include <ekat/ekat_parameter_list.hpp>
 #include <ekat/mpi/ekat_comm.hpp>
 
 #include <memory>
@@ -12,8 +13,9 @@ namespace cldera {
 class FieldBounded : public FieldStat
 {
 public:
-  FieldBounded (const ekat::Comm& comm)
-    : m_comm (comm)
+  FieldBounded (const ekat::Comm& comm, const ekat::ParameterList& pl)
+    : m_bounds({pl.get<std::vector<Real>>("Bounds").at(0), pl.get<std::vector<Real>>("Bounds").at(1)})
+    , m_comm (comm)
   { /* Nothing to do here */ }
 
   std::string name () const override { return "bounded"; }
@@ -93,10 +95,7 @@ protected:
     return stat_index;
   }
 
-  //// TODO: This should be an input parameter
-  // const Bounds m_bounds = {0.5e-4, 1.0e-4}; // for HSW++
-  const Bounds m_bounds = {12.1, 20.1}; // for testing
-  // const Bounds m_bounds = {-1.0, 25.0}; // for testing
+  const Bounds m_bounds;
   const ekat::Comm m_comm;
 };
 

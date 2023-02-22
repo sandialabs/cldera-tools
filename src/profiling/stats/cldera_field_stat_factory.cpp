@@ -16,9 +16,9 @@
 namespace cldera {
 
 std::shared_ptr<FieldStat>
-create_stat (const std::string& name, const ekat::Comm& comm) {
+create_stat (const ekat::ParameterList& pl, const ekat::Comm& comm) {
   std::shared_ptr<FieldStat> stat;
-  ekat::CaseInsensitiveString name_ci = name;
+  ekat::CaseInsensitiveString name_ci = pl.name();
   if (name_ci=="global_max") {
     stat = std::make_shared<FieldGlobalMax>(comm);
   } else if (name_ci=="global_min") {
@@ -38,13 +38,13 @@ create_stat (const std::string& name, const ekat::Comm& comm) {
   } else if (name_ci=="identity") {
     stat = std::make_shared<FieldIdentity>();
   } else if (name_ci=="bounded") {
-    stat = std::make_shared<FieldBounded>(comm);
+    stat = std::make_shared<FieldBounded>(comm, pl);
   } else if (name_ci=="bounding_box") {
-    stat = std::make_shared<FieldBoundingBox>(comm);
+    stat = std::make_shared<FieldBoundingBox>(comm, pl);
   } else if (name_ci=="zonal_mean") {
-    stat = std::make_shared<FieldZonalMean>(comm);
+    stat = std::make_shared<FieldZonalMean>(comm, pl);
   } else {
-    EKAT_ERROR_MSG ("Unrecognized/unsupported stat '" + name + "'.\n");
+    EKAT_ERROR_MSG ("Unrecognized/unsupported stat '" + pl.name() + "'.\n");
   }
 
   return stat;

@@ -11,7 +11,7 @@ MinFieldTest::MinFieldTest(const std::string& name,
 : FieldTest(name, field)
 , m_min(min)
 {
-  m_min_stat = create_stat("global_min",comm);
+  m_min_stat = create_stat(ekat::ParameterList("global_min"),comm);
 }
 
 bool MinFieldTest::test(const TimeStamp& t)

@@ -3,15 +3,15 @@
 
 #include "cldera_field_stat.hpp"
 
+#include <ekat/ekat_parameter_list.hpp>
 #include <ekat/mpi/ekat_comm.hpp>
 
 #include <memory>
-#include <string>
 
 namespace cldera {
 
 std::shared_ptr<FieldStat>
-create_stat (const std::string& name, const ekat::Comm& comm);
+create_stat (const ekat::ParameterList& pl, const ekat::Comm& comm);
 
 } // namespace cldera
 

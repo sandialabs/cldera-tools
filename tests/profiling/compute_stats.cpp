@@ -30,7 +30,7 @@ TEST_CASE ("stats") {
   std::map<std::string,Field> stat_fields;
   std::map<std::string,Field> expected;
   for (auto sname : stats_names) {
-    auto stat = create_stat(sname,comm);
+    auto stat = create_stat(ekat::ParameterList(sname),comm);
     stat_fields.emplace(sname,stat->compute(f));
 
     expected.emplace(sname,Field(sname,stat_fields.at(sname).layout(),DataAccess::Copy));
@@ -63,7 +63,7 @@ TEST_CASE ("stat_int_field") {
   Field f("f",{dim0},{"dim0"},DataAccess::View,IntType);
   f.set_data(raw_data);
 
-  auto stat = create_stat("global_sum",comm);
+  auto stat = create_stat(ekat::ParameterList("global_sum"),comm);
   const auto computed = stat->compute(f).data<int>()[0];
   const auto expected = (dim0+1)*dim0/2;
   REQUIRE (computed==expected);
@@ -92,7 +92,7 @@ TEST_CASE ("stats along columns") {
   std::map<std::string, Field> stat_fields;
   std::map<std::string, Field> expected;
   for (auto sname : stats_names) {
-    auto stat = create_stat(sname, comm);
+    auto stat = create_stat(ekat::ParameterList(sname), comm);
     stat_fields.emplace(sname, stat->compute(f));
     expected.emplace(sname, Field(sname, stat_fields.at(sname).layout(), DataAccess::Copy));
     expected.at(sname).commit();
@@ -141,7 +141,7 @@ TEST_CASE ("stats along columns with parts") {
   std::map<std::string, Field> stat_fields;
   std::map<std::string, Field> expected;
   for (auto sname : stats_names) {
-    auto stat = create_stat(sname, comm);
+    auto stat = create_stat(ekat::ParameterList(sname), comm);
     stat_fields.emplace(sname, stat->compute(foo));
     expected.emplace(sname, Field(sname, stat_fields.at(sname).layout(), DataAccess::Copy));
     expected.at(sname).commit();
@@ -185,9 +185,9 @@ TEST_CASE ("stats - bounds") {
   foo.commit();
 
   // Test bounded field
-  // bounds set to 12.1, 20.1
-  const auto bounded_sname = "bounded";
-  const auto bounded_stat = create_stat(bounded_sname, comm);
+  auto bounded_pl = ekat::ParameterList("bounded");
+  bounded_pl.set<std::vector<Real>>("Bounds", {12.1, 20.1});
+  const auto bounded_stat = create_stat(bounded_pl, comm);
   const auto bounded_field = bounded_stat->compute(foo);
   const Real bounded_expected[] = {
       0.0, 0.0, 0.0, 13.0,
@@ -228,9 +228,10 @@ TEST_CASE ("stats - bounds") {
   dum_lon->commit();
 
   // Test bounding box field
-  // bounds set to lat = {0.0, 1.0}, lon = {0.0, 1.0}
-  const auto bounding_box_sname = "bounding_box";
-  auto bb_stat = create_stat(bounding_box_sname, comm);
+  auto bounding_box_pl = ekat::ParameterList("bounding_box");
+  bounding_box_pl.set<std::vector<Real>>("Latitude Bounds", {0.0, 1.0});
+  bounding_box_pl.set<std::vector<Real>>("Longitude Bounds", {0.0, 1.0});
+  auto bb_stat = create_stat(bounding_box_pl, comm);
   auto bounding_box_stat = dynamic_cast<FieldBoundingBox *>(bb_stat.get());
   REQUIRE_THROWS(bounding_box_stat->compute(foo)); // initialize() required
   REQUIRE_THROWS(bounding_box_stat->initialize(dum_lat, dum_lon)); // dum_lat wrong name
@@ -266,9 +267,9 @@ TEST_CASE ("stats - bounds") {
   dum_area->commit();
 
   // Test zonal mean
-  // bounds set to lat = {0.0, 1.0}
-  const auto zonal_mean_sname = "zonal_mean";
-  auto zm_stat = create_stat(zonal_mean_sname, comm);
+  auto zonal_mean_pl = ekat::ParameterList("zonal_mean");
+  zonal_mean_pl.set<std::vector<Real>>("Latitude Bounds", {0.0, 1.0});
+  auto zm_stat = create_stat(zonal_mean_pl, comm);
   auto zonal_mean_stat = dynamic_cast<FieldZonalMean *>(zm_stat.get());
   REQUIRE_THROWS(zonal_mean_stat->compute(foo)); // initialize() required
   REQUIRE_THROWS(zonal_mean_stat->initialize(dum_lat, dum_area)); // dum_lat wrong name

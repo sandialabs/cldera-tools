@@ -23,8 +23,8 @@ void pack_1d (const T* input, const int* dims, int idim, int slice, T* output) {
 
 template<typename T>
 void pack_2d (const T* input, const int* dims, int idim, int slice, T* output) {
-  EKAT_REQUIRE_MSG (idim==0 || idim==1, "Invalid idim for pack_1d.\n");
-  EKAT_REQUIRE_MSG (slice>=0 && slice<dims[idim], "Invalid slice for pack_1d.\n");
+  EKAT_REQUIRE_MSG (idim==0 || idim==1, "Invalid idim for pack_2d.\n");
+  EKAT_REQUIRE_MSG (slice>=0 && slice<dims[idim], "Invalid slice for pack_2d.\n");
 
   std::vector<int> beg(2,0);
   std::vector<int> end = {dims[0], dims[1]};
@@ -39,8 +39,8 @@ void pack_2d (const T* input, const int* dims, int idim, int slice, T* output) {
 
 template<typename T>
 void pack_3d (const T* input, const int* dims, int idim, int slice, T* output) {
-  EKAT_REQUIRE_MSG (idim==0 || idim==1 || idim==2, "Invalid idim for pack_1d.\n");
-  EKAT_REQUIRE_MSG (slice>=0 && slice<dims[idim], "Invalid slice for pack_1d.\n");
+  EKAT_REQUIRE_MSG (idim==0 || idim==1 || idim==2, "Invalid idim for pack_3d.\n");
+  EKAT_REQUIRE_MSG (slice>=0 && slice<dims[idim], "Invalid slice for pack_3d.\n");
 
   std::vector<int> beg(3,0);
   std::vector<int> end = {dims[0], dims[1], dims[2]};
@@ -65,8 +65,8 @@ void unpack_1d (const T* input, const int* dims, int idim, int slice, T* output)
 
 template<typename T>
 void unpack_2d (const T* input, const int* dims, int idim, int slice, T* output) {
-  EKAT_REQUIRE_MSG (idim==0 || idim==1, "Invalid idim for unpack_1d.\n");
-  EKAT_REQUIRE_MSG (slice>=0 && slice<dims[idim], "Invalid slice for unpack_1d.\n");
+  EKAT_REQUIRE_MSG (idim==0 || idim==1, "Invalid idim for unpack_2d.\n");
+  EKAT_REQUIRE_MSG (slice>=0 && slice<dims[idim], "Invalid slice for unpack_2d.\n");
 
   std::vector<int> beg(2,0);
   std::vector<int> end = {dims[0], dims[1]};
@@ -81,8 +81,8 @@ void unpack_2d (const T* input, const int* dims, int idim, int slice, T* output)
 
 template<typename T>
 void unpack_3d (const T* input, const int* dims, int idim, int slice, T* output) {
-  EKAT_REQUIRE_MSG (idim==0 || idim==1 || idim==2, "Invalid idim for unpack_1d.\n");
-  EKAT_REQUIRE_MSG (slice>=0 && slice<dims[idim], "Invalid slice for unpack_1d.\n");
+  EKAT_REQUIRE_MSG (idim==0 || idim==1 || idim==2, "Invalid idim for unpack_3d.\n");
+  EKAT_REQUIRE_MSG (slice>=0 && slice<dims[idim], "Invalid slice for unpack_3d.\n");
 
   std::vector<int> beg(3,0);
   std::vector<int> end = {dims[0], dims[1], dims[2]};

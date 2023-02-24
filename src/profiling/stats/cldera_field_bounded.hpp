@@ -10,19 +10,16 @@
 
 namespace cldera {
 
-class FieldBounded : public FieldStat
+class FieldBounded : public FieldSinglePartStat
 {
 public:
   FieldBounded (const ekat::Comm& comm, const ekat::ParameterList& pl)
     : m_bounds({pl.get<std::vector<Real>>("Bounds").at(0), pl.get<std::vector<Real>>("Bounds").at(1)})
+    , m_mask_val(pl.isParameter("Mask Value") ? pl.get<Real>("Mask Value") : 0.0)
     , m_comm (comm)
   { /* Nothing to do here */ }
 
   std::string name () const override { return "bounded"; }
-
-  FieldLayout stat_layout (const FieldLayout& field_layout) const override {
-    return FieldLayout(field_layout.dims(), field_layout.names());
-  }
 
 protected:
   void compute_impl (const Field& f, Field& stat) const override {
@@ -32,8 +29,6 @@ protected:
     } else if (dt==RealType) {
       do_compute_impl<Real>(f,stat);
     } else {
-      // WARNING: if you add support for stuff like unsigned int, the line
-      //          of do_compute_impl that uses numeric_limits has to be changed!
       EKAT_ERROR_MSG ("[FieldBounded] Unrecognized/unsupported data type (" + e2str(dt) + ")\n");
     }
   }
@@ -56,46 +51,14 @@ protected:
         const T val = part_data[part_index];
         if (val > m_bounds.min && val < m_bounds.max)
           bounded_field(stat_index) = val;
+        else
+          bounded_field(stat_index) = m_mask_val;
       }
     }
-  }
-
-  inline std::vector<int> compute_stat_strides(const FieldLayout& field_layout) const
-  {
-    const int field_rank = field_layout.rank();
-    const auto& field_dims = field_layout.dims();
-    const auto& field_names = field_layout.names();
-    std::vector<int> stat_dims;
-    std::vector<int> stat_strides(field_rank, 0);
-    for (int axis = field_rank-1; axis >= 0; --axis) { // layout right
-      int stride = 1;
-      for (int dim : stat_dims)
-        stride *= dim;
-      stat_strides[axis] = stride;
-      stat_dims.push_back(field_dims[axis]);
-    }
-    return stat_strides;
-
-  }
-
-  inline int compute_stat_index(const int ipart, const int part_index, const int field_rank, const int field_part_dim,
-      const std::vector<int>& part_dims, const std::vector<int>& stat_strides) const
-  {
-    int field_ijk, work_index = part_index, stat_index = 0;
-    for (int axis = field_rank-1; axis >= 0; --axis) { // layout right
-      if (axis == field_part_dim) {
-        int part_size = part_dims[field_part_dim];
-        field_ijk = ipart * part_size + work_index % part_size;
-      }
-      else
-        field_ijk = work_index % part_dims[axis];
-      stat_index += field_ijk * stat_strides[axis];
-      work_index /= part_dims[axis];
-    }
-    return stat_index;
   }
 
   const Bounds m_bounds;
+  const Real m_mask_val;
   const ekat::Comm m_comm;
 };
 

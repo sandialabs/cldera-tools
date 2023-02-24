@@ -2,6 +2,7 @@
 #define SRC_PROFILING_STATS_CLDERA_FIELD_ZONAL_MEAN_HPP_
 
 #include "profiling/stats/cldera_field_stat_along_axis.hpp"
+#include "profiling/stats/cldera_field_stat_utils.hpp"
 
 #include <ekat/ekat_parameter_list.hpp>
 #include <ekat/mpi/ekat_comm.hpp>
@@ -71,8 +72,6 @@ protected:
     } else if (dt==RealType) {
       do_compute_impl<Real>(f,stat);
     } else {
-      // WARNING: if you add support for stuff like unsigned int, the line
-      //          of do_compute_impl that uses numeric_limits has to be changed!
       EKAT_ERROR_MSG ("[FieldZonalMean] Unrecognized/unsupported data type (" + e2str(dt) + ")\n");
     }
   }
@@ -96,11 +95,11 @@ protected:
       const auto& field_part_layout = f.part_layout(ipart);
       const auto& field_part_dims = field_part_layout.dims();
       for (int field_part_index = 0; field_part_index < field_part_layout.size(); ++field_part_index) {
-        const int stat_index = compute_stat_index(
-            ipart, field_part_index, field_rank, field_part_dim, field_part_dims, stat_strides);
         const int geo_part_index = compute_geo_part_index(field_part_index, field_rank, field_part_dim, field_part_dims);
         const Real lat_val = lat_part_data[geo_part_index];
         if (lat_val > m_lat_bounds.min && lat_val < m_lat_bounds.max) {
+          const int stat_index = compute_stat_index(
+              ipart, field_part_index, field_rank, field_part_dim, field_part_dims, stat_strides);
           y = field_part_data[field_part_index] * area_part_data[geo_part_index] - temp_c(stat_index);
           temp = stat_view(stat_index) + y;
           temp_c(stat_index) = (temp - stat_view(stat_index)) - y;
@@ -111,20 +110,6 @@ protected:
     m_comm.all_reduce(stat_view.data(), stat.layout().size(), MPI_SUM);
     for (int i = 0; i < stat_view.size(); ++i)
       stat_view(i) /= m_zonal_area;
-  }
-
-  inline int compute_geo_part_index(const int field_part_index, const int field_rank, const int field_part_dim,
-      const std::vector<int>& field_part_dims) const
-  {
-    int work_index = field_part_index, geo_part_index;
-    for (int axis = field_rank-1; axis >= 0; --axis) { // layout right
-      if (axis == field_part_dim) {
-        int part_size = field_part_dims[field_part_dim];
-        geo_part_index = work_index % part_size;
-      }
-      work_index /= field_part_dims[axis];
-    }
-    return geo_part_index;
   }
 
   const Bounds m_lat_bounds;

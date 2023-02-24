@@ -2,6 +2,7 @@
 #define SRC_PROFILING_STATS_CLDERA_FIELD_BOUNDING_BOX_HPP_
 
 #include "profiling/stats/cldera_field_stat.hpp"
+#include "profiling/stats/cldera_field_stat_utils.hpp"
 
 #include <ekat/ekat_parameter_list.hpp>
 #include <ekat/mpi/ekat_comm.hpp>
@@ -10,12 +11,13 @@
 
 namespace cldera {
 
-class FieldBoundingBox : public FieldStat
+class FieldBoundingBox : public FieldSinglePartStat
 {
 public:
   FieldBoundingBox (const ekat::Comm& comm, const ekat::ParameterList& pl)
     : m_lat_bounds({pl.get<std::vector<Real>>("Latitude Bounds").at(0), pl.get<std::vector<Real>>("Latitude Bounds").at(1)})
     , m_lon_bounds({pl.get<std::vector<Real>>("Longitude Bounds").at(0), pl.get<std::vector<Real>>("Longitude Bounds").at(1)})
+    , m_mask_val(pl.isParameter("Mask Value") ? pl.get<Real>("Mask Value") : 0.0)
     , m_comm (comm)
   { /* Nothing to do here */ }
 
@@ -26,11 +28,6 @@ public:
         "Error! Field names are not lat and lon!\n");
     m_lat = lat;
     m_lon = lon;
-  }
-
-  FieldLayout stat_layout (const FieldLayout& field_layout) const override {
-    //// TODO: currently use full layout, may want to trim this
-    return FieldLayout(field_layout.dims(), field_layout.names());
   }
 
 protected:
@@ -48,8 +45,6 @@ protected:
     } else if (dt==RealType) {
       do_compute_impl<Real>(f,stat);
     } else {
-      // WARNING: if you add support for stuff like unsigned int, the line
-      //          of do_compute_impl that uses numeric_limits has to be changed!
       EKAT_ERROR_MSG ("[FieldBoundingBox] Unrecognized/unsupported data type (" + e2str(dt) + ")\n");
     }
   }
@@ -75,58 +70,14 @@ protected:
         if (lat_val > m_lat_bounds.min && lat_val < m_lat_bounds.max &&
             lon_val > m_lon_bounds.min && lon_val < m_lon_bounds.max)
           bounding_box_field(stat_index) = field_part_data[field_part_index];
+        else
+          bounding_box_field(stat_index) = m_mask_val;
       }
     }
-  }
-
-  inline std::vector<int> compute_stat_strides(const FieldLayout& field_layout) const
-  {
-    const int field_rank = field_layout.rank();
-    const auto& field_dims = field_layout.dims();
-    std::vector<int> stat_dims;
-    std::vector<int> stat_strides(field_rank, 0);
-    for (int axis = field_rank-1; axis >= 0; --axis) { // layout right
-      int stride = 1;
-      for (int dim : stat_dims)
-        stride *= dim;
-      stat_strides[axis] = stride;
-      stat_dims.push_back(field_dims[axis]);
-    }
-    return stat_strides;
-  }
-
-  inline int compute_stat_index(const int ipart, const int part_index, const int field_rank, const int field_part_dim,
-      const std::vector<int>& part_dims, const std::vector<int>& stat_strides) const
-  {
-    int field_ijk, work_index = part_index, stat_index = 0;
-    for (int axis = field_rank-1; axis >= 0; --axis) { // layout right
-      if (axis == field_part_dim) {
-        int part_size = part_dims[field_part_dim];
-        field_ijk = ipart * part_size + work_index % part_size;
-      }
-      else
-        field_ijk = work_index % part_dims[axis];
-      stat_index += field_ijk * stat_strides[axis];
-      work_index /= part_dims[axis];
-    }
-    return stat_index;
-  }
-
-  inline int compute_geo_part_index(const int field_part_index, const int field_rank, const int field_part_dim,
-      const std::vector<int>& field_part_dims) const
-  {
-    int work_index = field_part_index, geo_part_index;
-    for (int axis = field_rank-1; axis >= 0; --axis) { // layout right
-      if (axis == field_part_dim) {
-        int part_size = field_part_dims[field_part_dim];
-        geo_part_index = work_index % part_size;
-      }
-      work_index /= field_part_dims[axis];
-    }
-    return geo_part_index;
   }
 
   const Bounds m_lat_bounds, m_lon_bounds;
+  const Real m_mask_val;
   const ekat::Comm m_comm;
   std::shared_ptr<const Field> m_lat, m_lon;
 };

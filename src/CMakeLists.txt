@@ -8,6 +8,7 @@ EkatConfigFile (${CLDERA_SOURCE_DIR}/src/cldera_config.h.in
 option (CLDERA_ENABLE_PROFILING_TOOL "Enable profiling source code" ON)
 set (CLDERA_PNETCDF_PATH "" CACHE PATH "Path to pnetcdf installation")
 
+add_subdirectory(timing)
 if (CLDERA_PNETCDF_PATH)
   add_subdirectory(io)
 endif()

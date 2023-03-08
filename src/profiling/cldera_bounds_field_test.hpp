@@ -9,12 +9,6 @@
 
 namespace cldera {
 
-// A pair used to store min/max bounds
-struct Bounds {
-  Real min;
-  Real max;
-};
-
 /*
  *  Field test class used to test whether a field is within the min/max bounds specified
  */

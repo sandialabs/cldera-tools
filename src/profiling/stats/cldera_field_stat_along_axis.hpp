@@ -22,10 +22,12 @@ public:
     }
 
     // Check for valid stat layout
-    EKAT_REQUIRE_MSG (!stat_dims.empty(),
-        "Error! Field layout only contains " + m_axis_name + "!\n");
     EKAT_REQUIRE_MSG (field_dims.size() != stat_dims.size(),
         "Error! Field layout does not contain " + m_axis_name + "!\n");
+
+    // Scalar stat
+    if (stat_dims.empty())
+      return FieldLayout();
 
     return FieldLayout(stat_dims, stat_names);
   }
@@ -52,7 +54,6 @@ protected:
       }
     }
     return stat_strides;
-
   }
 
   inline int compute_stat_index(const int ipart, const int part_index, const int field_rank, const int field_part_dim,
@@ -60,8 +61,10 @@ protected:
   {
     int field_ijk, work_index = part_index, stat_index = 0;
     for (int axis = field_rank-1; axis >= 0; --axis) { // layout right
-      if (axis == field_part_dim)
-        field_ijk = ipart + work_index % part_dims[axis];
+      if (axis == field_part_dim) {
+        int part_size = part_dims[field_part_dim];
+        field_ijk = ipart * part_size + work_index % part_size;
+      }
       else
         field_ijk = work_index % part_dims[axis];
       stat_index += field_ijk * stat_strides[axis];

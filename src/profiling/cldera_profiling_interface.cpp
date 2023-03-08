@@ -3,6 +3,8 @@
 #include "cldera_profiling_session.hpp"
 #include "cldera_profiling_archive.hpp"
 #include "stats/cldera_field_stat_factory.hpp"
+#include "stats/cldera_field_bounding_box.hpp"
+#include "stats/cldera_field_zonal_mean.hpp"
 #include "cldera_pathway_factory.hpp"
 
 #include <ekat/ekat_parameter_list.hpp>
@@ -60,7 +62,8 @@ void cldera_init_c (const MPI_Fint fcomm, const int ymd, const int tod)
     const auto& req_pl = params.sublist(fname);
     auto& req_stats = requests[fname];
     for (auto stat : req_pl.get<vos_t>("Compute Stats")) {
-      req_stats.push_back(create_stat(stat,comm));
+      auto& stat_pl = req_pl.sublist(stat);
+      req_stats.push_back(create_stat(stat_pl,comm));
     }
   }
 
@@ -255,6 +258,25 @@ void cldera_compute_stats_c (const int ymd, const int tod)
     const auto& f = archive.get_field(fname);
     fields[fname] = std::make_shared<const cldera::Field>(f);
     for (auto stat : stats) {
+      // Initialize bounding box with lat/lon
+      if (stat->name() == "bounding_box") {
+        const auto& lat = archive.get_field("lat");
+        const auto lat_ptr = std::make_shared<const cldera::Field>(lat);
+        const auto& lon = archive.get_field("lon");
+        const auto lon_ptr = std::make_shared<const cldera::Field>(lon);
+        auto bounding_box_stat = dynamic_cast<cldera::FieldBoundingBox *>(stat.get());
+        bounding_box_stat->initialize(lat_ptr, lon_ptr);
+      }
+      // Initialize zonal mean with lat/area
+      if (stat->name() == "zonal_mean") {
+        const auto& lat = archive.get_field("lat");
+        const auto lat_ptr = std::make_shared<const cldera::Field>(lat);
+        const auto& area = archive.get_field("area");
+        const auto area_ptr = std::make_shared<const cldera::Field>(area);
+        auto zonal_mean_stat = dynamic_cast<cldera::FieldZonalMean *>(stat.get());
+        zonal_mean_stat->initialize(lat_ptr, area_ptr);
+      }
+
       archive.append_stat(fname,stat->name(),stat->compute(f));
     }
   }

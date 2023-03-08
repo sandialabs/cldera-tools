@@ -11,8 +11,8 @@ BoundsFieldTest::BoundsFieldTest(const std::string& name,
  : FieldTest(name, field)
  , m_bounds(bounds)
 {
-  m_max_stat = create_stat("global_max",comm);
-  m_min_stat = create_stat("global_min",comm);
+  m_max_stat = create_stat(ekat::ParameterList("global_max"),comm);
+  m_min_stat = create_stat(ekat::ParameterList("global_min"),comm);
 }
 
 bool BoundsFieldTest::test(const TimeStamp& t)

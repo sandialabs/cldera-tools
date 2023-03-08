@@ -57,6 +57,43 @@ public:
   }
 };
 
+// Special case of stat, returning a single part field
+class FieldSinglePartStat : public FieldStat
+{
+public:
+  FieldLayout stat_layout (const FieldLayout& field_layout) const override {
+    return FieldLayout(field_layout.dims(), field_layout.names());
+  }
+
+  inline std::vector<int> compute_stat_strides(const FieldLayout& field_layout) const
+  {
+    const int field_rank = field_layout.rank();
+    const auto& field_dims = field_layout.dims();
+    std::vector<int> stat_strides(field_rank, 1);
+    for (int axis = field_rank-2; axis >= 0; --axis) { // layout right
+      stat_strides[axis] = stat_strides[axis+1] * field_dims[axis+1];
+    }
+    return stat_strides;
+  }
+
+  inline int compute_stat_index(const int ipart, const int part_index, const int field_rank, const int field_part_dim,
+      const std::vector<int>& part_dims, const std::vector<int>& stat_strides) const
+  {
+    int field_ijk, work_index = part_index, stat_index = 0;
+    for (int axis = field_rank-1; axis >= 0; --axis) { // layout right
+      if (axis == field_part_dim) {
+        int part_size = part_dims[field_part_dim];
+        field_ijk = ipart * part_size + work_index % part_size;
+      }
+      else
+        field_ijk = work_index % part_dims[axis];
+      stat_index += field_ijk * stat_strides[axis];
+      work_index /= part_dims[axis];
+    }
+    return stat_index;
+  }
+};
+
 } // namespace cldera
 
 #endif // CLDERA_FIELD_STAT

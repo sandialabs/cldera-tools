@@ -115,7 +115,7 @@ setup_output_file ()
         "  - actual layout  : (" + ekat::join(f.layout().names(),",") + ")\n");
 
     // Compute min gid. This is 1 in E3SM, but just in case...
-    auto min_stat = create_stat("global_min",m_comm);
+    auto min_stat = create_stat(ekat::ParameterList("global_min"),m_comm);
     auto min_gid = min_stat->compute(f).data<int>()[0];
 
     int my_ngids = f.layout().size();
@@ -160,7 +160,7 @@ setup_output_file ()
     // data to the IO interface. Since this "stat" is computed only once, when
     // we setup the output file, the cost is tiny compared to the whole run.
     const int np = f.nparts();
-    auto I = create_stat("identity",m_comm);
+    auto I = create_stat(ekat::ParameterList("identity"),m_comm);
     const auto f1p = np==1 ? f : I->compute(f);
     if (f.data_type()==DataType::RealType) {
       io::pnetcdf::write_var (*m_output_file,n,f1p.data<Real>());

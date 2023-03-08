@@ -46,6 +46,7 @@ struct NCDim {
   int           ncid;
   std::string   name;
   int           len;
+  int           glen;
 
   // Information for MPI-based decomposition (if any)
   bool          is_partitioned = false;
@@ -53,9 +54,33 @@ struct NCDim {
   bool          decomp_set = false;
 };
 
+// A decomposition tells which entries of a global
+// array this rank is in charge of. Each different
+// n-dim layout yields a new decomp, since the offsets
+// in the global array depend on the exact layout of
+// the array.
+// NOTE: at most ONE dim in the layout can be decomposed
+struct IODecomp {
+  using dim_ptr_t    = std::shared_ptr<const NCDim>;
+
+  std::string name;
+
+  // The layout of this decomposition
+  std::vector<dim_ptr_t>  layout;
+  dim_ptr_t               dim;
+  int dim_idx;
+  int hyperslab_size;
+
+  // This will be used if the var is decomposed. At write time, data for each
+  // of the hyperslices (along the decomp dim) will be copied into this contiguous buf,
+  // and then pnetcdf write routines will be called.
+  mutable std::vector<char> buf;
+};
+
 // A small struct to hold Netcdf variables info
 struct NCVar {
   using dim_ptr_t = std::shared_ptr<const NCDim>;
+  using decomp_ptr_t = std::shared_ptr<const IODecomp>;
 
   int                     ncid;
   std::string             name;
@@ -63,26 +88,33 @@ struct NCVar {
   std::vector<dim_ptr_t>  dims;
   int                     nrecords; // For time-dep vars only
 
-  // If dims are not decomposed, each read/write handles the whole array,
-  // so chunk_len is the prod of all (non-time) dim lengths.
-  // If the 1st non-time dim is decomposed, each read/write handles
-  // a single entry along the partitioned dim, so chunk_len is the prod of
-  // all non-time (and non-decomposed) dim lengths.
-  // Note: only the 1st non-time dimension can be decomposed.
-  int                     chunk_len;
+  // These are used in read/write, so we don't have to rebuild them every time
+  int                     size;    // Local size: product of all non-time dim lens
+  std::vector<int>        dimlens; // Local length of non-time dimensions
+
+  // Computes the two numbers above
+  void compute_extents();
+
+  // Quick flag to check if time is one of the dims
+  bool has_time () const { return dims[0]->name=="time"; }
+
+  // Non-null only if one of the dims is partitioned across ranks
+  decomp_ptr_t decomp;
 };
 
 // A small struct to hold Netcdf file info
 struct NCFile {
   using dim_ptr_t    = std::shared_ptr<NCDim>;
   using var_ptr_t    = std::shared_ptr<NCVar>;
+  using decomp_ptr_t = std::shared_ptr<IODecomp>;
 
   int         ncid;
   std::string name;
   IOMode      mode;
 
-  strmap_t<dim_ptr_t>  dims;
-  strmap_t<var_ptr_t>  vars;
+  strmap_t<dim_ptr_t>     dims;
+  strmap_t<var_ptr_t>     vars;
+  strmap_t<decomp_ptr_t>  decomps;
 
   bool enddef = false;
 

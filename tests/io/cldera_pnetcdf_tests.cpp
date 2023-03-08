@@ -6,6 +6,72 @@
 
 #include <iostream>
 
+void write_bad ()
+{
+  using namespace cldera;
+  using namespace cldera::io::pnetcdf;
+
+  // Get comm specs
+  ekat::Comm comm(MPI_COMM_WORLD);
+  const int rank = comm.rank();
+  const int size = comm.size();
+
+  EKAT_REQUIRE_MSG (size<=4,
+      "Error! This test is meant for up to 4 MPI ranks.\n"
+      "  Number MPI ranks found: " + std::to_string(size) + "\n");
+
+  const int nglat = 12;
+  const int nglon = 12;
+  const int nlat = nglat / size;
+  const int nlon = nglon / size;
+
+  // Create file
+  auto file = open_file ("test_bad_np" + std::to_string(size) +".nc",comm,IOMode::Write);
+
+  // Add dims
+  add_dim (*file,"lat",nlat,true);
+  add_dim (*file,"lon",nlon,true);
+
+  REQUIRE_THROWS (add_dim(*file,"lat",2*nlat)); // Dim already added with different length
+
+  // Add vars
+  add_var(*file,"T","double",{"lat","lon"},true);
+  REQUIRE_THROWS (add_var(*file,"W","floatsies",{"lat","lon","dim2"},false)); // Unknown dtype
+  REQUIRE_THROWS (add_var(*file,"W","float",{"lat","lon","dim3"},false)); // Unknown dim
+  REQUIRE_THROWS (add_var(*file,"T","double",{"lat","lon"},false)); // Different time dep
+  REQUIRE_THROWS (add_var(*file,"T","double",{"lat"},true)); // Different layout
+  REQUIRE_THROWS (add_var(*file,"T","int",{"lat","lon"},true)); // Different data type
+
+  REQUIRE_THROWS (set_att(*file,"blah","XYZ",10)); // Not a valid var name
+
+  REQUIRE_THROWS(add_decomp (*file,"lat",{})); // Can't add decomp while in def mode
+
+  // Close define phase
+  enddef (*file);
+
+  REQUIRE_THROWS (add_dim(*file,"dim3",3)); // Not in def mode
+
+  // Check write exceptions
+  double ddata;
+  int idata;
+  double* ptr;
+  REQUIRE_THROWS (write_var(*file,"W",&ddata)); // Not a valid var
+  REQUIRE_THROWS (write_var(*file,"T",&idata)); // Wrong data type ptr
+  REQUIRE_THROWS (write_var(*file,"T",ptr));    // Invalid ptr
+
+  // Add decomposition
+  REQUIRE_THROWS(add_decomp (*file,"lat",{})); // entries don't add up
+
+  // Partition along lat dimension
+  std::vector<int> my_lat;
+  for (int i=0; i<nlat; ++i) {
+    my_lat.push_back(i*size+rank);
+  }
+  REQUIRE_THROWS(add_decomp (*file,"lat",my_lat)); // 'T' is decomposed along two dimensions
+
+  close_file(*file);
+}
+
 void write ()
 {
   using namespace cldera;
@@ -16,8 +82,12 @@ void write ()
   const int rank = comm.rank();
   const int size = comm.size();
 
+  EKAT_REQUIRE_MSG (size<=4,
+      "Error! This test is meant for up to 4 MPI ranks.\n"
+      "  Number MPI ranks found: " + std::to_string(size) + "\n");
+
   const int nglat = 12;
-  const int nglon = 36;
+  const int nglon = 12;
   const int nlat = nglat / size;
 
   // Create file
@@ -28,16 +98,11 @@ void write ()
   add_dim (*file,"lon",nglon);
   add_dim (*file,"dim2",2);
 
-  REQUIRE_THROWS (add_dim(*file,"lat",10)); // Dim already added
-
   // Add vars
   add_var(*file,"T","double",{"lat","lon"},true);
   add_var(*file,"V","float",{"lat","lon","dim2"},false);
   add_var(*file,"I","long long",{"lat","lon"},true);
   add_var(*file,"V","float",{"lat","lon","dim2"},false); // Var already added, but with same specs, so should be fine
-
-  REQUIRE_THROWS (add_var(*file,"W","floatsies",{"lat","lon","dim2"},false)); // Unknown dtype
-  REQUIRE_THROWS (add_var(*file,"W","float",{"lat","lon","dim3"},false)); // Unknown dim
 
   // Partition along lat dimension
   std::vector<int> my_lat;
@@ -46,20 +111,16 @@ void write ()
       my_lat.push_back(i);
     }
   }
-  add_decomp (*file,"lat",my_lat);
-
-  REQUIRE_THROWS (add_var(*file,"W","float",{"lon","lat","dim2"},false)); // Decomp dim is not first
 
   set_att (*file,"my_int","NC_GLOBAL",static_cast<int>(42));
   set_att (*file,"my_dbl","NC_GLOBAL",static_cast<double>(42));
   set_att (*file,"units","V",std::string("m/s"));
-  REQUIRE_THROWS (set_att(*file,"blah","XYZ",10)); // Not a valid var name
 
   // Close define phase
   enddef (*file);
 
-  REQUIRE_THROWS (add_dim(*file,"dim3",3)); // Not in def mode
-  REQUIRE_THROWS (set_att(*file,"blah","XYZ",10)); // Not a valid var name
+  // Add decomposition
+  add_decomp (*file,"lat",my_lat);
 
   // Create data in an rank-independent way
   int nlats = my_lat.size();
@@ -76,10 +137,6 @@ void write ()
   write_var(*file,"T",tdata.data());
   write_var(*file,"V",vdata.data());
   write_var(*file,"I",idata.data());
-
-  // Check write exceptions
-  REQUIRE_THROWS (write_var(*file,"W",vdata.data())); // Not a valid var
-  REQUIRE_THROWS (write_var(*file,"I",vdata.data())); // Wrong data type ptr
 
   close_file(*file);
 }
@@ -121,7 +178,8 @@ void read ()
 
   // Check dims
   REQUIRE (file->dims.size()==4); // "time" is automatically added
-  REQUIRE (file->dims.at("lat")->len==nglat);
+  REQUIRE (file->dims.at("lat")->glen==nglat);
+  REQUIRE (file->dims.at("lat")->len==num_local);
   REQUIRE (file->dims.at("lon")->len==nglon);
   REQUIRE (file->dims.at("dim2")->len==2);
 
@@ -162,6 +220,15 @@ void read ()
   for (int i=0; i<nlats; ++i) {
     int idx = my_lat[i];
     for (int j=0; j<nglon; ++j) {
+      if(not(tdata[i*nglon+j]==(idx*nglon+j))) {
+        std::cout << "tdata:\n";
+        for (int i=0; i<nlats; ++i) {
+          for (int j=0; j<nglon; ++j) {
+            std::cout << " " << tdata[i*nglon+j];
+          }
+          std::cout << "\n";
+        }
+      }
       REQUIRE(tdata[i*nglon+j]==(idx*nglon+j));
       REQUIRE(vdata[i*nglon*2+2*j]==(idx*nglon*2+2*j));
       REQUIRE(vdata[i*nglon*2+2*j+1]==(idx*nglon*2+2*j+1));
@@ -188,6 +255,7 @@ void read ()
 }
 
 TEST_CASE ("pnetcdf_io") {
+  write_bad ();
   write ();
   read  ();
 }

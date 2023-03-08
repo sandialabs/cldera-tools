@@ -107,7 +107,30 @@ setup_output_file ()
 
   // If any of the registered fields is distributed over columns,
   // we need to register the column MPI decomposition
+  bool needs_decomp = false;
   if (m_output_file->dims.count("ncol")==1) {
+    needs_decomp = true;
+
+    // If we decide to split the output in N files (for size purposes), we need to
+    // be careful, and not add the proc_rank field to the database more than once
+    if (not has_field("proc_rank")) {
+      // Also add the 'proc_rank' field, containing the owner of each col
+      FieldLayout l ({m_output_file->dims.at("ncol")->len},{"ncol"});
+      Field proc_rank("proc_rank",l,DataAccess::Copy,DataType::IntType);
+      proc_rank.commit();
+      add_field(proc_rank);
+      Kokkos::deep_copy(proc_rank.view_nonconst<int>(),m_comm.rank());
+    }
+    io::pnetcdf::add_var (*m_output_file, "proc_rank", io::pnetcdf::get_io_dtype_name<int>(),{"ncol"},false);
+
+    io::pnetcdf::add_var (*m_output_file, "col_gids", io::pnetcdf::get_io_dtype_name<int>(),{"ncol"},false);
+
+    non_stat_fields_to_write.push_back("proc_rank");
+    non_stat_fields_to_write.push_back("col_gids");
+  }
+
+  io::pnetcdf::enddef (*m_output_file);
+  if (needs_decomp) {
     auto f = get_field("col_gids");
     EKAT_REQUIRE_MSG (f.layout().rank()==1,
         "Error! Wrong layout for field 'col_gids'.\n"
@@ -131,25 +154,7 @@ setup_output_file ()
       }
     }
     io::pnetcdf::add_decomp (*m_output_file,"ncol",gids);
-
-    // If we decide to split the output in N files (for size purposes), we need to
-    // be careful, and not add the proc_rank field to the database more than once
-    if (not has_field("proc_rank")) {
-      // Also add the 'proc_rank' field, containing the owner of each col
-      Field proc_rank("proc_rank",f.layout(),DataAccess::Copy,DataType::IntType);
-      proc_rank.commit();
-      add_field(proc_rank);
-      Kokkos::deep_copy(proc_rank.view_nonconst<int>(),m_comm.rank());
-    }
-    io::pnetcdf::add_var (*m_output_file, "proc_rank", io::pnetcdf::get_io_dtype_name<int>(),{"ncol"},false);
-
-    io::pnetcdf::add_var (*m_output_file, "col_gids", io::pnetcdf::get_io_dtype_name<int>(),{"ncol"},false);
-
-    non_stat_fields_to_write.push_back("proc_rank");
-    non_stat_fields_to_write.push_back("col_gids");
   }
-
-  io::pnetcdf::enddef (*m_output_file);
 
   // Immediately write the non-time dep fields
   for (const auto& n : non_stat_fields_to_write) {

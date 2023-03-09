@@ -317,25 +317,31 @@ void cldera_compute_stats_c (const int ymd, const int tod)
     const auto& fname = it.first;
     const auto& stats = it.second;
     const auto& f = archive.get_field(fname);
+    ts.start_timer("profiling:create_stat_field");
     fields[fname] = std::make_shared<const cldera::Field>(f);
+    ts.stop_timer("profiling:create_stat_field");
     for (auto stat : stats) {
       // Initialize bounding box with lat/lon
       if (stat->name() == "bounding_box") {
+        ts.start_timer ("profiling::bounding_box_init");
         const auto& lat = archive.get_field("lat");
         const auto lat_ptr = std::make_shared<const cldera::Field>(lat);
         const auto& lon = archive.get_field("lon");
         const auto lon_ptr = std::make_shared<const cldera::Field>(lon);
-        auto bounding_box_stat = dynamic_cast<cldera::FieldBoundingBox *>(stat.get());
+        auto bounding_box_stat = std::dynamic_pointer_cast<cldera::FieldBoundingBox>(stat);
         bounding_box_stat->initialize(lat_ptr, lon_ptr);
+        ts.stop_timer ("profiling::bounding_box_init");
       }
       // Initialize zonal mean with lat/area
       if (stat->name() == "zonal_mean") {
+        ts.start_timer ("profiling::zonal_mean_init");
         const auto& lat = archive.get_field("lat");
         const auto lat_ptr = std::make_shared<const cldera::Field>(lat);
         const auto& area = archive.get_field("area");
         const auto area_ptr = std::make_shared<const cldera::Field>(area);
-        auto zonal_mean_stat = dynamic_cast<cldera::FieldZonalMean *>(stat.get());
+        auto zonal_mean_stat = std::dynamic_pointer_cast<cldera::FieldZonalMean>(stat);
         zonal_mean_stat->initialize(lat_ptr, area_ptr);
+        ts.stop_timer ("profiling::zonal_mean_init");
       }
 
       archive.append_stat(fname,stat->name(),stat->compute(f));

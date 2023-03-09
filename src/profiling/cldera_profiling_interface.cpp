@@ -283,15 +283,24 @@ void cldera_commit_all_fields_c ()
 
 void cldera_compute_stats_c (const int ymd, const int tod)
 {
-  auto& ts = timing::TimingSession::instance();
-  ts.start_timer("profiling::compute_stats");
-
   auto& s = ProfilingSession::instance();
-
   // If input file was not provided, cldera does nothing
   if (not s.inited()) { return; }
 
   const auto& comm = s.get_comm();
+  auto& params = s.get_params();
+
+  // There is some rank that enters this call after the others,
+  // making the relative timing of internal cldera funcs harder.
+  // We can use the following to add a barrier upon entrance in
+  // this routine, so that all ranks will start together
+  if (params.get<bool>("Add Compute Stats Barrier",false)) {
+    comm.barrier();
+  }
+
+  auto& ts = timing::TimingSession::instance();
+  ts.start_timer("profiling::compute_stats");
+
   if (comm.am_i_root()) {
     printf(" [CLDERA] Computing stats ...\n");
   }

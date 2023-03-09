@@ -152,6 +152,13 @@ void write ()
   write_var(*file,"I",idata.data());
 
   close_file(*file);
+
+  std::stringstream blackhole;
+  std::ostream& cout = std::cout;
+  std::ostream& null = blackhole;
+
+  std::ostream& out = comm.am_i_root() ? cout : null;
+  timing::TimingSession::instance().dump(out,comm);
 }
 
 void read ()
@@ -272,6 +279,13 @@ void read ()
   toggle_timing(true);
 
   close_file(*file);
+
+  std::stringstream blackhole;
+  std::ostream& cout = std::cout;
+  std::ostream& null = blackhole;
+  std::ostream& out = comm.am_i_root() ? cout : null;
+
+  timing::TimingSession::instance().dump(std::cout,comm);
 }
 
 TEST_CASE ("pnetcdf_io") {

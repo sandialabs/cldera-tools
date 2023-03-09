@@ -36,6 +36,9 @@ public:
   void start_timer (const std::string& timer_name);
   void stop_timer (const std::string& timer_name);
 
+  // Toggle on/off actual timing
+  void toggle_session (const bool on);
+
   // Clean up the class
   void clean_up ();
 private:
@@ -44,6 +47,8 @@ private:
 
   // map[timer_name] = timer_history
   strmap_t<TimerHist>   timers;
+
+  bool session_active = true;
 };
 
 } // namespace timing

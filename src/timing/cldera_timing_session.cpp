@@ -76,19 +76,29 @@ dump (std::ostream& out, const ekat::Comm& comm) const
 void TimingSession::
 start_timer (const std::string& timer_name)
 {
-  auto& timer = timers[timer_name];
-  EKAT_REQUIRE_MSG (not timer.is_running(),
-      "Error! Clock was already running!\n");
-  timer.start();
+  if (session_active) {
+    auto& timer = timers[timer_name];
+    EKAT_REQUIRE_MSG (not timer.is_running(),
+        "Error! Clock was already running!\n");
+    timer.start();
+  }
 }
 
 void TimingSession::
 stop_timer (const std::string& timer_name)
 {
-  auto& timer = timers[timer_name];
-  EKAT_REQUIRE_MSG (timer.is_running(),
-      "Error! Clock was not running!\n");
-  timer.stop();
+  if (session_active) {
+    auto& timer = timers[timer_name];
+    EKAT_REQUIRE_MSG (timer.is_running(),
+        "Error! Clock was not running!\n");
+    timer.stop();
+  }
+}
+
+void TimingSession::
+toggle_session (const bool on)
+{
+  session_active = on;
 }
 
 void TimingSession::

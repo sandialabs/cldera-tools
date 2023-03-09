@@ -23,7 +23,7 @@ set (CLDERA_PROFILING_HEADERS
   cldera_pnetcdf.hpp
 )
 
-target_link_libraries (cldera-pnetcdf PUBLIC ekat)
+target_link_libraries (cldera-pnetcdf PUBLIC cldera-timing ekat)
 target_include_directories (cldera-pnetcdf
   PUBLIC
   "$<BUILD_INTERFACE:${CLDERA_SOURCE_DIR}/src;${CLDERA_BINARY_DIR}/src>"

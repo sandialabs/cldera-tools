@@ -3,6 +3,8 @@
 
 #include "profiling/cldera_field.hpp"
 
+#include "timing/cldera_timing_session.hpp"
+
 namespace cldera {
 
 class FieldStat
@@ -18,6 +20,8 @@ public:
 
   // Compute the stat field
   void compute (const Field& f, Field& stat) const {
+    auto& ts = timing::TimingSession::instance();
+    ts.start_timer ("profiling::compute_" + stat.name());
 
     // Sanity checks
     EKAT_REQUIRE_MSG (stat.layout()==stat_layout(f.layout()),
@@ -27,6 +31,7 @@ public:
     EKAT_REQUIRE_MSG (stat.committed(), "Error! Input stat field is not committed.\n");
 
     compute_impl(f,stat);
+    ts.stop_timer ("profiling::compute_" + stat.name());
   }
 
   // NOTE: For most stats, the stat data type matches the field one, but it might not be.

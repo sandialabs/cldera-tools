@@ -7,6 +7,8 @@
 #include "stats/cldera_field_zonal_mean.hpp"
 #include "cldera_pathway_factory.hpp"
 
+#include "timing/cldera_timing_session.hpp"
+
 #include <ekat/ekat_parameter_list.hpp>
 #include <ekat/io/ekat_yaml.hpp>
 #include <ekat/util/ekat_string_utils.hpp>
@@ -22,6 +24,9 @@ namespace cldera {
 
 void cldera_init_c (const MPI_Fint fcomm, const int ymd, const int tod)
 {
+  auto& ts = timing::TimingSession::instance();
+  ts.start_timer("profiling::init");
+
   // Convert F90 comm to C comm, create ekat::Comm, and init session
   MPI_Comm mpiComm = MPI_Comm_f2c(fcomm);
   EKAT_REQUIRE_MSG (mpiComm!=nullptr, "Error! Input fortran comm seems invalid.\n");
@@ -79,10 +84,14 @@ void cldera_init_c (const MPI_Fint fcomm, const int ymd, const int tod)
   if (comm.am_i_root()) {
     printf(" [CLDERA] Initializing profiling session ... done!\n");
   }
+  ts.stop_timer("profiling::init");
 }
 
 void cldera_clean_up_c ()
 {
+  auto& ts = timing::TimingSession::instance();
+  ts.start_timer("profiling::clean_up");
+
   auto& s = ProfilingSession::instance();
 
   // If input file was not provided, cldera does nothing
@@ -99,6 +108,23 @@ void cldera_clean_up_c ()
     std::string history_filename = "cldera_pathway_history.yaml";
     auto& pathway = s.get<std::shared_ptr<cldera::Pathway>>("pathway");
     pathway->dump_test_history_to_yaml(history_filename);
+  }
+  ts.stop_timer("profiling::clean_up");
+
+  auto& params = s.get<ekat::ParameterList>("params");
+  const auto& timings_fname = params.get<std::string>("Timing Filename","");
+  if (timings_fname!="") {
+    const auto& timings = timing::TimingSession::instance();
+    std::ofstream timings_file;
+    std::stringstream blackhole;
+    if (am_i_root) {
+      timings_file.open(timings_fname);
+    }
+    std::ostream& ofile = timings_file;
+    std::ostream& onull = blackhole;
+
+    std::ostream& out = am_i_root ? ofile : onull;
+    timings.dump(out,s.get_comm());
   }
 
   s.clean_up();
@@ -128,6 +154,9 @@ void cldera_add_partitioned_field_c (
     const bool    is_view,
     const char*&  dtype)
 {
+  auto& ts = timing::TimingSession::instance();
+  ts.start_timer("profiling::add_field");
+
   auto& s = ProfilingSession::instance();
 
   // If input file was not provided, cldera does nothing
@@ -157,6 +186,7 @@ void cldera_add_partitioned_field_c (
   auto& archive = s.get<ProfilingArchive>("archive");
   const auto access = is_view ? DataAccess::View : DataAccess::Copy;
   archive.add_field(Field(name,fl,num_parts,part_dim,access,str2data_type(dtype)));
+  ts.stop_timer("profiling::add_field");
 }
 
 void cldera_set_field_part_size_c (
@@ -164,6 +194,9 @@ void cldera_set_field_part_size_c (
     const int   part,
     const int   part_size)
 {
+  auto& ts = timing::TimingSession::instance();
+  ts.start_timer("profiling::set_field_size");
+
   auto& s = ProfilingSession::instance();
 
   // If input file was not provided, cldera does nothing
@@ -172,6 +205,7 @@ void cldera_set_field_part_size_c (
   auto& archive = s.get<ProfilingArchive>("archive");
 
   archive.get_field(name).set_part_size (part,part_size);
+  ts.stop_timer("profiling::set_field_size");
 }
 
 void cldera_set_field_part_data_c (
@@ -180,6 +214,9 @@ void cldera_set_field_part_data_c (
     const void*& data_in,
     const char*& dtype_in)
 {
+  auto& ts = timing::TimingSession::instance();
+  ts.start_timer("profiling::set_field_data");
+
   auto& s = ProfilingSession::instance();
 
   // If input file was not provided, cldera does nothing
@@ -206,10 +243,13 @@ void cldera_set_field_part_data_c (
   } else {
     EKAT_ERROR_MSG ("Invalid/unsupported data type: " + dtype + "\n");
   }
+  ts.stop_timer("profiling::set_field_data");
 }
 
 void cldera_commit_field_c (const char*& name)
 {
+  auto& ts = timing::TimingSession::instance();
+  ts.start_timer("profiling::commit_fields");
   auto& s = ProfilingSession::instance();
 
   // If input file was not provided, cldera does nothing
@@ -218,10 +258,14 @@ void cldera_commit_field_c (const char*& name)
   auto& archive = s.get<ProfilingArchive>("archive");
 
   archive.get_field(name).commit();
+  ts.stop_timer("profiling::commit_fields");
 }
 
 void cldera_commit_all_fields_c ()
 {
+  auto& ts = timing::TimingSession::instance();
+  ts.start_timer("profiling::commit_fields");
+
   auto& s = ProfilingSession::instance();
 
   // If input file was not provided, cldera does nothing
@@ -230,10 +274,14 @@ void cldera_commit_all_fields_c ()
   auto& archive = s.get<ProfilingArchive>("archive");
 
   archive.commit_all_fields();
+  ts.stop_timer("profiling::commit_fields");
 }
 
 void cldera_compute_stats_c (const int ymd, const int tod)
 {
+  auto& ts = timing::TimingSession::instance();
+  ts.start_timer("profiling::compute_stats");
+
   auto& s = ProfilingSession::instance();
 
   // If input file was not provided, cldera does nothing
@@ -302,6 +350,7 @@ void cldera_compute_stats_c (const int ymd, const int tod)
       pathway->run_pathway_tests(comm, time);
     }
   }
+  ts.stop_timer("profiling::compute_stats");
 }
 
 } // namespace cldera

@@ -9,6 +9,7 @@ init (const ekat::Comm& comm)
 {
   EKAT_REQUIRE_MSG (not inited(), "Error! ProfilingSession was already inited.\n");
   m_comm = comm;
+
   m_inited = true;
 }
 

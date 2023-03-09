@@ -31,11 +31,30 @@ namespace timing {
 void TimingSession::
 dump (std::ostream& out, const ekat::Comm& comm) const
 {
-  out << "+---------------------------------------------------------------------------------------+\n";
-  out << "|                                  CLDERA TIMING STATS                                  |\n";
-  out << "+---------------------------------------------------------------------------------------+\n";
-  out << "|              Timer Name                 |   N   |     Max (rank)   |     Min (rank)   |\n";
-  out << "+---------------------------------------------------------------------------------------+\n";
+  int rank_width = 1;
+  int comm_size = comm.size();
+  while (comm_size>=10) {
+    ++rank_width;
+    comm_size /= 10;
+  }
+
+  int rw_left = rank_width / 2;
+  int rw_right = rank_width - rw_left;
+
+  std::string dashes(rank_width,'-');
+  std::string dashes_beg = "+" + dashes;
+  std::string dashes_end = dashes + "+\n";
+  std::string space (rank_width,' ');
+  std::string space_bar = space + "|\n";
+  std::string bar_space = "|" + space;
+  std::string sp_l (rw_left,' ');
+  std::string sp_r (rw_right,' ');
+
+  out << dashes_beg + "---------------------------------------------------------------------------------" + dashes_end;
+  out << bar_space + "                              CLDERA TIMING STATS                                " + space_bar;
+  out << dashes_beg + "---------------------------------------------------------------------------------" + dashes_end;
+  out << "|              Timer Name                 | Count |" + sp_l + "   Max (rank)  " + sp_r + "|" + sp_l + "   Min (rank)  " + sp_r + "|\n";
+  out << dashes_beg + "---------------------------------------------------------------------------------" + dashes_end;
 
   // Sanity check: all timers must be present on all ranks
   int my_ntimers = timers.size();
@@ -47,7 +66,7 @@ dump (std::ostream& out, const ekat::Comm& comm) const
 
   // std::ostringstream right_float_fmt;
   auto right_float_fmt = [](std::ostream& out) -> std::ostream& {
-    out << std::right << std::setfill(' ') << std::setw(12) << std::setprecision(3) << std::fixed;
+    out << std::right << std::setfill(' ') << std::setw(10) << std::setprecision(3) << std::fixed;
     return out;
   };
   for (const auto& it : timers) {
@@ -65,12 +84,12 @@ dump (std::ostream& out, const ekat::Comm& comm) const
     comm.all_reduce(&min,&gmin,1,MPI_MINLOC);
     comm.all_reduce(&max,&gmax,1,MPI_MAXLOC);
 
-    out << "| " << right_float_fmt << gmax.d << " (" << gmax.i << ") ";
-    out << "| " << right_float_fmt << gmin.d << " (" << gmin.i << ") ";
+    out << "| " << right_float_fmt << gmax.d << " (" << std::setw(rank_width) << gmax.i << ") ";
+    out << "| " << right_float_fmt << gmin.d << " (" << std::setw(rank_width) << gmin.i << ") ";
     out << "|\n";
   }
 
-  out << "+---------------------------------------------------------------------------------------+\n";
+  out << dashes_beg + "---------------------------------------------------------------------------------" + dashes_end;
 }
 
 void TimingSession::

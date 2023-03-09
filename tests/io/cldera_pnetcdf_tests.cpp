@@ -1,4 +1,5 @@
 #include "io/cldera_pnetcdf.hpp"
+#include "timing/cldera_timing_session.hpp"
 
 #include <ekat/ekat_assert.hpp>
 
@@ -6,8 +7,17 @@
 
 #include <iostream>
 
+void toggle_timing (const bool on) {
+  auto& ts = cldera::timing::TimingSession::instance();
+  ts.toggle_session(on);
+}
+
 void write_bad ()
 {
+  // Do not do timing, since all the calls inside REQUIRE_THROWS
+  // would start timers without stopping them
+  toggle_timing(false);
+
   using namespace cldera;
   using namespace cldera::io::pnetcdf;
 
@@ -74,6 +84,9 @@ void write_bad ()
 
 void write ()
 {
+  // Do timings
+  toggle_timing(true);
+
   using namespace cldera;
   using namespace cldera::io::pnetcdf;
 
@@ -143,6 +156,9 @@ void write ()
 
 void read ()
 {
+  // Do timings
+  toggle_timing(true);
+
   using namespace cldera;
   using namespace cldera::io::pnetcdf;
 
@@ -247,9 +263,13 @@ void read ()
   REQUIRE (units=="m/s");
 
   // Check read exceptions
+  // Do not do timings when inside REQUIRE_THROWS, since timers would
+  // be started but never stopped.
+  toggle_timing(false);
   REQUIRE_THROWS (read_var(*file,"V",vdata.data(),1)); // Not a time-dep var
   REQUIRE_THROWS (read_var(*file,"I",idata.data(),2)); // Not a valid record
   REQUIRE_THROWS (read_var(*file,"I",vdata.data()));   // Wrong data type ptr
+  toggle_timing(true);
 
   close_file(*file);
 }

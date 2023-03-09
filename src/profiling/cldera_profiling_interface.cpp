@@ -109,10 +109,15 @@ void cldera_clean_up_c ()
     auto& pathway = s.get<std::shared_ptr<cldera::Pathway>>("pathway");
     pathway->dump_test_history_to_yaml(history_filename);
   }
+
+  // Get a copy of timing filename and comm *before* cleaning up the
+  // session, since we need them to dump the timing stats
+  auto& params = s.get<ekat::ParameterList>("params");
+  const auto timings_fname = params.get<std::string>("Timing Filename","");
+  const auto comm = s.get_comm();
+  s.clean_up();
   ts.stop_timer("profiling::clean_up");
 
-  auto& params = s.get<ekat::ParameterList>("params");
-  const auto& timings_fname = params.get<std::string>("Timing Filename","");
   if (timings_fname!="") {
     const auto& timings = timing::TimingSession::instance();
     std::ofstream timings_file;
@@ -124,10 +129,9 @@ void cldera_clean_up_c ()
     std::ostream& onull = blackhole;
 
     std::ostream& out = am_i_root ? ofile : onull;
-    timings.dump(out,s.get_comm());
+    timings.dump(out,comm);
   }
 
-  s.clean_up();
   if (am_i_root) {
     printf(" [CLDERA] Shutting down profiling session ... done!\n");
   }

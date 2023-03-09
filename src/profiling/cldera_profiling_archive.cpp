@@ -19,7 +19,9 @@ ProfilingArchive(const ekat::Comm& comm,
  , m_params (params)
  , m_start_date (start_date)
 {
-  create_output_file();
+  if (m_params.get<bool>("Enable Output",true)) {
+    create_output_file();
+  }
 }
 
 ProfilingArchive::

@@ -31,11 +31,11 @@ namespace timing {
 void TimingSession::
 dump (std::ostream& out, const ekat::Comm& comm) const
 {
-  out << "+------------------------------------------------------------------------+\n";
-  out << "|                           CLDERA TIMING STATS                          |\n";
-  out << "+------------------------------------------------------------------------+\n";
-  out << "|       Timer Name         |   N   |     Max (rank)   |     Min (rank)   |\n";
-  out << "+------------------------------------------------------------------------+\n";
+  out << "+---------------------------------------------------------------------------------------+\n";
+  out << "|                                  CLDERA TIMING STATS                                  |\n";
+  out << "+---------------------------------------------------------------------------------------+\n";
+  out << "|              Timer Name                 |   N   |     Max (rank)   |     Min (rank)   |\n";
+  out << "+---------------------------------------------------------------------------------------+\n";
 
   // Sanity check: all timers must be present on all ranks
   int my_ntimers = timers.size();
@@ -54,7 +54,7 @@ dump (std::ostream& out, const ekat::Comm& comm) const
     const auto& n = it.first;
     const auto& t = it.second;
 
-    out << "| " << std::left  << std::setfill(' ') << std::setw(25) << n;
+    out << "| " << std::left  << std::setfill(' ') << std::setw(40) << n;
 
     out << "| " << std::right << std::setfill(' ') << std::setw(5) << t.num_hist() << " ";
 
@@ -70,7 +70,7 @@ dump (std::ostream& out, const ekat::Comm& comm) const
     out << "|\n";
   }
 
-  out << "+------------------------------------------------------------------------+\n";
+  out << "+---------------------------------------------------------------------------------------+\n";
 }
 
 void TimingSession::

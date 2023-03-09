@@ -285,7 +285,7 @@ void read ()
   std::ostream& null = blackhole;
   std::ostream& out = comm.am_i_root() ? cout : null;
 
-  timing::TimingSession::instance().dump(std::cout,comm);
+  timing::TimingSession::instance().dump(out,comm);
 }
 
 TEST_CASE ("pnetcdf_io") {

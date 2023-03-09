@@ -1,7 +1,7 @@
 #ifndef CLDERA_TIMING_SESSION_HPP
 #define CLDERA_TIMING_SESSION_HPP
 
-#include "cldera_timer_history.hpp"
+#include "cldera_timer.hpp"
 
 #include <ekat/mpi/ekat_comm.hpp>
 
@@ -46,7 +46,7 @@ private:
   TimingSession () = default;
 
   // map[timer_name] = timer_history
-  strmap_t<TimerHist>   timers;
+  strmap_t<Timer>   timers;
 
   bool session_active = true;
 };

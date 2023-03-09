@@ -75,14 +75,12 @@ dump (std::ostream& out, const ekat::Comm& comm) const
 
     out << "| " << std::left  << std::setfill(' ') << std::setw(40) << n;
 
-    out << "| " << std::right << std::setfill(' ') << std::setw(5) << t.num_hist() << " ";
+    out << "| " << std::right << std::setfill(' ') << std::setw(5) << t.count() << " ";
 
-    DblInt max = {t.max().count(), comm.rank()};
-    DblInt min = {t.min().count(), comm.rank()};
-
-    DblInt gmax,gmin;
-    comm.all_reduce(&min,&gmin,1,MPI_MINLOC);
-    comm.all_reduce(&max,&gmax,1,MPI_MAXLOC);
+    DblInt local = {t.elapsed().count(), comm.rank()};
+    DblInt gmin,gmax;
+    comm.all_reduce(&local,&gmin,1,MPI_MINLOC);
+    comm.all_reduce(&local,&gmax,1,MPI_MAXLOC);
 
     out << "| " << right_float_fmt << gmax.d << " (" << std::setw(rank_width) << gmax.i << ") ";
     out << "| " << right_float_fmt << gmin.d << " (" << std::setw(rank_width) << gmin.i << ") ";
@@ -97,8 +95,6 @@ start_timer (const std::string& timer_name)
 {
   if (session_active) {
     auto& timer = timers[timer_name];
-    EKAT_REQUIRE_MSG (not timer.is_running(),
-        "Error! Clock was already running!\n");
     timer.start();
   }
 }
@@ -108,8 +104,6 @@ stop_timer (const std::string& timer_name)
 {
   if (session_active) {
     auto& timer = timers[timer_name];
-    EKAT_REQUIRE_MSG (timer.is_running(),
-        "Error! Clock was not running!\n");
     timer.stop();
   }
 }

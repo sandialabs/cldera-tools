@@ -2,6 +2,7 @@
 #define CLDERA_PROFILING_SESSION_HPP
 
 #include <ekat/mpi/ekat_comm.hpp>
+#include <ekat/ekat_parameter_list.hpp>
 #include <ekat/std_meta/ekat_std_any.hpp>
 
 #include <string>
@@ -38,6 +39,12 @@ public:
   const ekat::Comm& get_comm () const {
     return m_comm;
   }
+  ekat::ParameterList& get_params () {
+    return m_params;
+  }
+  const ekat::ParameterList& get_params () const {
+    return m_params;
+  }
 
   bool has_data (const std::string& name) const {
     return m_data.find(name)!=m_data.end();
@@ -63,6 +70,7 @@ private:
   std::map<std::string,ekat::any> m_data;
 
   ekat::Comm  m_comm;
+  ekat::ParameterList m_params;
   bool m_inited = false;
 };
 

@@ -60,7 +60,7 @@ void cldera_init_c (const MPI_Fint fcomm, const int ymd, const int tod)
   using requests_t = std::map<std::string,std::vector<stat_ptr_t>>;
   using vos_t = std::vector<std::string>;
 
-  auto& params = s.create<ekat::ParameterList>("params",ekat::parse_yaml_file(filename));
+  auto& params = s.get_params() = ekat::parse_yaml_file(filename);
   auto& requests = s.create<requests_t>("requests");
   const auto& fnames = params.get<vos_t>("Fields To Track");
   for (const auto& fname : fnames) {
@@ -112,7 +112,7 @@ void cldera_clean_up_c ()
 
   // Get a copy of timing filename and comm *before* cleaning up the
   // session, since we need them to dump the timing stats
-  auto& params = s.get<ekat::ParameterList>("params");
+  auto& params = s.get_params();
   const auto timings_fname = params.get<std::string>("Timing Filename","");
   const auto comm = s.get_comm();
   s.clean_up();

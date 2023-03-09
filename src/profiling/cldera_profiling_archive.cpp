@@ -147,7 +147,11 @@ setup_output_file ()
 
     int my_ngids = f.layout().size();
     int ngids_scan;
+    // Clock MPI ops
+    auto& ts = timing::TimingSession::instance();
+    ts.start_timer("mpi::scan");
     m_comm.scan(&my_ngids,&ngids_scan,1,MPI_SUM);
+    ts.stop_timer("mpi::scan");
     int my_start = ngids_scan - my_ngids;
     std::vector<int> gids(my_ngids);
     for (int p=0,i=0; p<f.nparts(); ++p) {

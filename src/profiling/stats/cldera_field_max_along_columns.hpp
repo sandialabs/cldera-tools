@@ -54,7 +54,11 @@ protected:
     }
 
     // Since only columns are distributed, stat_view is the same size across ranks
+    // Clock MPI ops
+    auto& ts = timing::TimingSession::instance();
+    ts.start_timer("mpi::all_reduce");
     m_comm.all_reduce(stat_view.data(), stat_view.size(), MPI_MAX); // Use MPI_IN_PLACE
+    ts.stop_timer("mpi::all_reduce");
   }
 
   const ekat::Comm m_comm;

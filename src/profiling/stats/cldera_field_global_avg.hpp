@@ -28,7 +28,12 @@ protected:
     // Divide by size
     long long size = f.layout().size();
     long long global_size;
+
+    // Clock MPI ops
+    auto& ts = timing::TimingSession::instance();
+    ts.start_timer("mpi::all_reduce");
     m_comm.all_reduce(&size,&global_size,1,MPI_SUM);
+    ts.stop_timer("mpi::all_reduce");
 
     stat.data_nonconst<Real>()[0] /= global_size;
   }

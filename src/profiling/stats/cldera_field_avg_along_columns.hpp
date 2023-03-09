@@ -31,7 +31,12 @@ protected:
     const auto it = std::find(field_names.begin(), field_names.end(), "ncol");
     long long size = field_dims[it-field_names.begin()];
     long long global_size;
+
+    // Clock MPI ops
+    auto& ts = timing::TimingSession::instance();
+    ts.start_timer("mpi::all_reduce");
     m_comm.all_reduce(&size, &global_size, 1, MPI_SUM);
+    ts.stop_timer("mpi::all_reduce");
 
     auto avg_field = stat.view_nonconst<Real>();
     auto stat_size = avg_field.size();

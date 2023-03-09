@@ -47,7 +47,11 @@ protected:
       }
     }
 
+    // Clock MPI ops
+    auto& ts = timing::TimingSession::instance();
+    ts.start_timer("mpi::all_reduce");
     m_comm.all_reduce(&sum,stat.data_nonconst<T>(),1,MPI_SUM);
+    ts.stop_timer("mpi::all_reduce");
   }
 
   ekat::Comm    m_comm;

@@ -107,7 +107,11 @@ protected:
         }
       }
     }
+    // Clock MPI ops
+    auto& ts = timing::TimingSession::instance();
+    ts.start_timer("mpi::all_reduce");
     m_comm.all_reduce(stat_view.data(), stat.layout().size(), MPI_SUM);
+    ts.stop_timer("mpi::all_reduce");
     for (int i = 0; i < stat_view.size(); ++i)
       stat_view(i) /= m_zonal_area;
   }

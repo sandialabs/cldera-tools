@@ -8,9 +8,13 @@
 #########################################
 %YAML 1.0
 ---
+Add Compute Stats Barrier: false
+Timing Filename: my_timings.txt
 Profiling Output:
   Filename: cldera_stats.nc
   Flush Frequency: 10
+  Enable Output: true
+  Save Geometry Fields: true
 Fields To Track: [SO2, H2SO4]
 
 SO2:

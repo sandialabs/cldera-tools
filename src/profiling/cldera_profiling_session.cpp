@@ -1,4 +1,5 @@
 #include "profiling/cldera_profiling_session.hpp"
+#include "cldera_version.h"
 
 #include <ekat/ekat_assert.hpp>
 
@@ -9,6 +10,10 @@ init (const ekat::Comm& comm)
 {
   EKAT_REQUIRE_MSG (not inited(), "Error! ProfilingSession was already inited.\n");
   m_comm = comm;
+  if (m_comm.am_i_root()) {
+    std::cout << "  -> CLDERA version: " << CLDERA_VERSION << "\n"
+                 "  -> CLDERA git sha: " << CLDERA_GIT_SHA << "\n";
+  }
   m_inited = true;
 }
 

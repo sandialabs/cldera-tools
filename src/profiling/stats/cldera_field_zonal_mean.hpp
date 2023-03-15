@@ -7,6 +7,8 @@
 #include <ekat/ekat_parameter_list.hpp>
 #include <ekat/mpi/ekat_comm.hpp>
 
+#include <algorithm>
+#include <limits>
 #include <memory>
 
 namespace cldera {
@@ -17,6 +19,9 @@ public:
   FieldZonalMean (const ekat::Comm& comm, const ekat::ParameterList& pl)
     : FieldStatAlongAxis("ncol")
     , m_lat_bounds({pl.get<std::vector<Real>>("Latitude Bounds").at(0), pl.get<std::vector<Real>>("Latitude Bounds").at(1)})
+    , m_lev_bounds(pl.isParameter("Level Bounds") ?
+        Bounds{pl.get<std::vector<Real>>("Level Bounds").at(0), pl.get<std::vector<Real>>("Level Bounds").at(1)} :
+        Bounds{0.0, std::numeric_limits<Real>::max()})
     , m_comm (comm)
   { /* Nothing to do here */ }
 
@@ -24,7 +29,7 @@ public:
 
   void initialize (const std::shared_ptr<const Field>& lat, const std::shared_ptr<const Field>& area) {
     EKAT_REQUIRE_MSG (lat->name() == "lat" && area->name() == "area",
-        "Error! Field names are not lat and area!\n");
+        "Error! Field names are not lat, area!\n");
     m_lat = lat;
     m_area = area;
 
@@ -85,8 +90,13 @@ protected:
     Kokkos::deep_copy(temp_c, 0);
     Kokkos::deep_copy(stat_view, 0);
 
-    T temp, y;
+    // Determine if field has levels
     const int field_rank = f.layout().rank();
+    const auto& field_names = f.layout().names();
+    const int field_level_dim = std::distance(field_names.begin(), std::find(field_names.begin(), field_names.end(), "lev"));
+    const bool has_lev = not (field_level_dim == field_rank);
+
+    T temp, y;
     const int field_part_dim = f.part_dim();
     for (int ipart = 0; ipart < f.nparts(); ++ipart) {
       const auto& field_part_data = f.part_data<const T>(ipart);
@@ -95,16 +105,22 @@ protected:
       const auto& field_part_layout = f.part_layout(ipart);
       const auto& field_part_dims = field_part_layout.dims();
       for (int field_part_index = 0; field_part_index < field_part_layout.size(); ++field_part_index) {
-        const int geo_part_index = compute_geo_part_index(field_part_index, field_rank, field_part_dim, field_part_dims);
-        const Real lat_val = lat_part_data[geo_part_index];
-        if (lat_val > m_lat_bounds.min && lat_val < m_lat_bounds.max) {
-          const int stat_index = compute_stat_index(
-              ipart, field_part_index, field_rank, field_part_dim, field_part_dims, stat_strides);
-          y = field_part_data[field_part_index] * area_part_data[geo_part_index] - temp_c(stat_index);
-          temp = stat_view(stat_index) + y;
-          temp_c(stat_index) = (temp - stat_view(stat_index)) - y;
-          stat_view(stat_index) = temp;
+        if (has_lev) {
+          const double level_index = compute_field_dim_index(field_part_index, field_rank, field_level_dim, field_part_dims);
+          if (level_index < m_lev_bounds.min || level_index > m_lev_bounds.max)
+            continue;
         }
+        const int geo_part_index = compute_field_dim_index(field_part_index, field_rank, field_part_dim, field_part_dims);
+        const Real lat_val = lat_part_data[geo_part_index];
+        if (lat_val < m_lat_bounds.min || lat_val > m_lat_bounds.max)
+          continue;
+
+        const int stat_index = compute_stat_index(
+            ipart, field_part_index, field_rank, field_part_dim, field_part_dims, stat_strides);
+        y = field_part_data[field_part_index] * area_part_data[geo_part_index] - temp_c(stat_index);
+        temp = stat_view(stat_index) + y;
+        temp_c(stat_index) = (temp - stat_view(stat_index)) - y;
+        stat_view(stat_index) = temp;
       }
     }
     m_comm.all_reduce(stat_view.data(), stat.layout().size(), MPI_SUM);
@@ -112,7 +128,7 @@ protected:
       stat_view(i) /= m_zonal_area;
   }
 
-  const Bounds m_lat_bounds;
+  const Bounds m_lat_bounds, m_lev_bounds;
   const ekat::Comm m_comm;
   std::shared_ptr<const Field> m_lat, m_area;
   Real m_zonal_area = 0.0;

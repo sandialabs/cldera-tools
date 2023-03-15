@@ -14,7 +14,7 @@ class FieldBounded : public FieldSinglePartStat
 {
 public:
   FieldBounded (const ekat::Comm& comm, const ekat::ParameterList& pl)
-    : m_bounds({pl.get<std::vector<Real>>("Bounds").at(0), pl.get<std::vector<Real>>("Bounds").at(1)})
+    : m_bounds(Bounds{pl.get<std::vector<Real>>("Bounds").at(0), pl.get<std::vector<Real>>("Bounds").at(1)})
     , m_mask_val(pl.isParameter("Mask Value") ? pl.get<Real>("Mask Value") : 0.0)
     , m_comm (comm)
   { /* Nothing to do here */ }

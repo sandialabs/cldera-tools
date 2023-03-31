@@ -89,6 +89,7 @@ set (CLDERA_PROFILING_HEADERS
   stats/cldera_field_vertical_contraction.hpp
   stats/cldera_field_zonal_mean.hpp
   stats/cldera_register_stats.hpp
+  utils/cldera_subview_utils.hpp
 )
 set_target_properties (cldera-profiling PROPERTIES
   PUBLIC_HEADER "${CLDERA_PROFILING_HEADERS}")

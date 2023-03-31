@@ -21,7 +21,7 @@ namespace cldera
  * The partitioning is described by
  *  - nparts: number of partitions
  *  - part_dim: index of dimension along which field is partitioned
- *  - part_sizes: the size of each partition
+ *  - part_extent: the extent along part_dim of each partition
  *
  * Notice that each partition is stored contiguously in memory.
  * The method part_layout allows to get the layout of the partition,
@@ -79,7 +79,7 @@ public:
         FieldLayout part_layout (const int ipart) const;
 
   // Set part specs
-  void set_part_size  (const int ipart, const int part_size);
+  void set_part_extent  (const int ipart, const int part_extent);
   template<typename T>
   void set_part_data  (const int ipart, const T* data);
   template<typename T>
@@ -159,14 +159,14 @@ private:
   void check_committed (const bool expected, const std::string& context) const;
   void check_rank (const int N) const;
 
-  std::string             m_name;
-  FieldLayout             m_layout;
-  int                     m_nparts   = -1;  // Set to something invalid for default ctor
-  int                     m_part_dim = -1;
-  std::vector<long long>  m_part_sizes;
-  bool                    m_committed = false;
-  DataAccess              m_data_access;
-  DataType                m_data_type;
+  std::string       m_name;
+  FieldLayout       m_layout;
+  int               m_nparts   = -1;  // Set to something invalid for default ctor
+  int               m_part_dim = -1;
+  std::vector<int>  m_part_extents;
+  bool              m_committed = false;
+  DataAccess        m_data_access;
+  DataType          m_data_type;
 
   // Store data as char
   std::vector<view_1d_host<const char>>   m_data;

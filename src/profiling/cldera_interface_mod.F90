@@ -111,18 +111,18 @@ contains
   end subroutine cldera_add_partitioned_field
 
   ! Set data of a particular field partition in the cldera data base
-  subroutine cldera_set_field_part_size (fname,part,part_size)
+  subroutine cldera_set_field_part_extent (fname,part,part_extent)
     use iso_c_binding, only: c_char, c_loc
-    use cldera_interface_f2c_mod, only: csfps_c => cldera_set_field_part_size_c
+    use cldera_interface_f2c_mod, only: csfps_c => cldera_set_field_part_extent_c
     character (len=*), intent(in) :: fname
-    integer,  intent(in) :: part, part_size
+    integer,  intent(in) :: part, part_extent
 
     character (kind=c_char, len=max_str_len), target :: fname_c
 
     fname_c = f2c(fname)
     ! Subtract 1 to part, b/c of C-vs-Fortran index base
-    call csfps_c(c_loc(fname_c),f2c(part-1),f2c(part_size))
-  end subroutine cldera_set_field_part_size
+    call csfps_c(c_loc(fname_c),f2c(part-1),f2c(part_extent))
+  end subroutine cldera_set_field_part_extent
   subroutine cldera_set_field_part_data_real_1d (fname,part,data)
     use iso_c_binding, only: c_char, c_loc
     use cldera_interface_f2c_mod, only: csfpd_c => cldera_set_field_part_data_c

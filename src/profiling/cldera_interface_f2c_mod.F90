@@ -20,12 +20,12 @@ module cldera_interface_f2c_mod
       type(c_ptr), intent(in) :: dimnames(rank)
     end subroutine cldera_add_partitioned_field_c
 
-    ! Set size of a particular field partition in the cldera data base
-    subroutine cldera_set_field_part_size_c (fname, part, part_size) bind(c)
+    ! Set extent of a particular field partition in the cldera data base
+    subroutine cldera_set_field_part_extent_c (fname, part, part_extent) bind(c)
       use iso_c_binding, only: c_int, c_char, c_double, c_ptr
-      integer (kind=c_int), value, intent(in) :: part, part_size
+      integer (kind=c_int), value, intent(in) :: part, part_extent
       type(c_ptr), intent(in) :: fname
-    end subroutine cldera_set_field_part_size_c
+    end subroutine cldera_set_field_part_extent_c
 
     ! Set pointer to host app data for a particular field partition
     subroutine cldera_set_field_part_data_c (fname, part, data, dtype) bind(c)

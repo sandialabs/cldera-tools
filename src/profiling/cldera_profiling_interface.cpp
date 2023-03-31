@@ -191,10 +191,10 @@ void cldera_add_partitioned_field_c (
   ts.stop_timer("profiling::add_field");
 }
 
-void cldera_set_field_part_size_c (
+void cldera_set_field_part_extent_c (
     const char*& name,
     const int   part,
-    const int   part_size)
+    const int   part_extent)
 {
   auto& s = ProfilingSession::instance();
 
@@ -206,7 +206,7 @@ void cldera_set_field_part_size_c (
 
   auto& archive = s.get<ProfilingArchive>("archive");
 
-  archive.get_field(name).set_part_size (part,part_size);
+  archive.get_field(name).set_part_extent (part,part_extent);
   ts.stop_timer("profiling::set_field_size");
 }
 

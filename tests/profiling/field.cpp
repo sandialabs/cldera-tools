@@ -28,21 +28,21 @@ TEST_CASE ("field") {
   REQUIRE (bar.layout().to_string()=="<col,lev> (5,4)");
   REQUIRE (baz.layout().to_string()=="<col,cmp,lev> (5,4,3)");
 
-  foobar.set_part_size(0,5); // OK, same value
-  foobar.set_part_size(0,5); // OK, same value
-  REQUIRE_THROWS(foobar.set_part_size(0,6)); // Can't change part sizes
+  foobar.set_part_extent(0,5); // OK, same value
+  foobar.set_part_extent(0,5); // OK, same value
+  REQUIRE_THROWS(foobar.set_part_extent(0,6)); // Can't change part sizes
 
   // Set data in fields
   REQUIRE_THROWS (foo.set_data(foo_data.data())); // Data already set
-  REQUIRE_THROWS (baz.set_part_size(3,1)); // part idx OOB
-  REQUIRE_THROWS (baz.set_part_size(1,10)); // part size OOB
+  REQUIRE_THROWS (baz.set_part_extent(3,1)); // part idx OOB
+  REQUIRE_THROWS (baz.set_part_extent(1,10)); // part size OOB
   REQUIRE_THROWS (foobar.set_part_data<Real>(0,foo_data.data())); // Not a View field
   REQUIRE_THROWS (bar.set_data<int>(nullptr)); // Invalid pointer
   REQUIRE_THROWS (bar.set_data(foo_data.data())); // Invalid data type
   bar.set_data(bar_data.data());
-  baz.set_part_size(0,1);
-  baz.set_part_size(2,1);
-  baz.set_part_size(1,1);
+  baz.set_part_extent(0,1);
+  baz.set_part_extent(2,1);
+  baz.set_part_extent(1,1);
   baz.set_part_data(0,baz_data[0].data());
   baz.set_part_data(2,baz_data[2].data());
   baz.set_part_data(1,baz_data[1].data());

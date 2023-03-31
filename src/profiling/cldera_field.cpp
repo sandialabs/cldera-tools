@@ -13,11 +13,11 @@ Field(const std::string& n, const FieldLayout& fl,
       const DataAccess cv, const DataType dt)
  : Field(n,fl,1,0,cv,dt)
 {
-  // We can go ahead and set sizes
+  // We can go ahead and set the part extent
   if (m_layout.rank()>0) {
-    set_part_size(m_part_dim,m_layout.extent(m_part_dim));
+    set_part_extent(m_part_dim,m_layout.extent(m_part_dim));
   } else {
-    set_part_size(m_part_dim,1);
+    set_part_extent(m_part_dim,1);
   }
 }
 
@@ -56,7 +56,7 @@ Field (const std::string& n, const FieldLayout& fl,
   m_nparts = nparts;
   m_part_dim = part_dim;
   m_data.resize(nparts);
-  m_part_sizes.resize(nparts,-1);
+  m_part_extents.resize(nparts,-1);
 }
 
 Field::
@@ -73,9 +73,9 @@ Field (const std::string& n,
 FieldLayout Field::
 part_layout (const int ipart) const {
   check_part_idx(ipart);
-  EKAT_REQUIRE_MSG (m_part_sizes[ipart]!=-1,
+  EKAT_REQUIRE_MSG (m_part_extents[ipart]!=-1,
       "[Field::part_layout]\n"
-      "  Error! Part size was not yet set.\n"
+      "  Error! Part extent was not yet set.\n"
       "    - Field name: " + m_name + "\n"
       "    - Part index: " + std::to_string(ipart) + "\n");
 
@@ -83,30 +83,30 @@ part_layout (const int ipart) const {
     return FieldLayout();
   } else {
     std::vector<int> d = m_layout.dims();
-    d[m_part_dim] = m_part_sizes[ipart];
+    d[m_part_dim] = m_part_extents[ipart];
     return FieldLayout{d,m_layout.names()};
   }
 }
 
 void Field::
-set_part_size (const int ipart, const int part_size)
+set_part_extent (const int ipart, const int part_extent)
 {
   check_part_idx(ipart);
-  EKAT_REQUIRE_MSG (part_size>=0 && part_size<=(m_layout.rank()==0 ? 1 : m_layout.extent(m_part_dim)),
-      "[Field::set_part_size]\n"
-      "  Error! Invalid part size.\n"
+  EKAT_REQUIRE_MSG (part_extent>=0 && part_extent<=(m_layout.rank()==0 ? 1 : m_layout.extent(m_part_dim)),
+      "[Field::set_part_extent]\n"
+      "  Error! Invalid part extent.\n"
       "    - Field name: " + m_name + "\n"
       "    - Part index: " + std::to_string(ipart) + "\n"
-      "    - Part size : " + std::to_string(part_size) + "\n");
-  EKAT_REQUIRE_MSG (m_part_sizes[ipart]==-1 || m_part_sizes[ipart]==part_size,
+      "    - Part extent : " + std::to_string(part_extent) + "\n");
+  EKAT_REQUIRE_MSG (m_part_extents[ipart]==-1 || m_part_extents[ipart]==part_extent,
       "[Field::set_part_data]\n"
-      "  Error! Part size was already set to a different value.\n"
+      "  Error! Part extent was already set to a different value.\n"
       "    - Field name    : " + m_name + "\n"
       "    - Part index    : " + std::to_string(ipart) + "\n"
-      "    - Curr part size: " + std::to_string(m_part_sizes[ipart]) + "\n"
-      "    - New part size : " + std::to_string(part_size) + "\n");
+      "    - Curr part extent: " + std::to_string(m_part_extents[ipart]) + "\n"
+      "    - New part extent : " + std::to_string(part_extent) + "\n");
 
-  m_part_sizes[ipart] = part_size;
+  m_part_extents[ipart] = part_extent;
 }
 
 void Field::commit () {
@@ -127,7 +127,7 @@ void Field::commit () {
   }
 
   // Checks
-  int part_sizes_sum = 0;
+  int part_extents_sum = 0;
   for (int ipart=0; ipart<m_nparts; ++ipart) {
     EKAT_REQUIRE_MSG (m_data[ipart].data()!=nullptr,
         "[Field::commit]\n"
@@ -144,16 +144,16 @@ void Field::commit () {
         "    - Part 1 index: " + std::to_string(ipart) + "\n"
         "    - Part 2 index: " + std::to_string(jpart) + "\n");
     }
-    part_sizes_sum += m_part_sizes[ipart];
+    part_extents_sum += m_part_extents[ipart];
   }
-  EKAT_REQUIRE_MSG (part_sizes_sum==(m_layout.rank()==0 ? 1 : m_layout.extent(m_part_dim)),
+  EKAT_REQUIRE_MSG (part_extents_sum==(m_layout.rank()==0 ? 1 : m_layout.extent(m_part_dim)),
       "[Field::commit]\n"
-      "  Error! Partition sizes do not add up to layout dimension.\n"
-      "    - Field name     : " + m_name + "\n"
-      "    - Field dims     : [" + ekat::join(m_layout.dims(),",") + "]\n"
-      "    - Part dim       : " + std::to_string(m_part_dim) + "\n"
-      "    - Dim[Part dim]  : " + std::to_string(m_layout.extent(m_part_dim)) + "\n"
-      "    - Sum(part sizes): " + std::to_string(part_sizes_sum) + "\n");
+      "  Error! Partition extents do not add up to layout dimension.\n"
+      "    - Field name       : " + m_name + "\n"
+      "    - Field dims       : [" + ekat::join(m_layout.dims(),",") + "]\n"
+      "    - Part dim         : " + std::to_string(m_part_dim) + "\n"
+      "    - Dim[Part dim]    : " + std::to_string(m_layout.extent(m_part_dim)) + "\n"
+      "    - Sum(part extents): " + std::to_string(part_extents_sum) + "\n");
 
   m_committed = true;
 }
@@ -164,7 +164,7 @@ Field Field::clone() const {
 
   // Recall, public/private is based on type, not instance, so we can
   // access f's members
-  f.m_part_sizes = m_part_sizes;
+  f.m_part_extents = m_part_extents;
   f.m_committed = true;
   f.m_data_nonconst.resize(m_nparts);
   f.m_data.resize(m_nparts);

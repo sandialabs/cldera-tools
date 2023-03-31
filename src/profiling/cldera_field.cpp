@@ -33,7 +33,8 @@ Field (const std::string& n, const std::vector<int>& dims,
 Field::
 Field (const std::string& n, const FieldLayout& fl,
        const int nparts, const int part_dim,
-       const DataAccess cv, const DataType dt)
+       const DataAccess cv, const DataType dt,
+       int part_dim_alloc_size)
  : m_name(n)
  , m_layout(fl)
  , m_data_access(cv)
@@ -53,6 +54,16 @@ Field (const std::string& n, const FieldLayout& fl,
       "  - Part dim   : " + std::to_string(part_dim) + "\n"
       "  - Field dims : [" + ekat::join(m_layout.dims(),",") + "]\n");
 
+  EKAT_REQUIRE_MSG (cv==DataAccess::View || part_dim_alloc_size==-1,
+    "Error! If DataAccess==Copy, do not attempt to prescribe part_dim_alloc_size.\n"
+    "  - Field name         : " + m_name + "\n"
+    "  - Part dim           : " + std::to_string(part_dim) + "\n"
+    "  - Field dims         : [" + ekat::join(m_layout.dims(),",") + "]\n"
+    "  - part dim alloc size: [" + std::to_string(part_dim_alloc_size) + "]\n");
+
+  // If part_dim_alloc_size==-1, it means alloc_size = part_extent
+  m_part_dim_alloc_size = part_dim_alloc_size;
+
   m_nparts = nparts;
   m_part_dim = part_dim;
   m_data.resize(nparts);
@@ -64,8 +75,9 @@ Field (const std::string& n,
        const std::vector<int>& dims,
        const std::vector<std::string>& dimnames,
        const int nparts, const int part_dim,
-       const DataAccess cv, const DataType dt)
- : Field(n,FieldLayout(dims,dimnames),nparts,part_dim,cv,dt)
+       const DataAccess cv, const DataType dt,
+       const int part_dim_alloc_size)
+ : Field(n,FieldLayout(dims,dimnames),nparts,part_dim,cv,dt,part_dim_alloc_size)
 {
   // Nothing to do here
 }
@@ -82,9 +94,15 @@ part_layout (const int ipart) const {
   if (m_layout.rank()==0) {
     return FieldLayout();
   } else {
-    std::vector<int> d = m_layout.dims();
-    d[m_part_dim] = m_part_extents[ipart];
-    return FieldLayout{d,m_layout.names()};
+    std::vector<int> dims = m_layout.dims();
+    dims[m_part_dim] = m_part_extents[ipart];
+    if (m_part_dim_alloc_size==-1) {
+      return FieldLayout(dims,m_layout.names());
+    } else {
+      std::vector<int> alloc_dims = m_layout.dims();
+      alloc_dims[m_part_dim] = m_part_dim_alloc_size;
+      return FieldLayout(dims,alloc_dims,m_layout.names());
+    }
   }
 }
 
@@ -105,6 +123,13 @@ set_part_extent (const int ipart, const int part_extent)
       "    - Part index    : " + std::to_string(ipart) + "\n"
       "    - Curr part extent: " + std::to_string(m_part_extents[ipart]) + "\n"
       "    - New part extent : " + std::to_string(part_extent) + "\n");
+  EKAT_REQUIRE_MSG (m_part_dim_alloc_size==-1 || m_part_dim_alloc_size>=part_extent,
+      "[Field::set_part_extent]\n"
+      "  Error! Part extent exceeds alloc size along partitioned dim.\n"
+      "    - Field name     : " + m_name + "\n"
+      "    - Part index     : " + std::to_string(ipart) + "\n"
+      "    - Part extent    : " + std::to_string(part_extent) + "\n"
+      "    - Part alloc size: " + std::to_string(m_part_dim_alloc_size) + "\n");
 
   m_part_extents[ipart] = part_extent;
 }
@@ -120,8 +145,9 @@ void Field::commit () {
     // Allocate the views
     m_data_nonconst.resize(m_nparts);
     for (int i=0; i<m_nparts; ++i) {
+      auto pl = part_layout(i);
       auto iname = m_name + "_" + std::to_string(i);
-      m_data_nonconst[i] = view_1d_host<char> (iname,size_of(m_data_type)*part_layout(i).size());
+      m_data_nonconst[i] = view_1d_host<char> (iname,size_of(m_data_type)*pl.alloc_size());
       m_data[i] = m_data_nonconst[i];
     }
   }
@@ -164,6 +190,7 @@ Field Field::clone() const {
 
   // Recall, public/private is based on type, not instance, so we can
   // access f's members
+  f.m_part_dim_alloc_size = m_part_dim_alloc_size;
   f.m_part_extents = m_part_extents;
   f.m_committed = true;
   f.m_data_nonconst.resize(m_nparts);

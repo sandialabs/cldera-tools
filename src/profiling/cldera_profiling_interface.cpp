@@ -143,7 +143,7 @@ void cldera_add_field_c (const char*& name,
                          const bool   is_view,
                          const char*& data_type)
 {
-  cldera_add_partitioned_field_c(name,rank,dims,dimnames,1,0,is_view,data_type);
+  cldera_add_partitioned_field_c(name,rank,dims,dimnames,1,0,-1,is_view,data_type);
 }
 
 void cldera_add_partitioned_field_c (
@@ -153,6 +153,7 @@ void cldera_add_partitioned_field_c (
     const char**  dimnames,
     const int     num_parts,
     const int     part_dim,
+    const int     part_dim_alloc_size,
     const bool    is_view,
     const char*&  dtype)
 {
@@ -187,7 +188,8 @@ void cldera_add_partitioned_field_c (
   // Set data in the archive structure
   auto& archive = s.get<ProfilingArchive>("archive");
   const auto access = is_view ? DataAccess::View : DataAccess::Copy;
-  archive.add_field(Field(name,fl,num_parts,part_dim,access,str2data_type(dtype)));
+  Field f(name,fl,num_parts,part_dim,access,str2data_type(dtype),part_dim_alloc_size);
+  archive.add_field(f);
   ts.stop_timer("profiling::add_field");
 }
 

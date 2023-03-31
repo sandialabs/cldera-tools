@@ -28,6 +28,7 @@ void cldera_add_partitioned_field_c (
     const char**  dimnames,
     const int     num_parts,
     const int     part_dim,
+    const int     part_dim_alloc_size,
     const bool    is_view,
     const char*&  dtype);
 

@@ -21,6 +21,14 @@ public:
   FieldLayout () = default;
 
   FieldLayout (const std::vector<int>& dims,
+               const std::vector<std::string>& names)
+    : FieldLayout (dims,dims,names)
+  {
+    // Nothing to do here
+  }
+
+  FieldLayout (const std::vector<int>& dims,
+               const std::vector<int>& alloc_dims,
                const std::vector<std::string>& names);
 
   const std::vector<int>& dims () const { return m_dims; }
@@ -41,7 +49,15 @@ public:
 
   std::string to_string () const;
 
-  Kokkos::LayoutRight kokkos_layout () const { return m_kokkos_layout; }
+  long long alloc_size () const {
+    long long s = 1;
+    for (int i=0; i<rank(); ++i) {
+      s *= m_kokkos_layout.dimension[i];
+    }
+    return s;
+  }
+
+  const Kokkos::LayoutRight& kokkos_layout () const { return m_kokkos_layout; }
 
   friend bool operator== (const FieldLayout& lhs, const FieldLayout& rhs);
 private:

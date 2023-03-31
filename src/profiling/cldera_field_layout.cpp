@@ -7,8 +7,9 @@ namespace cldera
 {
 
 FieldLayout::
-FieldLayout(const std::vector<int>& dims,
-            const std::vector<std::string>& names)
+FieldLayout (const std::vector<int>& dims,
+             const std::vector<int>& alloc_dims,
+             const std::vector<std::string>& names)
 {
   for (auto d : dims) {
     EKAT_REQUIRE_MSG (d>0, "Error! Invalid dimension (" + std::to_string(d) + "\n");
@@ -19,7 +20,7 @@ FieldLayout(const std::vector<int>& dims,
       "Error! Size of names and dims array must match.\n");
   m_names = names;
   for (int i=0; i<rank(); ++i) {
-    m_kokkos_layout.dimension[i] = m_dims[i];
+    m_kokkos_layout.dimension[i] = alloc_dims[i];
   }
 }
 

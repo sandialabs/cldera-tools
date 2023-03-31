@@ -43,13 +43,15 @@ public:
   Field (const std::string& n, const FieldLayout& fl,
          const int nparts, const int part_dim,
          const DataAccess cv = DataAccess::View,
-         const DataType dt = RealType);
+         const DataType dt = RealType,
+         const int part_dim_alloc_size = -1);
   Field (const std::string& n,
          const std::vector<int>& dims,
          const std::vector<std::string>& dimnames,
          const int nparts, const int part_dim,
          const DataAccess cv = DataAccess::View,
-         const DataType dt = RealType);
+         const DataType dt = RealType,
+         const int part_dim_alloc_size = -1);
 
   // Shortcuts for single-partition field
   Field (const std::string& n, const FieldLayout& fl,
@@ -164,6 +166,7 @@ private:
   int               m_nparts   = -1;  // Set to something invalid for default ctor
   int               m_part_dim = -1;
   std::vector<int>  m_part_extents;
+  int               m_part_dim_alloc_size;
   bool              m_committed = false;
   DataAccess        m_data_access;
   DataType          m_data_type;
@@ -227,7 +230,7 @@ set_part_data (const int ipart, const T* data)
       "    - Part index: " + std::to_string(ipart) + "\n");
   check_data_type<T>();
 
-  const auto alloc_size = size_of(m_data_type)*part_layout(ipart).size();
+  const auto alloc_size = size_of(m_data_type)*part_layout(ipart).alloc_size();
   m_data[ipart] = view_1d_host<const char> (ptr2char(data),alloc_size);
 }
 
@@ -257,7 +260,7 @@ copy_part_data (const int ipart, const T* data)
   check_data_type<T>();
   check_part_idx(ipart);
 
-  view_1d_host<const T,Kokkos::MemoryUnmanaged> v(data,part_layout(ipart).size());
+  view_1d_host<const T,Kokkos::MemoryUnmanaged> v(data,part_layout(ipart).alloc_size());
   Kokkos::deep_copy(part_view_nonconst<T>(ipart),v);
 }
 
@@ -294,7 +297,7 @@ Field::part_view (const int ipart) const
   check_part_idx(ipart);
 
   const auto data = char2ptr<const T>(m_data[ipart].data());
-  const auto size = part_layout(ipart).size();
+  const auto size = part_layout(ipart).alloc_size();
   return view_1d_host<const T>(data,size);
 }
 
@@ -307,7 +310,7 @@ Field::part_view_nonconst (const int ipart)
   check_part_idx(ipart);
 
   const auto data = char2ptr<T>(m_data_nonconst[ipart].data());
-  const auto size = part_layout(ipart).size();
+  const auto size = part_layout(ipart).alloc_size();
   return view_1d_host<T>(data,size);
 }
 

@@ -357,7 +357,7 @@ template<typename T, int N>
 view_Nd_host<const T,N>
 Field::nd_view () const
 {
-  check_single_part("view");
+  check_single_part("nd_view");
   return part_nd_view<const T,N>(0);
 }
 
@@ -365,7 +365,7 @@ template<typename T, int N>
 view_Nd_host<T,N>
 Field::nd_view_nonconst ()
 {
-  check_single_part("view_nonconst");
+  check_single_part("nd_view_nonconst");
   return part_nd_view_nonconst<T,N>(0);
 }
 

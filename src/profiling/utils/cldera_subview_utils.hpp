@@ -1,9 +1,10 @@
 #ifndef CLDERA_UTILS_HPP
 #define CLDERA_UTILS_HPP
 
-#include "ekat/kokkos/ekat_kokkos_meta.hpp"
-#include "ekat/ekat_type_traits.hpp"
-#include "ekat/std_meta/ekat_std_type_traits.hpp"
+#include <ekat/kokkos/ekat_kokkos_meta.hpp>
+#include <ekat/ekat_type_traits.hpp>
+#include <ekat/std_meta/ekat_std_type_traits.hpp>
+#include <ekat/ekat_assert.hpp>
 
 namespace cldera {
 

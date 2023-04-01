@@ -136,7 +136,7 @@ TEST_CASE ("stats_tests") {
     std::vector<std::vector<Real>> foo_data (nparts,std::vector<Real>(dim0*dim1*part_size));
     for (int i = 0; i < nparts; ++i) {
       std::iota(foo_data[i].begin(), foo_data[i].end(), i*dim0*dim1*part_size);
-      foo.set_part_size(i, part_size);
+      foo.set_part_extent(i, part_size);
       foo.set_part_data(i, foo_data[i].data());
     }
     foo.commit();
@@ -183,7 +183,7 @@ TEST_CASE ("stats_tests") {
     std::vector<std::vector<Real>> foo_data (nparts,std::vector<Real>(dim0*dim1*part_size));
     for (int i = 0; i < nparts; ++i) {
       std::iota(foo_data[i].begin(), foo_data[i].end(), i*dim0*dim1*part_size);
-      foo.set_part_size(i, part_size);
+      foo.set_part_extent(i, part_size);
       foo.set_part_data(i, foo_data[i].data());
     }
     foo.commit();
@@ -211,9 +211,9 @@ TEST_CASE ("stats_tests") {
     const Real lat_data[] = {-0.5, 0.5, 0.5, -0.5};
     const Real lon_data[] = {-0.5, -0.5, 0.5, 0.5};
     for (int i = 0; i < nparts; ++i) {
-      lat.set_part_size(i, part_size);
+      lat.set_part_extent(i, part_size);
       lat.set_part_data(i, &lat_data[part_size*i]);
-      lon.set_part_size(i, part_size);
+      lon.set_part_extent(i, part_size);
       lon.set_part_data(i, &lon_data[part_size*i]);
     }
     lat.commit();
@@ -225,9 +225,9 @@ TEST_CASE ("stats_tests") {
     Field dum_lat("dum_lat", {dim2}, {"ncol"}, dum_nparts, 0);
     Field dum_lon("lon", {dim2}, {"ncol"}, dum_nparts, 0);
     for (int i = 0; i < dum_nparts; ++i) {
-      dum_lat.set_part_size(i, dum_part_size);
+      dum_lat.set_part_extent(i, dum_part_size);
       dum_lat.set_part_data(i, &lat_data[dum_part_size*i]);
-      dum_lon.set_part_size(i, dum_part_size);
+      dum_lon.set_part_extent(i, dum_part_size);
       dum_lon.set_part_data(i, &lon_data[dum_part_size*i]);
     }
     dum_lat.commit();
@@ -259,7 +259,7 @@ TEST_CASE ("stats_tests") {
     Field area("area", {dim2}, {"ncol"}, nparts, 0);
     const Real area_data[] = {0.5, 1.0, 1.5, 2.0};
     for (int i = 0; i < nparts; ++i) {
-      area.set_part_size(i, part_size);
+      area.set_part_extent(i, part_size);
       area.set_part_data(i, &area_data[part_size*i]);
     }
     area.commit();
@@ -267,7 +267,7 @@ TEST_CASE ("stats_tests") {
     // Allocate dummy area
     Field dum_area("area", {dim2}, {"ncol"}, dum_nparts, 0);
     for (int i = 0; i < dum_nparts; ++i) {
-      dum_area.set_part_size(i, dum_part_size);
+      dum_area.set_part_extent(i, dum_part_size);
       dum_area.set_part_data(i, &area_data[dum_part_size*i]);
     }
     dum_area.commit();

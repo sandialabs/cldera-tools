@@ -129,6 +129,7 @@ public:
   // Query status
   int nparts () const { return m_nparts; }
   int part_dim () const { return m_part_dim; }
+  int part_offset (const int ipart) const;
   bool committed () const { return m_committed; }
   DataAccess data_access () const { return m_data_access; }
   DataType data_type () const { return m_data_type; }
@@ -166,6 +167,7 @@ private:
   int               m_nparts   = -1;  // Set to something invalid for default ctor
   int               m_part_dim = -1;
   std::vector<int>  m_part_extents;
+  std::vector<int>  m_part_offsets;
   int               m_part_dim_alloc_size;
   bool              m_committed = false;
   DataAccess        m_data_access;

@@ -154,6 +154,7 @@ void Field::commit () {
 
   // Checks
   int part_extents_sum = 0;
+  m_part_offsets.resize(m_nparts);
   for (int ipart=0; ipart<m_nparts; ++ipart) {
     EKAT_REQUIRE_MSG (m_data[ipart].data()!=nullptr,
         "[Field::commit]\n"
@@ -170,6 +171,7 @@ void Field::commit () {
         "    - Part 1 index: " + std::to_string(ipart) + "\n"
         "    - Part 2 index: " + std::to_string(jpart) + "\n");
     }
+    m_part_offsets[ipart] = part_extents_sum;
     part_extents_sum += m_part_extents[ipart];
   }
   EKAT_REQUIRE_MSG (part_extents_sum==(m_layout.rank()==0 ? 1 : m_layout.extent(m_part_dim)),
@@ -240,6 +242,12 @@ void Field::deep_copy (const Field& src) {
     auto tgt_pv = m_data_nonconst[p];
     Kokkos::deep_copy(tgt_pv,src_pv);
   }
+}
+
+int Field::
+part_offset (const int ipart) const {
+  check_part_idx(ipart);
+  return m_part_offsets[ipart];
 }
 
 void Field::

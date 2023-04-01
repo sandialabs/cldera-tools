@@ -3,6 +3,9 @@
 
 #include "cldera_profiling_types.hpp"
 
+#include <ekat/util/ekat_string_utils.hpp>
+#include <ekat/ekat_assert.hpp>
+
 #include <vector>
 #include <string>
 
@@ -33,6 +36,22 @@ public:
 
   const std::vector<int>& dims () const { return m_dims; }
   const std::vector<std::string>& names () const { return m_names; }
+
+  bool has_dim (const std::string& name) const {
+    auto it = std::find(m_names.begin(),m_names.end(),name);
+    return it!=m_names.end();
+  }
+  int idim (const std::string& name) const {
+    auto it = std::find(m_names.begin(),m_names.end(),name);
+    EKAT_REQUIRE_MSG(it!=m_names.end(),
+        "Error! Input dim name not found in this layout.\n"
+        " - dim names : [" + ekat::join(m_names,",") + "]\n"
+        " - input name: " + name + "\n");
+    return std::distance(m_names.begin(),it);
+  }
+  int extent (const std::string& name) const {
+    return m_dims[idim(name)];
+  }
 
   int extent (const int i) const { return m_dims[i]; }
   std::string name (const int i) const { return m_names[i]; }

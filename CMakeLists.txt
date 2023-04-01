@@ -8,6 +8,9 @@ set (CLDERA_VERSION_MAJOR 0)
 set (CLDERA_VERSION_MINOR 1)
 set (CLDERA_VERSION_PATCH 0)
 
+# C++17 is required
+set (CMAKE_CXX_STANDARD 17)
+
 ##############################
 #        Build EKAT          #
 ##############################

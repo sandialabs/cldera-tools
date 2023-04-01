@@ -5,9 +5,19 @@
 #include "cldera_time_stamp.hpp"
 #include <ekat/ekat_assert.hpp>
 #include <ekat/kokkos/ekat_kokkos_types.hpp>
+#include <ekat/std_meta/ekat_std_type_traits.hpp>
 
 #include <vector>
 #include <iostream>
+
+namespace ekat {
+// EKAT's DataND recursion has N=1 as base case, causing infinite recursion if N=0
+// TODO: fix in EKAT
+template<typename T>
+struct DataND<T,0> {
+  using type = T;
+};
+} // namespace ekat
 
 namespace cldera {
 

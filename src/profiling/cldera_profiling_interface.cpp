@@ -287,6 +287,8 @@ void cldera_compute_stats_c (const int ymd, const int tod)
   // If input file was not provided, cldera does nothing
   if (not s.inited()) { return; }
 
+  static int num_calls = 0;
+
   const auto& comm = s.get_comm();
   auto& params = s.get_params();
 
@@ -370,6 +372,23 @@ void cldera_compute_stats_c (const int ymd, const int tod)
     }
   }
   ts.stop_timer("profiling::compute_stats");
+
+  const auto timings_fname = params.get<std::string>("Timing Filename","");
+  const int timings_flush_freq = params.get("Timings Flush Freq",0);
+  if (timings_fname!="" && timings_flush_freq>0 && num_calls%timings_flush_freq==0) {
+    const auto& timings = timing::TimingSession::instance();
+    std::ofstream timings_file;
+    std::stringstream blackhole;
+    if (comm.am_i_root()) {
+      timings_file.open(timings_fname);
+    }
+    std::ostream& ofile = timings_file;
+    std::ostream& onull = blackhole;
+
+    std::ostream& out = comm.am_i_root() ? ofile : onull;
+    timings.dump(out,comm);
+  }
+  ++num_calls;
 }
 
 } // namespace cldera

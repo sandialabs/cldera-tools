@@ -2,6 +2,7 @@
 #define CLDERA_FIELD_GLOBAL_MAX_HPP
 
 #include "profiling/stats/cldera_field_stat.hpp"
+#include "profiling/cldera_mpi_timing_wrappers.hpp"
 
 #include <ekat/mpi/ekat_comm.hpp>
 
@@ -44,10 +45,7 @@ protected:
     }
 
     // Clock MPI ops
-    auto& ts = timing::TimingSession::instance();
-    ts.start_timer("mpi::all_reduce");
-    m_comm.all_reduce(&max,stat.data_nonconst<T>(),1,MPI_MAX);
-    ts.stop_timer("mpi::all_reduce");
+    track_mpi_all_reduce(name(),m_comm,&max,stat.data_nonconst<T>(),1,MPI_MAX);
   }
 
   ekat::Comm    m_comm;

@@ -3,6 +3,7 @@
 
 #include "profiling/stats/cldera_field_stat_along_axis.hpp"
 #include "profiling/stats/cldera_field_stat_utils.hpp"
+#include "profiling/cldera_mpi_timing_wrappers.hpp"
 
 #include <ekat/ekat_parameter_list.hpp>
 #include <ekat/mpi/ekat_comm.hpp>
@@ -57,7 +58,7 @@ public:
         }
       }
     }
-    m_comm.all_reduce(&m_zonal_area, 1, MPI_SUM);
+    track_mpi_all_reduce(name()+"_initialize",m_comm,&m_zonal_area,1,MPI_SUM);
   }
 
 protected:
@@ -124,10 +125,7 @@ protected:
       }
     }
     // Clock MPI ops
-    auto& ts = timing::TimingSession::instance();
-    ts.start_timer("mpi::all_reduce");
-    m_comm.all_reduce(stat_view.data(), stat.layout().size(), MPI_SUM);
-    ts.stop_timer("mpi::all_reduce");
+    track_mpi_all_reduce(name(),m_comm,stat_view.data(),stat.layout().size(),MPI_SUM);
     for (int i = 0; i < stat_view.size(); ++i)
       stat_view(i) /= m_zonal_area;
   }

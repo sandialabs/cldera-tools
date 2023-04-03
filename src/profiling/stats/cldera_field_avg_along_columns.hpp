@@ -2,6 +2,7 @@
 #define CLDERA_FIELD_AVG_ALONG_COLUMNS_HPP_
 
 #include "profiling/stats/cldera_field_sum_along_columns.hpp"
+#include "profiling/cldera_mpi_timing_wrappers.hpp"
 
 #include <ekat/mpi/ekat_comm.hpp>
 
@@ -31,10 +32,12 @@ protected:
     const auto it = std::find(field_names.begin(), field_names.end(), "ncol");
     long long size = field_dims[it-field_names.begin()];
     long long global_size;
-    m_comm.all_reduce(&size, &global_size, 1, MPI_SUM);
+
+    // Clock MPI ops
+    track_mpi_all_reduce(name(),m_comm,&size,&global_size,1,MPI_SUM);
 
     auto avg_field = stat.view_nonconst<Real>();
-    auto stat_size = avg_field.size();
+    int stat_size = avg_field.size();
     for (int i = 0; i < stat_size; ++i)
       avg_field(i) /= global_size;
   }

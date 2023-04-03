@@ -166,6 +166,13 @@ TEST_CASE ("stats along columns with parts") {
 TEST_CASE ("stats - bounds") {
   using namespace cldera;
 
+  // REQUIRE_THROWS causes some start_timer calls to not be matched
+  // by a corresponding stop_timer. When that happens, a subsequent
+  // call to start_timer for that timer would throw. For this test,
+  // we can just disable timings
+  timing::TimingSession::instance().toggle_session(false);
+
+
   ekat::Comm comm(MPI_COMM_WORLD);
 
   // Allocate field

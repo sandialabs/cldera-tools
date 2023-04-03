@@ -1,4 +1,6 @@
 #include "io/cldera_pnetcdf.hpp"
+#include "timing/cldera_timing_session.hpp"
+
 #include "cldera_config.h"
 
 #include <ekat/ekat_assert.hpp>
@@ -668,6 +670,9 @@ template<typename T>
 void read_var (const NCFile& file, const std::string& vname,
                      T* const  data, const int record)
 {
+  auto& ts = timing::TimingSession::instance();
+  ts.start_timer("io::read_var");
+
   EKAT_REQUIRE_MSG (file.vars.find(vname)!=file.vars.end(),
       "Error! Variable not found in output NC file.\n"
       "  - file name : " + file.name + "\n"
@@ -779,6 +784,7 @@ void read_var (const NCFile& file, const std::string& vname,
           "  - err code : " + std::to_string(ret) + "\n");
 #endif
   }
+  ts.stop_timer("io::read_var");
 }
 
 // Instantiations 
@@ -797,6 +803,8 @@ template<typename T>
 void write_var (const NCFile& file,const std::string& vname,
                 const T* const  data)
 {
+  auto& ts = timing::TimingSession::instance();
+  ts.start_timer("io::write_var");
   EKAT_REQUIRE_MSG (file.vars.find(vname)!=file.vars.end(),
       "Error! Variable not found in output NC file.\n"
       "  - file name : " + file.name + "\n"
@@ -907,6 +915,7 @@ void write_var (const NCFile& file,const std::string& vname,
 
   // Update number of records
   ++var->nrecords;
+  ts.stop_timer("io::write_var");
 }
 
 // Instantiations
@@ -927,6 +936,9 @@ void set_att_v (const NCFile& file,
                 const std::string& var_name,
                 const std::vector<T>& data)
 {
+  auto& ts = timing::TimingSession::instance();
+  ts.start_timer("io::write_att");
+
   int varid;
   if (var_name=="NC_GLOBAL") {
     varid = NC_GLOBAL;
@@ -947,6 +959,8 @@ void set_att_v (const NCFile& file,
       "  - file name : " + file.name + "\n"
       "  - var name  : " + var_name + "\n"
       "  - err code : " + std::to_string(ret) + "\n");
+
+  ts.stop_timer("io::write_att");
 }
 
 // Instantiations
@@ -977,6 +991,9 @@ void get_att_v (const NCFile& file,
                 const std::string& var_name,  // use "NC_GLOBAL" for global attributes
                       std::vector<T>& data)
 {
+  auto& ts = timing::TimingSession::instance();
+  ts.start_timer("io::read_att");
+
   int varid;
   if (var_name=="NC_GLOBAL") {
     varid = NC_GLOBAL;
@@ -1007,6 +1024,7 @@ void get_att_v (const NCFile& file,
       "  - file name : " + file.name + "\n"
       "  - var name  : " + var_name + "\n"
       "  - err code : " + std::to_string(ret) + "\n");
+  ts.stop_timer("io::read_att");
 }
 
 // Instantiations

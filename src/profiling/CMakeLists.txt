@@ -35,7 +35,7 @@ set (MODULES_DIR ${CMAKE_CURRENT_BINARY_DIR}/profiling_modules)
 set_target_properties(cldera-profiling PROPERTIES
   Fortran_MODULE_DIRECTORY ${MODULES_DIR})
 
-target_link_libraries (cldera-profiling PUBLIC cldera-pnetcdf ekat)
+target_link_libraries (cldera-profiling PUBLIC cldera-timing cldera-pnetcdf ekat)
 
 target_include_directories (cldera-profiling
   PUBLIC

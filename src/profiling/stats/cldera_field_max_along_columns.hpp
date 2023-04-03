@@ -2,6 +2,7 @@
 #define CLDERA_FIELD_MAX_ALONG_COLUMNS_HPP_
 
 #include "profiling/stats/cldera_field_stat_along_axis.hpp"
+#include "profiling/cldera_mpi_timing_wrappers.hpp"
 
 #include <ekat/mpi/ekat_comm.hpp>
 
@@ -54,7 +55,8 @@ protected:
     }
 
     // Since only columns are distributed, stat_view is the same size across ranks
-    m_comm.all_reduce(stat_view.data(), stat_view.size(), MPI_MAX); // Use MPI_IN_PLACE
+    // Clock MPI ops
+    track_mpi_all_reduce(name(),m_comm,stat_view.data(),stat_view.size(),MPI_MAX);
   }
 
   const ekat::Comm m_comm;

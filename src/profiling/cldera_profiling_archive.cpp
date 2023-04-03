@@ -1,5 +1,6 @@
 #include "cldera_profiling_archive.hpp"
 #include "profiling/stats/cldera_field_stat_factory.hpp"
+#include "timing/cldera_timing_session.hpp"
 
 #include <ekat/io/ekat_yaml.hpp>
 #include <ekat/ekat_parameter_list.hpp>
@@ -18,7 +19,9 @@ ProfilingArchive(const ekat::Comm& comm,
  , m_params (params)
  , m_start_date (start_date)
 {
-  create_output_file();
+  if (m_params.get<bool>("Enable Output",true)) {
+    create_output_file();
+  }
 }
 
 ProfilingArchive::
@@ -44,6 +47,9 @@ create_output_file ()
 void ProfilingArchive::
 setup_output_file ()
 {
+  auto& ts = timing::TimingSession::instance();
+  ts.start_timer("profiling::setup_output_file");
+
   if (m_comm.am_i_root()) {
     printf(" [CLDERA] setting up output file ...");
   }
@@ -143,7 +149,11 @@ setup_output_file ()
 
     int my_ngids = f.layout().size();
     int ngids_scan;
+    // Clock MPI ops
+    auto& ts = timing::TimingSession::instance();
+    ts.start_timer("mpi::scan");
     m_comm.scan(&my_ngids,&ngids_scan,1,MPI_SUM);
+    ts.stop_timer("mpi::scan");
     int my_start = ngids_scan - my_ngids;
     std::vector<int> gids(my_ngids);
     for (int p=0,i=0; p<f.nparts(); ++p) {
@@ -177,6 +187,7 @@ setup_output_file ()
   if (m_comm.am_i_root()) {
     printf("done!\n");
   }
+  ts.stop_timer("profiling::setup_output_file");
 }
 
 void ProfilingArchive::
@@ -241,6 +252,8 @@ void ProfilingArchive::update_time (const TimeStamp& ts) {
 void ProfilingArchive::flush_to_file ()
 {
   if (m_output_file!=nullptr) {
+    auto& ts = timing::TimingSession::instance();
+    ts.start_timer("profiling::flush_to_file");
 
     if (m_comm.am_i_root()) {
       printf(" [CLDERA] Flushing field stats to file ...\n");
@@ -294,6 +307,7 @@ void ProfilingArchive::flush_to_file ()
     if (m_comm.am_i_root()) {
       printf(" [CLDERA] Flushing field stats to file ... done!\n");
     }
+    ts.stop_timer("profiling::flush_to_file");
   }
 }
 

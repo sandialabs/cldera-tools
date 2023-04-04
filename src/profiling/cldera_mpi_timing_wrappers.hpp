@@ -8,6 +8,24 @@
 namespace cldera {
 
 template<typename T>
+void track_mpi_scan (const ekat::Comm& comm,
+                     const T* const my_vals, T* const vals,
+                     const int count, const MPI_Op op,
+                     const std::string& prefix = "")
+{
+  auto& ts = timing::TimingSession::instance();
+  ts.start_timer("mpi");
+  ts.start_timer("mpi::scan");
+  if (prefix!="") {
+    ts.start_timer(prefix + "::mpi::scan");
+  }
+  comm.scan(my_vals, vals, count, op);
+  ts.stop_timer("mpi");
+  ts.stop_timer("mpi::scan");
+  if (prefix!="") {
+    ts.stop_timer(prefix + "::mpi::scan");
+  }
+}
 
 template<typename T>
 void track_mpi_all_reduce (const ekat::Comm& comm,

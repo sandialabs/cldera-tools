@@ -31,7 +31,7 @@ protected:
     long long global_size;
 
     // Clock MPI ops
-    track_mpi_all_reduce(name(),m_comm,&size,&global_size,1,MPI_SUM);
+    track_mpi_all_reduce(m_comm,&size,&global_size,1,MPI_SUM,name());
 
     stat.data_nonconst<Real>()[0] /= global_size;
   }

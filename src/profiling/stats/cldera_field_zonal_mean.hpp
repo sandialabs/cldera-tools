@@ -58,7 +58,7 @@ public:
         }
       }
     }
-    track_mpi_all_reduce(name()+"_initialize",m_comm,&m_zonal_area,1,MPI_SUM);
+    track_mpi_all_reduce(m_comm,&m_zonal_area,1,MPI_SUM,name()+"_initialize");
   }
 
 protected:
@@ -125,7 +125,7 @@ protected:
       }
     }
     // Clock MPI ops
-    track_mpi_all_reduce(name(),m_comm,stat_view.data(),stat.layout().size(),MPI_SUM);
+    track_mpi_all_reduce(m_comm,stat_view.data(),stat.layout().size(),MPI_SUM,name());
     for (int i = 0; i < stat_view.size(); ++i)
       stat_view(i) /= m_zonal_area;
   }

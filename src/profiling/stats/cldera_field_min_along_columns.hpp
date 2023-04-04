@@ -56,7 +56,7 @@ protected:
 
     // Since only columns are distributed, stat_view is the same size across ranks
     // Clock MPI ops
-    track_mpi_all_reduce(name(),m_comm,stat_view.data(),stat_view.size(),MPI_MIN);
+    track_mpi_all_reduce(m_comm,stat_view.data(),stat_view.size(),MPI_MIN,name());
   }
 
   const ekat::Comm m_comm;

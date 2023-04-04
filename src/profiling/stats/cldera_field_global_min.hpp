@@ -43,7 +43,7 @@ protected:
     }
 
     // Clock MPI ops
-    track_mpi_all_reduce(name(),m_comm,&min,stat.data_nonconst<T>(),1,MPI_MIN);
+    track_mpi_all_reduce(m_comm,&min,stat.data_nonconst<T>(),1,MPI_MIN,name());
   }
   ekat::Comm    m_comm;
 };

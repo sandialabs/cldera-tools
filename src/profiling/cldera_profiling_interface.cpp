@@ -45,6 +45,7 @@ void cldera_init_c (const MPI_Fint fcomm, const int ymd, const int tod)
       printf(" [CLDERA] WARNING: could not open './cldera_profiling_config.yaml'.\n"
              "   -> Profiling will do nothing.\n");
     }
+    ts.stop_timer("profiling::init");
     return;
   }
 
@@ -89,13 +90,13 @@ void cldera_init_c (const MPI_Fint fcomm, const int ymd, const int tod)
 
 void cldera_clean_up_c ()
 {
-  auto& ts = timing::TimingSession::instance();
-  ts.start_timer("profiling::clean_up");
-
   auto& s = ProfilingSession::instance();
 
   // If input file was not provided, cldera does nothing
   if (not s.inited()) { return; }
+
+  auto& ts = timing::TimingSession::instance();
+  ts.start_timer("profiling::clean_up");
 
   // Store this, since cleaning up the ProfileSession will reset
   // the comm to MPI_COMM_SELF.
@@ -158,13 +159,13 @@ void cldera_add_partitioned_field_c (
     const bool    is_view,
     const char*&  dtype)
 {
-  auto& ts = timing::TimingSession::instance();
-  ts.start_timer("profiling::add_field");
-
   auto& s = ProfilingSession::instance();
 
   // If input file was not provided, cldera does nothing
   if (not s.inited()) { return; }
+
+  auto& ts = timing::TimingSession::instance();
+  ts.start_timer("profiling::add_field");
 
   EKAT_REQUIRE_MSG (rank>=0 && rank<=4,
       "Error! Unsupported field rank (" + std::to_string(rank) + "\n");
@@ -198,13 +199,13 @@ void cldera_set_field_part_size_c (
     const int   part,
     const int   part_size)
 {
-  auto& ts = timing::TimingSession::instance();
-  ts.start_timer("profiling::set_field_size");
-
   auto& s = ProfilingSession::instance();
 
   // If input file was not provided, cldera does nothing
   if (not s.inited()) { return; }
+
+  auto& ts = timing::TimingSession::instance();
+  ts.start_timer("profiling::set_field_size");
 
   auto& archive = s.get<ProfilingArchive>("archive");
 
@@ -218,13 +219,13 @@ void cldera_set_field_part_data_c (
     const void*& data_in,
     const char*& dtype_in)
 {
-  auto& ts = timing::TimingSession::instance();
-  ts.start_timer("profiling::set_field_data");
-
   auto& s = ProfilingSession::instance();
 
   // If input file was not provided, cldera does nothing
   if (not s.inited()) { return; }
+
+  auto& ts = timing::TimingSession::instance();
+  ts.start_timer("profiling::set_field_data");
 
   auto& archive = s.get<ProfilingArchive>("archive");
 
@@ -252,12 +253,13 @@ void cldera_set_field_part_data_c (
 
 void cldera_commit_field_c (const char*& name)
 {
-  auto& ts = timing::TimingSession::instance();
-  ts.start_timer("profiling::commit_fields");
   auto& s = ProfilingSession::instance();
 
   // If input file was not provided, cldera does nothing
   if (not s.inited()) { return; }
+
+  auto& ts = timing::TimingSession::instance();
+  ts.start_timer("profiling::commit_fields");
 
   auto& archive = s.get<ProfilingArchive>("archive");
 
@@ -267,13 +269,13 @@ void cldera_commit_field_c (const char*& name)
 
 void cldera_commit_all_fields_c ()
 {
-  auto& ts = timing::TimingSession::instance();
-  ts.start_timer("profiling::commit_fields");
-
   auto& s = ProfilingSession::instance();
 
   // If input file was not provided, cldera does nothing
   if (not s.inited()) { return; }
+
+  auto& ts = timing::TimingSession::instance();
+  ts.start_timer("profiling::commit_fields");
 
   auto& archive = s.get<ProfilingArchive>("archive");
 

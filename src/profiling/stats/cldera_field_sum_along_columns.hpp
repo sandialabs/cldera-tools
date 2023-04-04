@@ -34,7 +34,7 @@ protected:
   void do_compute_impl (const Field& f, Field& stat) const {
     const auto& stat_strides = compute_stat_strides(f.layout());
 
-    auto temp_c = view_1d_host<T>("sum_field", stat.layout().size());
+    view_1d_host<T> temp_c ("sum_field", stat.layout().size());
     auto stat_view = stat.view_nonconst<T>();
     Kokkos::deep_copy(temp_c, 0);
     Kokkos::deep_copy(stat_view, 0);
@@ -58,7 +58,7 @@ protected:
 
     // Since only columns are distributed, sum_field is the same size across ranks
     // Clock MPI ops
-    track_mpi_all_reduce(name(),m_comm,stat_view.data(),stat_view.size(),MPI_SUM);
+    track_mpi_all_reduce(m_comm,stat_view.data(),stat_view.size(),MPI_SUM,name());
   }
 
   const ekat::Comm m_comm;

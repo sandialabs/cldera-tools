@@ -34,7 +34,7 @@ protected:
     long long global_size;
 
     // Clock MPI ops
-    track_mpi_all_reduce(name(),m_comm,&size,&global_size,1,MPI_SUM);
+    track_mpi_all_reduce(m_comm,&size,&global_size,1,MPI_SUM, name());
 
     auto avg_field = stat.view_nonconst<Real>();
     int stat_size = avg_field.size();

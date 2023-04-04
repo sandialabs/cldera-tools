@@ -1,5 +1,6 @@
 #include "cldera_profiling_archive.hpp"
 #include "profiling/stats/cldera_field_stat_factory.hpp"
+#include "profiling/cldera_mpi_timing_wrappers.hpp"
 #include "timing/cldera_timing_session.hpp"
 
 #include <ekat/io/ekat_yaml.hpp>
@@ -150,10 +151,7 @@ setup_output_file ()
     int my_ngids = f.layout().size();
     int ngids_scan;
     // Clock MPI ops
-    auto& ts = timing::TimingSession::instance();
-    ts.start_timer("mpi::scan");
-    m_comm.scan(&my_ngids,&ngids_scan,1,MPI_SUM);
-    ts.stop_timer("mpi::scan");
+    track_mpi_scan(m_comm,&my_ngids,&ngids_scan,1,MPI_SUM,"profiling::setup_output_file");
     int my_start = ngids_scan - my_ngids;
     std::vector<int> gids(my_ngids);
     for (int p=0,i=0; p<f.nparts(); ++p) {
@@ -252,16 +250,16 @@ void ProfilingArchive::update_time (const TimeStamp& ts) {
 void ProfilingArchive::flush_to_file ()
 {
   if (m_output_file!=nullptr) {
+    const int num_steps = m_time_stamps.size();
+    if (num_steps == 0) {
+      return;
+    }
+
     auto& ts = timing::TimingSession::instance();
     ts.start_timer("profiling::flush_to_file");
 
     if (m_comm.am_i_root()) {
       printf(" [CLDERA] Flushing field stats to file ...\n");
-    }
-
-    const int num_steps = m_time_stamps.size();
-    if (num_steps == 0) {
-      return;
     }
 
     if (not m_output_file->enddef) {

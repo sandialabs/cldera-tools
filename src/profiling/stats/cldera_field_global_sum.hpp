@@ -49,7 +49,7 @@ protected:
     }
 
     // Clock MPI ops
-    track_mpi_all_reduce(name(),m_comm,&sum,stat.data_nonconst<T>(),1,MPI_SUM);
+    track_mpi_all_reduce(m_comm,&sum,stat.data_nonconst<T>(),1,MPI_SUM,name());
   }
 
   ekat::Comm    m_comm;

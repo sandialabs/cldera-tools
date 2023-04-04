@@ -252,16 +252,16 @@ void ProfilingArchive::update_time (const TimeStamp& ts) {
 void ProfilingArchive::flush_to_file ()
 {
   if (m_output_file!=nullptr) {
+    const int num_steps = m_time_stamps.size();
+    if (num_steps == 0) {
+      return;
+    }
+
     auto& ts = timing::TimingSession::instance();
     ts.start_timer("profiling::flush_to_file");
 
     if (m_comm.am_i_root()) {
       printf(" [CLDERA] Flushing field stats to file ...\n");
-    }
-
-    const int num_steps = m_time_stamps.size();
-    if (num_steps == 0) {
-      return;
     }
 
     if (not m_output_file->enddef) {

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-SRC_DIR=/ascldap/users/gbharpe/Programming/cldera-tools
-INSTALL_DIR=/ascldap/users/gbharpe/Programming/cldera-tools-build
+SRC_DIR=/ascldap/users/gbharpe/Programming/cpp/CLDERA/cldera-tools
+INSTALL_DIR=/ascldap/users/gbharpe/Programming/cpp/CLDERA/cldera-tools-build
  
 rm -rf CMakeFiles
 rm -f  CMakeCache.txt
@@ -11,7 +11,7 @@ cmake \
   -D CMAKE_C_COMPILER:STRING=mpicc            \
   -D CMAKE_CXX_COMPILER:STRING=mpicxx         \
   -D CMAKE_Fortran_COMPILER:STRING=mpifort    \
-  -D CMAKE_INSTALL_PREFIX:PATH=${INSTALL_DIR}/release \
+  -D CMAKE_INSTALL_PREFIX:PATH=${INSTALL_DIR}/debug \
   -D CLDERA_PNETCDF_PATH:PATH=${SEMS_NETCDF_ROOT}  \
   -D CLDERA_ENABLE_TESTS:BOOL=ON              \
   -D CLDERA_ENABLE_PROFILING_TOOL:BOOL=ON     \

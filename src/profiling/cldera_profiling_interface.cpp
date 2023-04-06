@@ -4,6 +4,7 @@
 #include "cldera_profiling_archive.hpp"
 #include "stats/cldera_field_stat_factory.hpp"
 #include "stats/cldera_field_bounding_box.hpp"
+#include "stats/cldera_field_pnetcdf_reference.hpp"
 #include "stats/cldera_field_zonal_mean.hpp"
 #include "cldera_pathway_factory.hpp"
 
@@ -335,6 +336,17 @@ void cldera_compute_stats_c (const int ymd, const int tod)
         auto bounding_box_stat = std::dynamic_pointer_cast<cldera::FieldBoundingBox>(stat);
         bounding_box_stat->initialize(lat_ptr, lon_ptr);
         ts.stop_timer ("profiling::bounding_box_init");
+      }
+      // Initialize bounding box with lat/lon
+      if (stat->name() == "pnetcdf_reference") {
+        const auto& lat = archive.get_field("lat");
+        const auto lat_ptr = std::make_shared<const cldera::Field>(lat);
+        const auto& lon = archive.get_field("lon");
+        const auto lon_ptr = std::make_shared<const cldera::Field>(lon);
+        const auto& col_gids = archive.get_field("col_gids");
+        const auto col_gids_ptr = std::make_shared<const cldera::Field>(col_gids);
+        auto pnetcdf_stat = dynamic_cast<cldera::FieldPnetcdfReference *>(stat.get());
+        pnetcdf_stat->initialize(lat_ptr, lon_ptr, col_gids_ptr);
       }
       // Initialize zonal mean with lat/area
       if (stat->name() == "zonal_mean") {

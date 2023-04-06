@@ -1,0 +1,16 @@
+%YAML 1.0
+---
+Stats Output File: cldera_stats.nc
+Flush Frequency: 99999
+Fields To Track: [T]
+
+T:
+  Compute Stats: [pnetcdf_reference]
+  pnetcdf_reference:
+    Latitude Bounds: [-100.0, 100.0]
+    Longitude Bounds: [-100.0, 100.0]
+    Pnetcdf Filename: cldera_HSW_Tstats.h2.nc
+    Reference Field Name: Tmean
+    Reference Deviation Field Name: Tstd
+
+...

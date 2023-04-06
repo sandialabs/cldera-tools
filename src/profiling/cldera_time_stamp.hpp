@@ -36,6 +36,10 @@ inline int days_in_year (const int yy) {
 struct TimeStamp {
   static constexpr int spd = 86400;
 
+  TimeStamp()
+   : m_ymd(1*10000 + 1*100 + 1), m_tod(0)
+  {}
+
   TimeStamp (const int ymd, const int tod)
    : m_ymd(ymd), m_tod(tod)
   {

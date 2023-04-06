@@ -35,6 +35,12 @@ EkatCreateUnitTest (graph graph.cpp
 EkatCreateUnitTest (compute_stats compute_stats.cpp
   LIBS cldera-profiling ekat)
 
+# Test functions to compute stats (requires cldera-pnetcdf)
+if (CLDERA_PNETCDF_PATH)
+  EkatCreateUnitTest (compute_stats_pnetcdf compute_stats_pnetcdf.cpp
+    LIBS cldera-profiling cldera-pnetcdf ekat)
+endif()
+
 # Test Stats Field Test
 EkatCreateUnitTest (bounds_field_test bounds_field_test.cpp
   LIBS cldera-profiling ekat)

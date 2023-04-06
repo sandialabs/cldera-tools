@@ -443,7 +443,7 @@ void add_decomp (      NCFile& file,
       "Error! Invalid global count for decomposition.\n"
       "   - file name    : " + file.name + "\n"
       "   - decomp dim   : " + dim_name + "\n"
-      "   - global count : " + std::to_string(count) + "\n"
+      "   - global count : " + std::to_string(gcount) + "\n"
       "   - dim glength  : " + std::to_string(dim->glen) + "\n");
 
   // When reading from file, all dims are created as not partitioned.

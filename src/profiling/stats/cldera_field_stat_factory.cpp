@@ -9,6 +9,7 @@
 #include "cldera_field_avg_along_columns.hpp"
 #include "cldera_field_bounded.hpp"
 #include "cldera_field_bounding_box.hpp"
+#include "cldera_field_pnetcdf_reference.hpp"
 #include "cldera_field_zonal_mean.hpp"
 
 #include <ekat/util/ekat_string_utils.hpp>
@@ -41,6 +42,8 @@ create_stat (const ekat::ParameterList& pl, const ekat::Comm& comm) {
     stat = std::make_shared<FieldBounded>(comm, pl);
   } else if (name_ci=="bounding_box") {
     stat = std::make_shared<FieldBoundingBox>(comm, pl);
+  } else if (name_ci=="pnetcdf_reference") {
+    stat = std::make_shared<FieldPnetcdfReference>(comm, pl);
   } else if (name_ci=="zonal_mean") {
     stat = std::make_shared<FieldZonalMean>(comm, pl);
   } else {

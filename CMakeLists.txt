@@ -56,6 +56,9 @@ if (CLDERA_ENABLE_TESTS)
   add_subdirectory (tests)
 endif()
 
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/data/sample_database.nc
+  DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/data)
+
 ###########################################
 ###   Package CLDERA as a CMake package   ###
 ###########################################

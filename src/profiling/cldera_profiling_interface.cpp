@@ -327,7 +327,7 @@ void cldera_compute_stats_c (const int ymd, const int tod)
     ts.stop_timer("profiling:create_stat_field");
     for (auto stat : stats) {
       // Initialize bounding box with lat/lon
-      if (stat->name() == "bounding_box") {
+      if (stat->type() == "bounding_box") {
         ts.start_timer ("profiling::bounding_box_init");
         const auto& lat = archive.get_field("lat");
         const auto lat_ptr = std::make_shared<const cldera::Field>(lat);
@@ -338,7 +338,7 @@ void cldera_compute_stats_c (const int ymd, const int tod)
         ts.stop_timer ("profiling::bounding_box_init");
       }
       // Initialize bounding box with lat/lon
-      if (stat->name() == "pnetcdf_reference") {
+      if (stat->type() == "pnetcdf_reference") {
         const auto& lat = archive.get_field("lat");
         const auto lat_ptr = std::make_shared<const cldera::Field>(lat);
         const auto& lon = archive.get_field("lon");
@@ -349,7 +349,7 @@ void cldera_compute_stats_c (const int ymd, const int tod)
         pnetcdf_stat->initialize(lat_ptr, lon_ptr, col_gids_ptr);
       }
       // Initialize zonal mean with lat/area
-      if (stat->name() == "zonal_mean") {
+      if (stat->type() == "zonal_mean") {
         ts.start_timer ("profiling::zonal_mean_init");
         const auto& lat = archive.get_field("lat");
         const auto lat_ptr = std::make_shared<const cldera::Field>(lat);

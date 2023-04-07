@@ -18,39 +18,28 @@ namespace cldera {
 
 std::shared_ptr<FieldStat>
 create_stat (const ekat::ParameterList& pl, const ekat::Comm& comm) {
-  std::shared_ptr<FieldStat> stat;
-  ekat::CaseInsensitiveString name_ci = pl.name();
-  if (name_ci=="global_max") {
-    stat = std::make_shared<FieldGlobalMax>(comm);
-  } else if (name_ci=="global_min") {
-    stat = std::make_shared<FieldGlobalMin>(comm);
-  } else if (name_ci=="global_sum") {
-    stat = std::make_shared<FieldGlobalSum>(comm);
-  } else if (name_ci=="global_avg") {
-    stat = std::make_shared<FieldGlobalAvg>(comm);
-  } else if (name_ci=="max_along_columns") {
-    stat = std::make_shared<FieldMaxAlongColumns>(comm);
-  } else if (name_ci=="min_along_columns") {
-    stat = std::make_shared<FieldMinAlongColumns>(comm);
-  } else if (name_ci=="sum_along_columns") {
-    stat = std::make_shared<FieldSumAlongColumns>(comm);
-  } else if (name_ci=="avg_along_columns") {
-    stat = std::make_shared<FieldAvgAlongColumns>(comm);
-  } else if (name_ci=="identity") {
-    stat = std::make_shared<FieldIdentity>();
-  } else if (name_ci=="bounded") {
-    stat = std::make_shared<FieldBounded>(comm, pl);
-  } else if (name_ci=="bounding_box") {
-    stat = std::make_shared<FieldBoundingBox>(comm, pl);
-  } else if (name_ci=="pnetcdf_reference") {
-    stat = std::make_shared<FieldPnetcdfReference>(comm, pl);
-  } else if (name_ci=="zonal_mean") {
-    stat = std::make_shared<FieldZonalMean>(comm, pl);
-  } else {
-    EKAT_ERROR_MSG ("Unrecognized/unsupported stat '" + pl.name() + "'.\n");
-  }
+  auto& factory = StatFactory::instance();
+  factory.register_product("global_max",&create_stat<FieldGlobalMax>);
+  factory.register_product("global_min",&create_stat<FieldGlobalMin>);
+  factory.register_product("global_sum",&create_stat<FieldGlobalSum>);
+  factory.register_product("global_avg",&create_stat<FieldGlobalAvg>);
 
-  return stat;
+  factory.register_product("max_along_columns",&create_stat<FieldMaxAlongColumns>);
+  factory.register_product("min_along_columns",&create_stat<FieldMinAlongColumns>);
+  factory.register_product("sum_along_columns",&create_stat<FieldSumAlongColumns>);
+  factory.register_product("avg_along_columns",&create_stat<FieldAvgAlongColumns>);
+
+  factory.register_product("identity",&create_stat<FieldIdentity>);
+
+  factory.register_product("bounded",&create_stat<FieldBounded>);
+  factory.register_product("bounding_box",&create_stat<FieldBoundingBox>);
+  factory.register_product("zonal_mean",&create_stat<FieldZonalMean>);
+
+  factory.register_product("pnetcdf_reference",&create_stat<FieldPnetcdfReference>);
+
+  std::shared_ptr<FieldStat> stat;
+  ekat::CaseInsensitiveString type = pl.isParameter("Type") ? pl.get<std::string>("Type") : pl.name();
+  return factory.create(type,comm,pl);
 }
 
 } // namespace cldera

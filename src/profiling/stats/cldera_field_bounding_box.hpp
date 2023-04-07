@@ -16,17 +16,16 @@ namespace cldera {
 class FieldBoundingBox : public FieldSinglePartStat
 {
 public:
-  FieldBoundingBox (const ekat::Comm& comm, const ekat::ParameterList& pl)
-    : m_lat_bounds(Bounds{pl.get<std::vector<Real>>("Latitude Bounds").at(0), pl.get<std::vector<Real>>("Latitude Bounds").at(1)})
-    , m_lon_bounds(Bounds{pl.get<std::vector<Real>>("Longitude Bounds").at(0), pl.get<std::vector<Real>>("Longitude Bounds").at(1)})
-    , m_lev_bounds(pl.isParameter("Level Bounds") ?
-        Bounds{pl.get<std::vector<Real>>("Level Bounds").at(0), pl.get<std::vector<Real>>("Level Bounds").at(1)} :
-        Bounds{0.0, std::numeric_limits<Real>::max()})
-    , m_mask_val(pl.isParameter("Mask Value") ? pl.get<Real>("Mask Value") : 0.0)
-    , m_comm (comm)
+  FieldBoundingBox (const ekat::Comm& comm,
+                    const ekat::ParameterList& pl)
+   : FieldSinglePartStat (comm,pl)
+   , m_lat_bounds(pl.get<std::vector<Real>>("Latitude Bounds"))
+   , m_lon_bounds(pl.get<std::vector<Real>>("Longitude Bounds"))
+   , m_mask_val(m_params.get<Real>("Mask Value",0.0))
+   , m_lev_bounds(m_params.get<std::vector<Real>>("Level Bounds",{0,std::numeric_limits<Real>::max()}))
   { /* Nothing to do here */ }
 
-  std::string name () const override { return "bounding_box"; }
+  std::string type () const override { return "bounding_box"; }
 
   void initialize (const std::shared_ptr<const Field>& lat, const std::shared_ptr<const Field>& lon) {
     EKAT_REQUIRE_MSG (lat->name() == "lat" && lon->name() == "lon",
@@ -97,7 +96,6 @@ protected:
 
   const Bounds m_lat_bounds, m_lon_bounds, m_lev_bounds;
   const Real m_mask_val;
-  const ekat::Comm m_comm;
   std::shared_ptr<const Field> m_lat, m_lon;
 };
 

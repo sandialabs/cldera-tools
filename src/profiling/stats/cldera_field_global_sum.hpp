@@ -5,6 +5,7 @@
 #include "profiling/cldera_mpi_timing_wrappers.hpp"
 
 #include <ekat/mpi/ekat_comm.hpp>
+#include <ekat/ekat_parameter_list.hpp>
 
 #include <limits>
 
@@ -13,11 +14,12 @@ namespace cldera {
 class FieldGlobalSum : public FieldScalarStat
 {
 public:
-  FieldGlobalSum (const ekat::Comm& comm)
-   : m_comm (comm)
+  FieldGlobalSum (const ekat::Comm& comm,
+                  const ekat::ParameterList& pl)
+   : FieldScalarStat(comm,pl)
   { /* Nothing to do here */ }
 
-  std::string name () const override { return "global_sum"; }
+  std::string type () const override { return "global_sum"; }
 
 protected:
   void compute_impl (const Field& f, Field& stat) const override {
@@ -51,8 +53,6 @@ protected:
     // Clock MPI ops
     track_mpi_all_reduce(m_comm,&sum,stat.data_nonconst<T>(),1,MPI_SUM,name());
   }
-
-  ekat::Comm    m_comm;
 };
 
 } // namespace cldera

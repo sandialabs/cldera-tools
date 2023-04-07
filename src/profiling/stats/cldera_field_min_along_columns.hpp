@@ -13,12 +13,12 @@ namespace cldera {
 class FieldMinAlongColumns : public FieldStatAlongAxis
 {
 public:
-  FieldMinAlongColumns (const ekat::Comm& comm)
-   : FieldStatAlongAxis("ncol"),
-     m_comm (comm)
+  FieldMinAlongColumns (const ekat::Comm& comm,
+                        const ekat::ParameterList& pl)
+   : FieldStatAlongAxis(comm,pl,"ncol")
   { /* Nothing to do here */ }
 
-  std::string name () const override { return "min_along_columns"; }
+  std::string type () const override { return "min_along_columns"; }
 
 protected:
   void compute_impl (const Field& f, Field& stat) const override {

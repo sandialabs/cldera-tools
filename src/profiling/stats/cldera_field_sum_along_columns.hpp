@@ -11,12 +11,12 @@ namespace cldera {
 class FieldSumAlongColumns : public FieldStatAlongAxis
 {
 public:
-  FieldSumAlongColumns (const ekat::Comm& comm)
-   : FieldStatAlongAxis("ncol"),
-     m_comm (comm)
+  FieldSumAlongColumns (const ekat::Comm& comm,
+                        const ekat::ParameterList& params)
+   : FieldStatAlongAxis(comm,params,"ncol")
   { /* Nothing to do here */ }
 
-  std::string name () const override { return "sum_along_columns"; }
+  std::string type () const override { return "sum_along_columns"; }
 
 protected:
   void compute_impl (const Field& f, Field& stat) const override {
@@ -60,8 +60,6 @@ protected:
     // Clock MPI ops
     track_mpi_all_reduce(m_comm,stat_view.data(),stat_view.size(),MPI_SUM,name());
   }
-
-  const ekat::Comm m_comm;
 };
 
 } // namespace cldera

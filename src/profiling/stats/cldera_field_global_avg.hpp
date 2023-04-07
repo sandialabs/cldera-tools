@@ -13,11 +13,12 @@ namespace cldera {
 class FieldGlobalAvg : public FieldGlobalSum
 {
 public:
-  FieldGlobalAvg (const ekat::Comm& comm)
-   : FieldGlobalSum (comm)
+  FieldGlobalAvg (const ekat::Comm& comm,
+                  const ekat::ParameterList& pl)
+   : FieldGlobalSum (comm,pl)
   { /* Nothing to do here */ }
 
-  std::string name () const override { return "global_avg"; }
+  std::string type () const override { return "global_avg"; }
 
 protected:
   // NOTE: unlike global max/min/sum, we don't support IntType,

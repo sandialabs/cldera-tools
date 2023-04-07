@@ -13,11 +13,12 @@ namespace cldera {
 class FieldGlobalMin : public FieldScalarStat
 {
 public:
-  FieldGlobalMin (const ekat::Comm& comm)
-   : m_comm (comm)
+  FieldGlobalMin (const ekat::Comm& comm,
+                  const ekat::ParameterList& pl)
+   : FieldScalarStat(comm,pl)
   { /* Nothing to do here */ }
 
-  std::string name () const override { return "global_min"; }
+  std::string type () const override { return "global_min"; }
 
 protected:
   void compute_impl (const Field& f, Field& stat) const override {
@@ -45,7 +46,6 @@ protected:
     // Clock MPI ops
     track_mpi_all_reduce(m_comm,&min,stat.data_nonconst<T>(),1,MPI_MIN,name());
   }
-  ekat::Comm    m_comm;
 };
 
 } // namespace cldera

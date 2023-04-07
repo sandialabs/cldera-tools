@@ -18,15 +18,12 @@ class FieldZonalMean : public FieldStatAlongAxis
 {
 public:
   FieldZonalMean (const ekat::Comm& comm, const ekat::ParameterList& pl)
-    : FieldStatAlongAxis("ncol")
-    , m_lat_bounds({pl.get<std::vector<Real>>("Latitude Bounds").at(0), pl.get<std::vector<Real>>("Latitude Bounds").at(1)})
-    , m_lev_bounds(pl.isParameter("Level Bounds") ?
-        Bounds{pl.get<std::vector<Real>>("Level Bounds").at(0), pl.get<std::vector<Real>>("Level Bounds").at(1)} :
-        Bounds{0.0, std::numeric_limits<Real>::max()})
-    , m_comm (comm)
+    : FieldStatAlongAxis(comm,pl,"ncol")
+    , m_lat_bounds(pl.get<std::vector<Real>>("Latitude Bounds"))
+    , m_lev_bounds(m_params.get("Level Bounds",std::vector<Real>{0,std::numeric_limits<Real>::max()}))
   { /* Nothing to do here */ }
 
-  std::string name () const override { return "zonal_mean"; }
+  std::string type () const override { return "zonal_mean"; }
 
   void initialize (const std::shared_ptr<const Field>& lat, const std::shared_ptr<const Field>& area) {
     EKAT_REQUIRE_MSG (lat->name() == "lat" && area->name() == "area",
@@ -131,7 +128,6 @@ protected:
   }
 
   const Bounds m_lat_bounds, m_lev_bounds;
-  const ekat::Comm m_comm;
   std::shared_ptr<const Field> m_lat, m_area;
   Real m_zonal_area = 0.0;
 };

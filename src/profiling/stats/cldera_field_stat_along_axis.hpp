@@ -33,8 +33,11 @@ public:
   }
 
 protected:
-  FieldStatAlongAxis (const std::string& axis_name)
-   : m_axis_name (axis_name)
+  FieldStatAlongAxis (const ekat::Comm& comm,
+                      const ekat::ParameterList& params,
+                      const std::string& axis_name)
+   : FieldStat(comm,params)
+   , m_axis_name (axis_name)
   { /* Nothing to do here */ }
 
   inline std::vector<int> compute_stat_strides(const FieldLayout& field_layout) const

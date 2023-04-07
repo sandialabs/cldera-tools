@@ -5,15 +5,30 @@
 
 #include "timing/cldera_timing_session.hpp"
 
+#include <ekat/util/ekat_factory.hpp>
+#include <ekat/ekat_parameter_list.hpp>
+#include <ekat/mpi/ekat_comm.hpp>
+
 namespace cldera {
 
 class FieldStat
 {
 public:
+  FieldStat (const ekat::Comm& comm,
+             const ekat::ParameterList& pl)
+   : m_params (pl)
+   , m_comm (comm)
+  {
+    m_name = m_params.get("Name",pl.name());
+  }
+
   virtual ~FieldStat () = default;
 
   // The name of this field stat
-  virtual std::string name () const = 0;
+  std::string name () const { return m_name; }
+
+  // Unlike the previous, this should be the same for all instances of the same type
+  virtual std::string type () const = 0;
 
   // Given a field, return the layout that the computed stat will have
   virtual FieldLayout stat_layout (const FieldLayout& field_layout) const = 0;
@@ -51,12 +66,36 @@ public:
 
 protected:
   virtual void compute_impl (const Field& f, Field& stat) const = 0;
+
+  ekat::ParameterList   m_params;
+  ekat::Comm            m_comm;
+
+  std::string           m_name;
 };
+
+// ================= FACTORY for stat creation ================== //
+using StatFactory =
+  ekat::Factory<FieldStat,
+                std::string,
+                std::shared_ptr<FieldStat>,
+                const ekat::Comm&,
+                const ekat::ParameterList&>;
+
+template<typename StatType>
+inline std::shared_ptr<FieldStat>
+create_stat (const ekat::Comm& comm, const ekat::ParameterList& params) {
+  return std::make_shared<StatType>(comm,params);
+}
 
 // Special case of stat, returning a scalar
 class FieldScalarStat : public FieldStat
 {
 public:
+  FieldScalarStat (const ekat::Comm& comm,
+                   const ekat::ParameterList& pl)
+   : FieldStat(comm,pl)
+  { /* Nothing to do here */ }
+
   FieldLayout stat_layout (const FieldLayout& /*field_layout*/) const override {
     return FieldLayout();
   }
@@ -66,6 +105,11 @@ public:
 class FieldSinglePartStat : public FieldStat
 {
 public:
+  FieldSinglePartStat (const ekat::Comm& comm,
+                       const ekat::ParameterList& pl)
+   : FieldStat(comm,pl)
+  { /* Nothing to do here */ }
+
   FieldLayout stat_layout (const FieldLayout& field_layout) const override {
     return FieldLayout(field_layout.dims(), field_layout.names());
   }

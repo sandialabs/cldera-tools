@@ -18,22 +18,23 @@ namespace cldera {
 class FieldPnetcdfReference : public FieldSinglePartStat
 {
 public:
-  FieldPnetcdfReference(const ekat::Comm& comm, const ekat::ParameterList& pl)
-    : m_lat_bounds({pl.get<std::vector<Real>>("Latitude Bounds").at(0), pl.get<std::vector<Real>>("Latitude Bounds").at(1)})
-    , m_lon_bounds({pl.get<std::vector<Real>>("Longitude Bounds").at(0), pl.get<std::vector<Real>>("Longitude Bounds").at(1)})
-    , m_pnetcdf_filename(pl.get<std::string>("Pnetcdf Filename"))
-    , m_ref_field_name(pl.get<std::string>("Reference Field Name"))
-    , m_ref_deviation_name(pl.get<std::string>("Reference Deviation Field Name"))
-    , m_time_step_ratio(pl.get<int>("Time Step Ratio"))
-    , m_mask_val(pl.isParameter("Mask Value") ? pl.get<Real>("Mask Value") : 0.0)
-    , m_comm (comm)
+  FieldPnetcdfReference (const ekat::Comm& comm,
+                         const ekat::ParameterList& pl)
+   : FieldSinglePartStat (comm,pl)
+   , m_lat_bounds(pl.get<std::vector<Real>>("Latitude Bounds"))
+   , m_lon_bounds(pl.get<std::vector<Real>>("Longitude Bounds"))
+   , m_pnetcdf_filename(pl.get<std::string>("Pnetcdf Filename"))
+   , m_ref_field_name(pl.get<std::string>("Reference Field Name"))
+   , m_ref_deviation_name(pl.get<std::string>("Reference Deviation Field Name"))
+   , m_time_step_ratio(pl.get<int>("Time Step Ratio"))
+   , m_mask_val(m_params.get("Mask Value",0.0))
   { /* Nothing to do here */ }
 
   ~FieldPnetcdfReference() {
     io::pnetcdf::close_file(*m_pnetcdf_file);
   }
 
-  std::string name() const override { return "pnetcdf_reference"; }
+  std::string type() const override { return "pnetcdf_reference"; }
 
   void initialize(const std::shared_ptr<const Field>& lat, const std::shared_ptr<const Field>& lon, const std::shared_ptr<const Field>& col_gids) {
     EKAT_REQUIRE_MSG(lat->name() == "lat" && lon->name() == "lon",

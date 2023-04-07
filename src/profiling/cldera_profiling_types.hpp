@@ -20,6 +20,16 @@ using view_1d_host = typename KokkosTypesHost::template view_1d<T,MT>;
 
 // A pair used to store min/max bounds
 struct Bounds {
+  Bounds () = default;
+  Bounds (const Real min_, const Real max_)
+   : min(min_), max(max_) {}
+
+  Bounds (const std::vector<Real>& bounds) {
+    EKAT_REQUIRE_MSG (bounds.size()==2,
+        "Error! Invalid size for bounds vector (" << bounds.size() << ").\n");
+    min = bounds[0];
+    max = bounds[1];
+  }
   Real min;
   Real max;
 };

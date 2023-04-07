@@ -13,13 +13,16 @@ namespace cldera {
 class FieldBounded : public FieldSinglePartStat
 {
 public:
-  FieldBounded (const ekat::Comm& comm, const ekat::ParameterList& pl)
-    : m_bounds(Bounds{pl.get<std::vector<Real>>("Bounds").at(0), pl.get<std::vector<Real>>("Bounds").at(1)})
-    , m_mask_val(pl.isParameter("Mask Value") ? pl.get<Real>("Mask Value") : 0.0)
-    , m_comm (comm)
-  { /* Nothing to do here */ }
+  FieldBounded (const ekat::Comm& comm,
+                const ekat::ParameterList& pl)
+   : FieldSinglePartStat(comm,pl)
+   , m_bounds(pl.get<std::vector<Real>>("Bounds"))
+   , m_mask_val(m_params.get("Mask Value",0.0))
+  {
+    /* Nothing to do here */
+  }
 
-  std::string name () const override { return "bounded"; }
+  std::string type () const override { return "bounded"; }
 
 protected:
   void compute_impl (const Field& f, Field& stat) const override {
@@ -59,7 +62,6 @@ protected:
 
   const Bounds m_bounds;
   const Real m_mask_val;
-  const ekat::Comm m_comm;
 };
 
 } // namespace cldera

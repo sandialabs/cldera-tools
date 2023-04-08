@@ -28,10 +28,15 @@ public:
   std::string type () const override { return "bounding_box"; }
 
   void initialize (const std::shared_ptr<const Field>& lat, const std::shared_ptr<const Field>& lon) {
+    if (m_inited) {
+      return;
+    }
+
     EKAT_REQUIRE_MSG (lat->name() == "lat" && lon->name() == "lon",
         "Error! Field names are not lat, lon!\n");
     m_lat = lat;
     m_lon = lon;
+    m_inited = true;
   }
 
 protected:
@@ -97,6 +102,7 @@ protected:
   const Bounds m_lat_bounds, m_lon_bounds, m_lev_bounds;
   const Real m_mask_val;
   std::shared_ptr<const Field> m_lat, m_lon;
+  bool m_inited = false;
 };
 
 } // namespace cldera

@@ -36,7 +36,12 @@ public:
 
   std::string type() const override { return "pnetcdf_reference"; }
 
-  void initialize(const std::shared_ptr<const Field>& lat, const std::shared_ptr<const Field>& lon, const std::shared_ptr<const Field>& col_gids) {
+  void initialize(const std::shared_ptr<const Field>& lat, const std::shared_ptr<const Field>& lon,
+                  const std::shared_ptr<const Field>& col_gids) {
+    if (m_inited) {
+      return;
+    }
+
     EKAT_REQUIRE_MSG(lat->name() == "lat" && lon->name() == "lon",
         "Error! Field names are not lat and lon!\n");
     m_lat = lat;
@@ -106,6 +111,7 @@ public:
     read_var(*m_pnetcdf_file,m_ref_field_name,m_refvar_data.data(), m_pnetcdf_timeindex);
     read_var(*m_pnetcdf_file,m_ref_deviation_name,m_refvardev_data.data(),m_pnetcdf_timeindex);
 
+    m_inited = true;
   }
 
 protected:
@@ -219,6 +225,8 @@ protected:
   const std::string m_ref_deviation_name;
   /// values of reference deviation data
   mutable std::vector<float> m_refvardev_data;
+
+  bool m_inited = false;
 };
 
 } // namespace cldera

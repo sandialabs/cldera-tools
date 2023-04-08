@@ -26,6 +26,10 @@ public:
   std::string type () const override { return "zonal_mean"; }
 
   void initialize (const std::shared_ptr<const Field>& lat, const std::shared_ptr<const Field>& area) {
+    if (m_inited) {
+      return;
+    }
+
     EKAT_REQUIRE_MSG (lat->name() == "lat" && area->name() == "area",
         "Error! Field names are not lat, area!\n");
     m_lat = lat;
@@ -56,14 +60,16 @@ public:
       }
     }
     track_mpi_all_reduce(m_comm,&m_zonal_area,1,MPI_SUM,name()+"_initialize");
+    EKAT_REQUIRE_MSG (m_zonal_area>0,
+        "Error! Zonal area is zero for stat '" + name() + "'!\n");
+
+    m_inited = true;
   }
 
 protected:
   void compute_impl (const Field& f, Field& stat) const override {
     EKAT_REQUIRE_MSG (m_lat != nullptr && m_area != nullptr,
         "Error! lat/area fields not initialized!\n");
-    EKAT_REQUIRE_MSG (m_zonal_area != 0.0,
-        "Error! zonal area is zero!\n");
 
     const int nparts = f.nparts();
     EKAT_REQUIRE_MSG (nparts == m_lat->nparts() && nparts == m_area->nparts(),
@@ -130,6 +136,7 @@ protected:
   const Bounds m_lat_bounds, m_lev_bounds;
   std::shared_ptr<const Field> m_lat, m_area;
   Real m_zonal_area = 0.0;
+  bool m_inited = false;
 };
 
 } // namespace cldera

@@ -243,11 +243,12 @@ TEST_CASE ("stats - bounds") {
   bounding_box_pl.set<std::vector<Real>>("Latitude Bounds", {0.0, 1.0});
   bounding_box_pl.set<std::vector<Real>>("Longitude Bounds", {0.0, 1.0});
   auto bb_stat = create_stat(bounding_box_pl, comm);
-  auto bounding_box_stat = dynamic_cast<FieldBoundingBox *>(bb_stat.get());
+  auto bounding_box_stat = std::dynamic_pointer_cast<FieldBoundingBox>(bb_stat);
   REQUIRE_THROWS(bounding_box_stat->compute(foo)); // initialize() required
   REQUIRE_THROWS(bounding_box_stat->initialize(dum_lat, dum_lon)); // dum_lat wrong name
   bounding_box_stat->initialize(lat, dum_lon);
   REQUIRE_THROWS(bounding_box_stat->compute(foo)); // dum_lon wrong size
+  bounding_box_stat->reset();
   bounding_box_stat->initialize(lat, lon);
   const auto bounding_box_field = bounding_box_stat->compute(foo);
   const Real bounding_box_expected[] = {

@@ -36,6 +36,19 @@ public:
 
   std::string type() const override { return "pnetcdf_reference"; }
 
+  void reset () {
+    m_lat = m_lon = m_colgids = nullptr;
+    m_timeindex = m_pnetcdf_timeindex = 0;;
+    if (m_pnetcdf_file) {
+      io::pnetcdf::close_file(*m_pnetcdf_file);
+    }
+    m_ref_var_dims.clear();
+    m_refvar_data.clear();
+    m_refvardev_data.clear();
+
+    m_inited = false;
+  }
+
   void initialize(const std::shared_ptr<const Field>& lat, const std::shared_ptr<const Field>& lon,
                   const std::shared_ptr<const Field>& col_gids) {
     if (m_inited) {

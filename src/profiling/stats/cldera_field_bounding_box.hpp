@@ -27,6 +27,10 @@ public:
 
   std::string type () const override { return "bounding_box"; }
 
+  void reset () {
+    m_lat = m_lon = nullptr;
+    m_inited = false;
+  }
   void initialize (const std::shared_ptr<const Field>& lat, const std::shared_ptr<const Field>& lon) {
     if (m_inited) {
       return;

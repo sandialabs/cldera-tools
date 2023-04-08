@@ -25,6 +25,11 @@ public:
 
   std::string type () const override { return "zonal_mean"; }
 
+  void reset () {
+    m_lat = m_area = nullptr;
+    m_zonal_area = 0;
+    m_inited = 0;
+  }
   void initialize (const std::shared_ptr<const Field>& lat, const std::shared_ptr<const Field>& area) {
     if (m_inited) {
       return;

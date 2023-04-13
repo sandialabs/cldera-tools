@@ -13,11 +13,12 @@ namespace cldera {
 class FieldGlobalMax : public FieldScalarStat
 {
 public:
-  FieldGlobalMax (const ekat::Comm& comm)
-   : m_comm (comm)
+  FieldGlobalMax (const ekat::Comm& comm,
+                  const ekat::ParameterList& pl)
+   : FieldScalarStat (comm,pl)
   { /* Nothing to do here */ }
 
-  std::string name () const override { return "global_max"; }
+  std::string type () const override { return "global_max"; }
 
 protected:
   void compute_impl (const Field& f, Field& stat) const override {

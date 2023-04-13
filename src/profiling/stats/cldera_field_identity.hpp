@@ -9,9 +9,12 @@ namespace cldera
 class FieldIdentity : public FieldStat
 {
 public:
-  FieldIdentity () = default;
+  FieldIdentity (const ekat::Comm& comm,
+                 const ekat::ParameterList& pl)
+   : FieldStat(comm,pl)
+  { /* Nothing to do here */ }
 
-  std::string name () const { return "identity"; }
+  std::string type () const { return "identity"; }
 
   // Given a field, return the layout that the computed stat will have
   FieldLayout stat_layout (const FieldLayout& field_layout) const {

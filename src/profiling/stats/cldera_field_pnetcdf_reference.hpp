@@ -18,24 +18,43 @@ namespace cldera {
 class FieldPnetcdfReference : public FieldSinglePartStat
 {
 public:
-  FieldPnetcdfReference(const ekat::Comm& comm, const ekat::ParameterList& pl)
-    : m_lat_bounds({pl.get<std::vector<Real>>("Latitude Bounds").at(0), pl.get<std::vector<Real>>("Latitude Bounds").at(1)})
-    , m_lon_bounds({pl.get<std::vector<Real>>("Longitude Bounds").at(0), pl.get<std::vector<Real>>("Longitude Bounds").at(1)})
-    , m_pnetcdf_filename(pl.get<std::string>("Pnetcdf Filename"))
-    , m_ref_field_name(pl.get<std::string>("Reference Field Name"))
-    , m_ref_deviation_name(pl.get<std::string>("Reference Deviation Field Name"))
-    , m_time_step_ratio(pl.get<int>("Time Step Ratio"))
-    , m_mask_val(pl.isParameter("Mask Value") ? pl.get<Real>("Mask Value") : 0.0)
-    , m_comm (comm)
+  FieldPnetcdfReference (const ekat::Comm& comm,
+                         const ekat::ParameterList& pl)
+   : FieldSinglePartStat (comm,pl)
+   , m_lat_bounds(pl.get<std::vector<Real>>("Latitude Bounds"))
+   , m_lon_bounds(pl.get<std::vector<Real>>("Longitude Bounds"))
+   , m_pnetcdf_filename(pl.get<std::string>("Pnetcdf Filename"))
+   , m_ref_field_name(pl.get<std::string>("Reference Field Name"))
+   , m_ref_deviation_name(pl.get<std::string>("Reference Deviation Field Name"))
+   , m_time_step_ratio(pl.get<int>("Time Step Ratio"))
+   , m_mask_val(m_params.get("Mask Value",0.0))
   { /* Nothing to do here */ }
 
   ~FieldPnetcdfReference() {
     io::pnetcdf::close_file(*m_pnetcdf_file);
   }
 
-  std::string name() const override { return "pnetcdf_reference"; }
+  std::string type() const override { return "pnetcdf_reference"; }
 
-  void initialize(const std::shared_ptr<const Field>& lat, const std::shared_ptr<const Field>& lon, const std::shared_ptr<const Field>& col_gids) {
+  void reset () {
+    m_lat = m_lon = m_colgids = nullptr;
+    m_timeindex = m_pnetcdf_timeindex = 0;;
+    if (m_pnetcdf_file) {
+      io::pnetcdf::close_file(*m_pnetcdf_file);
+    }
+    m_ref_var_dims.clear();
+    m_refvar_data.clear();
+    m_refvardev_data.clear();
+
+    m_inited = false;
+  }
+
+  void initialize(const std::shared_ptr<const Field>& lat, const std::shared_ptr<const Field>& lon,
+                  const std::shared_ptr<const Field>& col_gids) {
+    if (m_inited) {
+      return;
+    }
+
     EKAT_REQUIRE_MSG(lat->name() == "lat" && lon->name() == "lon",
         "Error! Field names are not lat and lon!\n");
     m_lat = lat;
@@ -105,6 +124,7 @@ public:
     read_var(*m_pnetcdf_file,m_ref_field_name,m_refvar_data.data(), m_pnetcdf_timeindex);
     read_var(*m_pnetcdf_file,m_ref_deviation_name,m_refvardev_data.data(),m_pnetcdf_timeindex);
 
+    m_inited = true;
   }
 
 protected:
@@ -218,6 +238,8 @@ protected:
   const std::string m_ref_deviation_name;
   /// values of reference deviation data
   mutable std::vector<float> m_refvardev_data;
+
+  bool m_inited = false;
 };
 
 } // namespace cldera

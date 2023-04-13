@@ -13,12 +13,12 @@ namespace cldera {
 class FieldMaxAlongColumns : public FieldStatAlongAxis
 {
 public:
-  FieldMaxAlongColumns (const ekat::Comm& comm)
-   : FieldStatAlongAxis("ncol"),
-     m_comm (comm)
+  FieldMaxAlongColumns (const ekat::Comm& comm,
+                        const ekat::ParameterList& pl)
+   : FieldStatAlongAxis(comm,pl,"ncol")
   { /* Nothing to do here */ }
 
-  std::string name () const override { return "max_along_columns"; }
+  std::string type () const override { return "max_along_columns"; }
 
 protected:
   void compute_impl (const Field& f, Field& stat) const override {
@@ -58,8 +58,6 @@ protected:
     // Clock MPI ops
     track_mpi_all_reduce(m_comm,stat_view.data(),stat_view.size(),MPI_MAX,name());
   }
-
-  const ekat::Comm m_comm;
 };
 
 } // namespace cldera

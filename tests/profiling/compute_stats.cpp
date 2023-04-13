@@ -26,21 +26,25 @@ TEST_CASE ("stats") {
   f.set_data(raw_data);
 
   // Compute all supported stats
-  auto stats_names = {"global_max", "global_min", "global_sum", "global_avg"};
+  auto stats_types = {"global_max", "global_min", "global_sum", "global_avg"};
   std::map<std::string,Field> stat_fields;
   std::map<std::string,Field> expected;
-  for (auto sname : stats_names) {
-    auto stat = create_stat(ekat::ParameterList(sname),comm);
+  for (std::string type : stats_types) {
+    auto sname = "my_" + type;
+    ekat::ParameterList pl (sname);
+    pl.set("Type",type);
+    auto stat = create_stat(pl,comm);
     stat_fields.emplace(sname,stat->compute(f));
 
     expected.emplace(sname,Field(sname,stat_fields.at(sname).layout(),DataAccess::Copy));
     expected.at(sname).commit();
   }
 
-  expected["global_max"].data_nonconst<Real>()[0] = 5;
-  expected["global_min"].data_nonconst<Real>()[0] = 0;
-  expected["global_sum"].data_nonconst<Real>()[0] = 15;
-  expected["global_avg"].data_nonconst<Real>()[0] = 15.0/6;
+  auto stats_names = {"my_global_max", "my_global_min", "my_global_sum", "my_global_avg"};
+  expected["my_global_max"].data_nonconst<Real>()[0] = 5;
+  expected["my_global_min"].data_nonconst<Real>()[0] = 0;
+  expected["my_global_sum"].data_nonconst<Real>()[0] = 15;
+  expected["my_global_avg"].data_nonconst<Real>()[0] = 15.0/6;
 
   for (auto sname : stats_names) {
     REQUIRE (expected.at(sname).data<Real>()[0]==stat_fields.at(sname).data<Real>()[0]);
@@ -239,11 +243,12 @@ TEST_CASE ("stats - bounds") {
   bounding_box_pl.set<std::vector<Real>>("Latitude Bounds", {0.0, 1.0});
   bounding_box_pl.set<std::vector<Real>>("Longitude Bounds", {0.0, 1.0});
   auto bb_stat = create_stat(bounding_box_pl, comm);
-  auto bounding_box_stat = dynamic_cast<FieldBoundingBox *>(bb_stat.get());
+  auto bounding_box_stat = std::dynamic_pointer_cast<FieldBoundingBox>(bb_stat);
   REQUIRE_THROWS(bounding_box_stat->compute(foo)); // initialize() required
   REQUIRE_THROWS(bounding_box_stat->initialize(dum_lat, dum_lon)); // dum_lat wrong name
   bounding_box_stat->initialize(lat, dum_lon);
   REQUIRE_THROWS(bounding_box_stat->compute(foo)); // dum_lon wrong size
+  bounding_box_stat->reset();
   bounding_box_stat->initialize(lat, lon);
   const auto bounding_box_field = bounding_box_stat->compute(foo);
   const Real bounding_box_expected[] = {

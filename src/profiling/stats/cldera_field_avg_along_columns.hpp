@@ -11,12 +11,12 @@ namespace cldera {
 class FieldAvgAlongColumns : public FieldSumAlongColumns
 {
 public:
-  FieldAvgAlongColumns (const ekat::Comm& comm)
-   : FieldSumAlongColumns(comm),
-     m_comm (comm)
+  FieldAvgAlongColumns (const ekat::Comm& comm,
+                        const ekat::ParameterList& pl)
+   : FieldSumAlongColumns(comm,pl)
   { /* Nothing to do here */ }
 
-  std::string name () const override { return "avg_along_columns"; }
+  std::string type () const override { return "avg_along_columns"; }
 
 protected:
   // NOTE: unlike global max/min/sum, we don't support IntType,
@@ -41,8 +41,6 @@ protected:
     for (int i = 0; i < stat_size; ++i)
       avg_field(i) /= global_size;
   }
-
-  const ekat::Comm m_comm;
 };
 
 } // namespace cldera

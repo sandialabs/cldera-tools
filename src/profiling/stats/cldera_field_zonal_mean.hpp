@@ -18,17 +18,23 @@ class FieldZonalMean : public FieldStatAlongAxis
 {
 public:
   FieldZonalMean (const ekat::Comm& comm, const ekat::ParameterList& pl)
-    : FieldStatAlongAxis("ncol")
-    , m_lat_bounds({pl.get<std::vector<Real>>("Latitude Bounds").at(0), pl.get<std::vector<Real>>("Latitude Bounds").at(1)})
-    , m_lev_bounds(pl.isParameter("Level Bounds") ?
-        Bounds{pl.get<std::vector<Real>>("Level Bounds").at(0), pl.get<std::vector<Real>>("Level Bounds").at(1)} :
-        Bounds{0.0, std::numeric_limits<Real>::max()})
-    , m_comm (comm)
+    : FieldStatAlongAxis(comm,pl,"ncol")
+    , m_lat_bounds(pl.get<std::vector<Real>>("Latitude Bounds"))
+    , m_lev_bounds(m_params.get("Level Bounds",std::vector<Real>{0,std::numeric_limits<Real>::max()}))
   { /* Nothing to do here */ }
 
-  std::string name () const override { return "zonal_mean"; }
+  std::string type () const override { return "zonal_mean"; }
 
+  void reset () {
+    m_lat = m_area = nullptr;
+    m_zonal_area = 0;
+    m_inited = 0;
+  }
   void initialize (const std::shared_ptr<const Field>& lat, const std::shared_ptr<const Field>& area) {
+    if (m_inited) {
+      return;
+    }
+
     EKAT_REQUIRE_MSG (lat->name() == "lat" && area->name() == "area",
         "Error! Field names are not lat, area!\n");
     m_lat = lat;
@@ -59,14 +65,16 @@ public:
       }
     }
     track_mpi_all_reduce(m_comm,&m_zonal_area,1,MPI_SUM,name()+"_initialize");
+    EKAT_REQUIRE_MSG (m_zonal_area>0,
+        "Error! Zonal area is zero for stat '" + name() + "'!\n");
+
+    m_inited = true;
   }
 
 protected:
   void compute_impl (const Field& f, Field& stat) const override {
     EKAT_REQUIRE_MSG (m_lat != nullptr && m_area != nullptr,
         "Error! lat/area fields not initialized!\n");
-    EKAT_REQUIRE_MSG (m_zonal_area != 0.0,
-        "Error! zonal area is zero!\n");
 
     const int nparts = f.nparts();
     EKAT_REQUIRE_MSG (nparts == m_lat->nparts() && nparts == m_area->nparts(),
@@ -131,9 +139,9 @@ protected:
   }
 
   const Bounds m_lat_bounds, m_lev_bounds;
-  const ekat::Comm m_comm;
   std::shared_ptr<const Field> m_lat, m_area;
   Real m_zonal_area = 0.0;
+  bool m_inited = false;
 };
 
 } // namespace cldera

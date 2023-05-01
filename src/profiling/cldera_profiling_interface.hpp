@@ -7,7 +7,9 @@ extern "C" {
 
 namespace cldera {
 
-void cldera_init_c (const MPI_Fint fcomm, const int ymd, const int tod);
+void cldera_init_c (const MPI_Fint fcomm,
+                    const int start_ymd, const int start_tod,
+                    const int stop_ymd, const int stop_tod);
 
 void cldera_clean_up_c ();
 

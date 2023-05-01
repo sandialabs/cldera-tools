@@ -23,7 +23,9 @@ extern "C" {
 
 namespace cldera {
 
-void cldera_init_c (const MPI_Fint fcomm, const int ymd, const int tod)
+void cldera_init_c (const MPI_Fint fcomm,
+                    const int start_ymd, const int start_tod,
+                    const int stop_ymd, const int stop_tod)
 {
   auto& ts = timing::TimingSession::instance();
   ts.start_timer("profiling::init");
@@ -63,6 +65,10 @@ void cldera_init_c (const MPI_Fint fcomm, const int ymd, const int tod)
   using vos_t = std::vector<std::string>;
 
   auto& params = s.get_params() = ekat::parse_yaml_file(filename);
+  TimeStamp start (start_ymd,start_tod);
+  TimeStamp stop (stop_ymd,stop_tod);
+  s.create<TimeStamp>("start_timestamp",start);
+  s.create<TimeStamp>("stop_timestamp",stop);
   auto& requests = s.create<requests_t>("requests");
   const auto& fnames = params.get<vos_t>("Fields To Track");
   for (const auto& fname : fnames) {
@@ -75,10 +81,10 @@ void cldera_init_c (const MPI_Fint fcomm, const int ymd, const int tod)
   }
 
   if(params.isSublist("Profiling Output")) {
-    s.create<ProfilingArchive>("archive",comm,TimeStamp(ymd,tod),params.sublist("Profiling Output"));
+    s.create<ProfilingArchive>("archive",comm,start,params.sublist("Profiling Output"));
   } else {
     ekat::ParameterList profiling_output_list("Profiling Output");
-    s.create<ProfilingArchive>("archive",comm,TimeStamp(ymd,tod),profiling_output_list);
+    s.create<ProfilingArchive>("archive",comm,start,profiling_output_list);
   }
 
   s.create<bool>("doPathway",params.isSublist("Pathway"));

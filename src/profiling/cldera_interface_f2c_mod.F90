@@ -3,9 +3,9 @@ module cldera_interface_f2c_mod
   interface
 
     ! Initialize cldera session and main structures
-    subroutine cldera_init_c (fcomm,ymd,tod) bind(C)
+    subroutine cldera_init_c (fcomm,start_ymd,start_tod,stop_ymd,stop_tod) bind(C)
       use iso_c_binding, only: c_int
-      integer (kind=c_int), value, intent(in) :: fcomm,ymd,tod
+      integer (kind=c_int), value, intent(in) :: fcomm,start_ymd,start_tod,stop_ymd,stop_tod
     end subroutine cldera_init_c
 
     ! Add a partitioned field to cldera data base

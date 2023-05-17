@@ -296,9 +296,6 @@ protected:
 
   // The value of m_mask_field that denotes entries to be tallied
   int           m_mask_value;
-
-  // Position of mask dim name in the field layout
-  int           m_mask_dim_pos;
   
   // Store the name of the dimension along which we integrate
   std::string   m_mask_dim_name;

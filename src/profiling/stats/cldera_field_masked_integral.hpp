@@ -114,7 +114,7 @@ protected:
 
     // We'll use this to decide which of the input field's indices
     // is needed to index the stat field
-    auto mask_dim_pos = m_field.layout().dim_idx(m_mask_field.layout().names()[0]);
+    auto mask_dim_pos = m_field.layout().dim_idx(m_mask_dim_name);
 
     view_1d_host<const Real> w;
     switch (fl.rank()) {

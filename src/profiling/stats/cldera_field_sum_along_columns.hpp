@@ -19,32 +19,32 @@ public:
   std::string type () const override { return "sum_along_columns"; }
 
 protected:
-  void compute_impl (const Field& f, Field& stat) const override {
-    const auto dt = f.data_type();
+  void compute_impl () override {
+    const auto dt = m_field.data_type();
     if (dt==IntType) {
-      do_compute_impl<int>(f,stat);
+      do_compute_impl<int>();
     } else if (dt==RealType) {
-      do_compute_impl<Real>(f,stat);
+      do_compute_impl<Real>();
     } else {
       EKAT_ERROR_MSG ("[FieldSumAlongColumns] Unrecognized/unsupported data type (" + e2str(dt) + ")\n");
     }
   }
 
   template<typename T>
-  void do_compute_impl (const Field& f, Field& stat) const {
-    const auto& stat_strides = compute_stat_strides(f.layout());
+  void do_compute_impl () {
+    const auto& stat_strides = compute_stat_strides(m_field.layout());
 
-    view_1d_host<T> temp_c ("sum_field", stat.layout().size());
-    auto stat_view = stat.view_nonconst<T>();
+    auto temp_c = view_1d_host<T>("sum_field", m_stat_field.layout().size());
+    auto stat_view = m_stat_field.view_nonconst<T>();
     Kokkos::deep_copy(temp_c, 0);
     Kokkos::deep_copy(stat_view, 0);
 
     T temp, y;
-    const int field_rank = f.layout().rank();
-    const int field_part_dim = f.part_dim();
-    for (int ipart = 0; ipart < f.nparts(); ++ipart) {
-      const auto& part_data = f.part_data<const T>(ipart);
-      const auto& part_layout = f.part_layout(ipart);
+    const int field_rank = m_field.layout().rank();
+    const int field_part_dim = m_field.part_dim();
+    for (int ipart = 0; ipart < m_field.nparts(); ++ipart) {
+      const auto& part_data = m_field.part_data<const T>(ipart);
+      const auto& part_layout = m_field.part_layout(ipart);
       const auto& part_dims = part_layout.dims();
       for (int part_index = 0; part_index < part_layout.size(); ++part_index) {
         const int stat_index = compute_stat_index(

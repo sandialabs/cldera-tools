@@ -18,6 +18,7 @@ add_library (cldera-profiling
     cldera_min_field_test.cpp
     cldera_field_test_factory.cpp
     cldera_field.cpp
+    cldera_field_layout.cpp
     cldera_graph_vertex.cpp
     cldera_graph.cpp
     cldera_graph_factory.cpp
@@ -29,7 +30,8 @@ add_library (cldera-profiling
     cldera_profiling_test_manager.cpp
     cldera_interface_mod.F90
     cldera_interface_f2c_mod.F90
-    stats/cldera_field_stat_factory.cpp
+    stats/cldera_register_stats.cpp
+    stats/cldera_field_stat.cpp
 )
 set (MODULES_DIR ${CMAKE_CURRENT_BINARY_DIR}/profiling_modules)
 set_target_properties(cldera-profiling PROPERTIES

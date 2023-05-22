@@ -23,18 +23,18 @@ public:
 protected:
   // NOTE: unlike global max/min/sum, we don't support IntType,
   //       so no need for extra template function
-  void compute_impl (const Field& f, Field& stat) const override {
+  void compute_impl () override {
     // Sum
-    FieldGlobalSum::compute_impl(f,stat);
+    FieldGlobalSum::compute_impl();
 
     // Divide by size
-    long long size = f.layout().size();
+    long long size = m_field.layout().size();
     long long global_size;
 
     // Clock MPI ops
     track_mpi_all_reduce(m_comm,&size,&global_size,1,MPI_SUM,name());
 
-    stat.data_nonconst<Real>()[0] /= global_size;
+    m_stat_field.data_nonconst<Real>()[0] /= global_size;
   }
 };
 

@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
 
+#include "profiling/stats/cldera_register_stats.hpp"
 #include "profiling/cldera_bounds_field_test.hpp"
 #include "profiling/cldera_field.hpp"
 #include "profiling/cldera_profiling_test_manager.hpp"
@@ -9,6 +10,8 @@
 TEST_CASE ("test_manager") {
   using namespace cldera;
   const ekat::Comm comm(MPI_COMM_WORLD);
+
+  register_stats ();
 
   // 12pm on Dec 8th 2022
   TimeStamp t(20221208,43200);
@@ -26,12 +29,12 @@ TEST_CASE ("test_manager") {
   // Initialize simple field test
   const std::string field_test_name = "Test bounds of foo";
   const Real min = 0.0, max = 6.0;
-  const Bounds bounds{min, max};
+  const Bounds<Real> bounds{min, max};
   const auto field_test = std::make_shared<BoundsFieldTest>(field_test_name, foo, bounds, comm);
 
   // Initialize another simple field test
   const std::string field_test_name2 = "Test tighter bounds of foo";
-  const Bounds bounds2{2.0, 3.0};
+  const Bounds<Real> bounds2{2.0, 3.0};
   const auto field_test2 = std::make_shared<BoundsFieldTest>(field_test_name2, foo, bounds2, comm);
 
   // Test add field test to test manager

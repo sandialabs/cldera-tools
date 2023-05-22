@@ -28,6 +28,7 @@ TEST_CASE ("archive") {
 
   FieldGlobalMax foo_max(comm,ekat::ParameterList("global_max"));
   REQUIRE_THROWS(archive.update_time(ts+=86400)); // no stats stored this time step
-  archive.append_stat("foo",foo_max.name(),foo_max.compute(foo));
+  foo_max.set_field(foo);
+  archive.append_stat("foo",foo_max.name(),foo_max.compute(ts));
   archive.update_time(ts+=86400);
 }

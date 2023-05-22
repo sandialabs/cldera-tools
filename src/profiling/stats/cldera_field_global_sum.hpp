@@ -22,26 +22,26 @@ public:
   std::string type () const override { return "global_sum"; }
 
 protected:
-  void compute_impl (const Field& f, Field& stat) const override {
-    const auto dt = f.data_type();
+  void compute_impl () override {
+    const auto dt = m_field.data_type();
     if (dt==IntType) {
-      do_compute_impl<int>(f,stat);
+      do_compute_impl<int>();
     } else if (dt==RealType) {
-      do_compute_impl<Real>(f,stat);
+      do_compute_impl<Real>();
     } else {
       EKAT_ERROR_MSG ("[FieldGlobalSum] Unrecognized/unsupported data type (" + e2str(dt) + ")\n");
     }
   }
   
   template<typename T>
-  void do_compute_impl (const Field& f, Field& stat) const {
+  void do_compute_impl () {
     // Note: use Kahan summation to increase accuracy
     T sum = 0;
     T c = 0;
     T temp,y;
-    for (int p=0; p<f.nparts(); ++p) {
-      const auto& pl = f.part_layout(p);
-      const auto& data = f.part_data<const T>(p);
+    for (int p=0; p<m_field.nparts(); ++p) {
+      const auto& pl = m_field.part_layout(p);
+      const auto& data = m_field.part_data<const T>(p);
       for (int i=0; i<pl.size(); ++i) {
         y = data[i] - c;
         temp = sum + y;
@@ -51,7 +51,7 @@ protected:
     }
 
     // Clock MPI ops
-    track_mpi_all_reduce(m_comm,&sum,stat.data_nonconst<T>(),1,MPI_SUM,name());
+    track_mpi_all_reduce(m_comm,&sum,m_stat_field.data_nonconst<T>(),1,MPI_SUM,name());
   }
 };
 

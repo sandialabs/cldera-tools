@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
 
+#include "profiling/stats/cldera_register_stats.hpp"
 #include "profiling/cldera_profiling_archive.hpp"
 #include "profiling/cldera_graph_factory.hpp"
 #include "profiling/cldera_pathway_factory.hpp"
@@ -16,6 +17,8 @@
 TEST_CASE ("pathway") {
 
   ekat::Comm comm(MPI_COMM_WORLD);
+
+  cldera::register_stats();
 
   // A Pathway via PathwayFactory
   {

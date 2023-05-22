@@ -18,14 +18,14 @@ class BoundsFieldTest : public FieldTest
 public:
   BoundsFieldTest(const std::string& name,
                   const std::shared_ptr<const Field>& field,
-                  const Bounds& bounds,
+                  const Bounds<Real>& bounds,
                   const ekat::Comm& comm);
 
   // True if test passes, false if test fails
   bool test(const TimeStamp& t) override;
 
 private:
-  const Bounds m_bounds;
+  const Bounds<Real> m_bounds;
 
   std::shared_ptr<FieldStat>  m_max_stat;
   std::shared_ptr<FieldStat>  m_min_stat;

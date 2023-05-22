@@ -1,5 +1,5 @@
 #include "cldera_profiling_archive.hpp"
-#include "profiling/stats/cldera_field_stat_factory.hpp"
+#include "profiling/stats/cldera_field_stat.hpp"
 #include "profiling/cldera_mpi_timing_wrappers.hpp"
 #include "timing/cldera_timing_session.hpp"
 
@@ -145,14 +145,11 @@ setup_output_file ()
         "  - actual layout  : (" + ekat::join(f.layout().names(),",") + ")\n");
 
     // Compute min gid. This is 1 in E3SM, but just in case...
-    auto min_stat = create_stat(ekat::ParameterList("global_min"),m_comm);
-    auto min_gid = min_stat->compute(f).data<int>()[0];
+    auto min_stat = StatFactory::instance().create("global_min",m_comm,ekat::ParameterList("global_min"));
+    min_stat->set_field(f);
+    auto min_gid = min_stat->compute(m_start_date).data<int>()[0];
 
     int my_ngids = f.layout().size();
-    int ngids_scan;
-    // Clock MPI ops
-    track_mpi_scan(m_comm,&my_ngids,&ngids_scan,1,MPI_SUM,"profiling::setup_output_file");
-    int my_start = ngids_scan - my_ngids;
     std::vector<int> gids(my_ngids);
     for (int p=0,i=0; p<f.nparts(); ++p) {
       const auto pl = f.part_layout(p);
@@ -173,8 +170,9 @@ setup_output_file ()
     // data to the IO interface. Since this "stat" is computed only once, when
     // we setup the output file, the cost is tiny compared to the whole run.
     const int np = f.nparts();
-    auto I = create_stat(ekat::ParameterList("identity"),m_comm);
-    const auto f1p = np==1 ? f : I->compute(f);
+    auto I = StatFactory::instance().create("identity",m_comm,ekat::ParameterList("identity"));
+    I->set_field(f);
+    const auto f1p = np==1 ? f : I->compute(m_start_date);
     if (f.data_type()==DataType::RealType) {
       io::pnetcdf::write_var (*m_output_file,n,f1p.data<Real>());
     } else if (f.data_type()==DataType::IntType) {
@@ -255,8 +253,8 @@ void ProfilingArchive::flush_to_file ()
       return;
     }
 
-    auto& ts = timing::TimingSession::instance();
-    ts.start_timer("profiling::flush_to_file");
+    auto& timings = timing::TimingSession::instance();
+    timings.start_timer("profiling::flush_to_file");
 
     if (m_comm.am_i_root()) {
       printf(" [CLDERA] Flushing field stats to file ...\n");
@@ -280,7 +278,7 @@ void ProfilingArchive::flush_to_file ()
           const auto& sname = it2.first;
           const auto& stat  = it2.second;
 
-          const auto var_name = fname + "_" + sname;
+          const auto var_name = stat.name();
 
           if (stat.data_type()==DataType::RealType) {
             write_var (*m_output_file,var_name,stat.data<Real>());
@@ -305,7 +303,7 @@ void ProfilingArchive::flush_to_file ()
     if (m_comm.am_i_root()) {
       printf(" [CLDERA] Flushing field stats to file ... done!\n");
     }
-    ts.stop_timer("profiling::flush_to_file");
+    timings.stop_timer("profiling::flush_to_file");
   }
 }
 

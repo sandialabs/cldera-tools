@@ -2,7 +2,6 @@
 
 #include "cldera_profiling_session.hpp"
 #include "cldera_profiling_archive.hpp"
-#include "stats/cldera_field_stat_factory.hpp"
 #include "stats/cldera_field_bounding_box.hpp"
 #include "stats/cldera_field_pnetcdf_reference.hpp"
 #include "stats/cldera_field_zonal_mean.hpp"
@@ -69,16 +68,6 @@ void cldera_init_c (const MPI_Fint fcomm,
   TimeStamp stop (stop_ymd,stop_tod);
   s.create<TimeStamp>("start_timestamp",start);
   s.create<TimeStamp>("stop_timestamp",stop);
-  auto& requests = s.create<requests_t>("requests");
-  const auto& fnames = params.get<vos_t>("Fields To Track");
-  for (const auto& fname : fnames) {
-    auto& req_pl = params.sublist(fname);
-    auto& req_stats = requests[fname];
-    for (auto stat : req_pl.get<vos_t>("Compute Stats")) {
-      auto& stat_pl = req_pl.sublist(stat);
-      req_stats.push_back(create_stat(stat_pl,comm));
-    }
-  }
 
   if(params.isSublist("Profiling Output")) {
     s.create<ProfilingArchive>("archive",comm,start,params.sublist("Profiling Output"));
@@ -282,12 +271,40 @@ void cldera_commit_all_fields_c ()
   if (not s.inited()) { return; }
 
   auto& ts = timing::TimingSession::instance();
-  ts.start_timer("profiling::commit_fields");
-
   auto& archive = s.get<ProfilingArchive>("archive");
 
+  ts.start_timer("profiling::commit_fields");
   archive.commit_all_fields();
   ts.stop_timer("profiling::commit_fields");
+
+  ts.start_timer("profiling::create_stats");
+  auto& params = s.get_params();
+  using stat_ptr_t = std::shared_ptr<FieldStat>;
+  using requests_t = std::map<std::string,std::vector<stat_ptr_t>>;
+  using vos_t = std::vector<std::string>;
+
+  auto& factory = StatFactory::instance();
+  auto& requests = s.create<requests_t>("requests");
+  const auto& fnames = params.get<vos_t>("Fields To Track");
+  const int freq = params.get("Time Averaging Window Size",1);
+  for (const auto& fname : fnames) {
+    auto& req_pl = params.sublist(fname);
+    auto& req_stats = requests[fname];
+    const auto& f = archive.get_field(fname);
+    for (auto stat_name : req_pl.get<vos_t>("Compute Stats")) {
+      auto& stat_pl = req_pl.sublist(stat_name);
+      const auto& stat_type = stat_pl.get<std::string>("Type",stat_name);
+      auto stat = factory.create(stat_type,s.get_comm(),stat_pl);
+      stat->set_field(f);
+      std::map<std::string,Field> aux_fields;
+      for (const auto& fn : stat->get_aux_fields_names()) {
+        aux_fields[fn] = archive.get_field(fn);
+      }
+      stat->set_aux_fields(aux_fields);
+      req_stats.push_back(stat);
+    }
+  }
+  ts.stop_timer("profiling::create_stats");
 }
 
 void cldera_compute_stats_c (const int ymd, const int tod)
@@ -309,12 +326,12 @@ void cldera_compute_stats_c (const int ymd, const int tod)
     comm.barrier();
   }
 
-  auto& ts = timing::TimingSession::instance();
-  ts.start_timer("profiling::compute_stats");
-
   if (comm.am_i_root()) {
     printf(" [CLDERA] Computing stats ...\n");
   }
+
+  auto& ts = timing::TimingSession::instance();
+  ts.start_timer("profiling::compute_stats");
 
   using stat_ptr_t = std::shared_ptr<FieldStat>;
   using requests_t = std::map<std::string,std::vector<stat_ptr_t>>;
@@ -322,62 +339,34 @@ void cldera_compute_stats_c (const int ymd, const int tod)
 
   auto& archive = s.get<ProfilingArchive>("archive");
 
-  std::map<std::string, std::shared_ptr<const cldera::Field> > fields;
+  cldera::TimeStamp time = {ymd, tod};
 
+  std::map<std::string, std::shared_ptr<const cldera::Field> > fields;
   for (const auto& it : requests) {
     const auto& fname = it.first;
     const auto& stats = it.second;
     const auto& f = archive.get_field(fname);
-    ts.start_timer("profiling:create_stat_field");
-    fields[fname] = std::make_shared<const cldera::Field>(f);
-    ts.stop_timer("profiling:create_stat_field");
-    for (auto stat : stats) {
-      // Initialize bounding box with lat/lon
-      if (stat->type() == "bounding_box") {
-        ts.start_timer ("profiling::bounding_box_init");
-        const auto& lat = archive.get_field("lat");
-        const auto lat_ptr = std::make_shared<const cldera::Field>(lat);
-        const auto& lon = archive.get_field("lon");
-        const auto lon_ptr = std::make_shared<const cldera::Field>(lon);
-        auto bounding_box_stat = std::dynamic_pointer_cast<cldera::FieldBoundingBox>(stat);
-        bounding_box_stat->initialize(lat_ptr, lon_ptr);
-        ts.stop_timer ("profiling::bounding_box_init");
-      }
-      // Initialize bounding box with lat/lon
-      if (stat->type() == "pnetcdf_reference") {
-        const auto& lat = archive.get_field("lat");
-        const auto lat_ptr = std::make_shared<const cldera::Field>(lat);
-        const auto& lon = archive.get_field("lon");
-        const auto lon_ptr = std::make_shared<const cldera::Field>(lon);
-        const auto& col_gids = archive.get_field("col_gids");
-        const auto col_gids_ptr = std::make_shared<const cldera::Field>(col_gids);
-        auto pnetcdf_stat = dynamic_cast<cldera::FieldPnetcdfReference *>(stat.get());
-        pnetcdf_stat->initialize(lat_ptr, lon_ptr, col_gids_ptr);
-      }
-      // Initialize zonal mean with lat/area
-      if (stat->type() == "zonal_mean") {
-        ts.start_timer ("profiling::zonal_mean_init");
-        const auto& lat = archive.get_field("lat");
-        const auto lat_ptr = std::make_shared<const cldera::Field>(lat);
-        const auto& area = archive.get_field("area");
-        const auto area_ptr = std::make_shared<const cldera::Field>(area);
-        auto zonal_mean_stat = std::dynamic_pointer_cast<cldera::FieldZonalMean>(stat);
-        zonal_mean_stat->initialize(lat_ptr, area_ptr);
-        ts.stop_timer ("profiling::zonal_mean_init");
-      }
 
-      archive.append_stat(fname,stat->name(),stat->compute(f));
+    // Store field map, so we can create the pathway object later
+    if(!s.has_data("pathway")) {
+      ts.start_timer("profiling:create_stat_field");
+      fields[fname] = std::make_shared<const cldera::Field>(f);
+      ts.stop_timer("profiling:create_stat_field");
+    }
+    for (auto stat : stats) {
+      archive.append_stat(fname,stat->name(),stat->compute(time));
     }
   }
 
-  cldera::TimeStamp time = {ymd, tod};
   archive.update_time(time);
+  ts.stop_timer("profiling::compute_stats");
 
   if (comm.am_i_root()) {
     printf(" [CLDERA] Computing stats ... done!\n");
   }
 
   if(s.get<bool>("doPathway")) {
+    ts.start_timer("profiling::run_pathway_tests");
     // this solves the issue of fields not being initialized
     if(!s.has_data("pathway")) {
       // create the pathway then throw it in the ProfilingSession
@@ -390,8 +379,8 @@ void cldera_compute_stats_c (const int ymd, const int tod)
       auto& pathway = s.get<std::shared_ptr<cldera::Pathway>>("pathway");
       pathway->run_pathway_tests(comm, time);
     }
+    ts.stop_timer("profiling::run_pathway_tests");
   }
-  ts.stop_timer("profiling::compute_stats");
 
   const auto timings_fname = params.get<std::string>("Timing Filename","");
   const int timings_flush_freq = params.get("Timings Flush Freq",0);

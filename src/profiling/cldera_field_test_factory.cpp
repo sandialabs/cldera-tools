@@ -41,7 +41,7 @@ std::map<std::string, std::shared_ptr<FieldTest> > FieldTestFactory::build_field
       std::vector<Real> params = test_params.get<std::vector<Real> >("Params");
       if(m_verbose)
         out << "    Min=" << params[0] << ", Max=" << params[1] << "\n";
-      Bounds bounds(params);
+      Bounds<Real> bounds(params);
       BoundsFieldTest bounds_test(name,field,bounds,m_comm);
       bounds_test.set_save_history(true);
       std::shared_ptr<BoundsFieldTest> bounds_test_ptr = std::make_shared<BoundsFieldTest>(bounds_test);

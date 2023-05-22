@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
 
+#include "profiling/stats/cldera_register_stats.hpp"
 #include "profiling/cldera_bounds_field_test.hpp"
 #include "profiling/cldera_field_test_factory.hpp"
 #include "profiling/cldera_field.hpp"
@@ -11,6 +12,8 @@
 
 TEST_CASE ("bounds_field_test") {
   using namespace cldera;
+
+  register_stats ();
 
   const ekat::Comm comm(MPI_COMM_WORLD);
 
@@ -24,8 +27,7 @@ TEST_CASE ("bounds_field_test") {
   // Initialize bounds field test
   const std::string bounds_field_test_name = "Test bounds of foo";
   const Real min = 0.0, max = 6.0;
-  const Bounds bounds{min, max};
-  const BoundsFieldTest bounds_field_test(bounds_field_test_name, foo, bounds, comm);
+  const Bounds<Real> bounds{min, max};
   TimeStamp time = {19910701,1000};
 
   // Test BoundsFieldTest

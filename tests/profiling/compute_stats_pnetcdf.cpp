@@ -1,4 +1,3 @@
-#include "profiling/stats/cldera_field_stat_factory.hpp"
 #include "profiling/stats/cldera_field_bounding_box.hpp"
 #include "profiling/stats/cldera_field_pnetcdf_reference.hpp"
 #include "profiling/stats/cldera_field_zonal_mean.hpp"

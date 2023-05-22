@@ -11,13 +11,13 @@
 #include "cldera_field_bounding_box.hpp"
 #include "cldera_field_pnetcdf_reference.hpp"
 #include "cldera_field_zonal_mean.hpp"
-
-#include <ekat/util/ekat_string_utils.hpp>
+#include "cldera_field_vertical_contraction.hpp"
+#include "cldera_field_stat_pipe.hpp"
 
 namespace cldera {
 
-std::shared_ptr<FieldStat>
-create_stat (const ekat::ParameterList& pl, const ekat::Comm& comm) {
+void register_stats ()
+{
   auto& factory = StatFactory::instance();
   factory.register_product("global_max",&create_stat<FieldGlobalMax>);
   factory.register_product("global_min",&create_stat<FieldGlobalMin>);
@@ -36,10 +36,8 @@ create_stat (const ekat::ParameterList& pl, const ekat::Comm& comm) {
   factory.register_product("zonal_mean",&create_stat<FieldZonalMean>);
 
   factory.register_product("pnetcdf_reference",&create_stat<FieldPnetcdfReference>);
-
-  std::shared_ptr<FieldStat> stat;
-  ekat::CaseInsensitiveString type = pl.isParameter("Type") ? pl.get<std::string>("Type") : pl.name();
-  return factory.create(type,comm,pl);
+  factory.register_product("vertical_contraction",&create_stat<FieldVerticalContraction>);
+  factory.register_product("pipe",&create_stat<FieldStatPipe>);
 }
 
 } // namespace cldera

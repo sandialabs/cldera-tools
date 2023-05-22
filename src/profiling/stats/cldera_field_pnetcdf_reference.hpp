@@ -3,7 +3,6 @@
 
 #include "profiling/stats/cldera_field_stat.hpp"
 #include "profiling/stats/cldera_field_stat_utils.hpp"
-#include "profiling/stats/cldera_field_stat_factory.hpp"
 #include "profiling/stats/cldera_field_identity.hpp"
 
 #include "io/cldera_pnetcdf.hpp"
@@ -23,11 +22,11 @@ public:
    : FieldSinglePartStat (comm,pl)
    , m_lat_bounds(pl.get<std::vector<Real>>("Latitude Bounds"))
    , m_lon_bounds(pl.get<std::vector<Real>>("Longitude Bounds"))
+   , m_mask_val(m_params.get("Mask Value",0.0))
    , m_pnetcdf_filename(pl.get<std::string>("Pnetcdf Filename"))
+   , m_time_step_ratio(pl.get<int>("Time Step Ratio"))
    , m_ref_field_name(pl.get<std::string>("Reference Field Name"))
    , m_ref_deviation_name(pl.get<std::string>("Reference Deviation Field Name"))
-   , m_time_step_ratio(pl.get<int>("Time Step Ratio"))
-   , m_mask_val(m_params.get("Mask Value",0.0))
   { /* Nothing to do here */ }
 
   ~FieldPnetcdfReference() {
@@ -35,6 +34,8 @@ public:
   }
 
   std::string type() const override { return "pnetcdf_reference"; }
+
+  FieldLayout stat_layout (const FieldLayout& fl) const { return fl; }
 
   void reset () {
     m_lat = m_lon = m_colgids = nullptr;
@@ -79,16 +80,16 @@ public:
     // we need a decomp to read the file - use the column GIDs from the archive
     // first, make an identity stat to get them on one part
     auto identity_pl = ekat::ParameterList("identity");
-    auto column_stat = create_stat(identity_pl, m_comm);
-    auto column_id_stat = dynamic_cast<FieldIdentity *>(column_stat.get());
-    auto singlepartgids = column_id_stat->compute(*m_colgids);
+    FieldIdentity column_id_stat(m_comm,identity_pl);
+    column_id_stat.set_field(*m_colgids);
+    auto singlepartgids = column_id_stat.compute(TimeStamp());
 
     // second, use the single-part stat to make a decomp
     auto ngids = singlepartgids.layout().size();
     std::vector<int> my_cols(ngids);
-    auto gids = singlepartgids.data<int>();
+    auto gids = singlepartgids.template data<int>();
     std::copy(gids,gids+ngids,my_cols.begin());
-    for(int i=0; i<my_cols.size(); ++i) {
+    for(size_t i=0; i<my_cols.size(); ++i) {
       my_cols[i] = my_cols[i] - 1; // GH: offset column map by 1 since E3SM orders starting at 1, but we need to start at 0
     }
     io::pnetcdf::add_decomp(*m_pnetcdf_file,"ncol",my_cols);
@@ -128,41 +129,41 @@ public:
   }
 
 protected:
-  void compute_impl(const Field& f, Field& stat) const override {
+  void compute_impl() override {
     EKAT_REQUIRE_MSG(m_lat != nullptr && m_lon != nullptr && m_colgids != nullptr,
         "Error! lat/lon/col_gids fields not initialized!\n");
 
-    const int nparts = f.nparts();
+    const int nparts = m_field.nparts();
     EKAT_REQUIRE_MSG(nparts == m_lat->nparts() && nparts == m_lon->nparts() && nparts == m_colgids->nparts(),
-        "Error! Field " + f.name() + " should have the same number of parts as lat/lon/col_gids!\n");
+        "Error! Field " + m_field.name() + " should have the same number of parts as lat/lon/col_gids!\n");
 
-    const auto dt = f.data_type();
+    const auto dt = m_field.data_type();
     if(dt==IntType) {
-      do_compute_impl<int>(f,stat);
+      do_compute_impl<int>();
     } else if(dt==RealType) {
-      do_compute_impl<Real>(f,stat);
+      do_compute_impl<Real>();
     } else {
       EKAT_ERROR_MSG("[FieldPnetcdfReference] Unrecognized/unsupported data type (" + e2str(dt) + ")\n");
     }
   }
 
   template <typename T>
-  void do_compute_impl(const Field& f, Field& stat) const {
+  void do_compute_impl() {
 
     // this increments m_timestep and only updates the data every time_step_ratio steps
     update_refvar_data();
 
     // use the provided strides to make things easier
     // assuming the same strides for the field and the pnetcdf file are applicable
-    const auto& stat_strides = compute_stat_strides(f.layout());
-    auto pnetcdf_reference_field = stat.view_nonconst<T>();
-    const int field_rank = f.layout().rank();
-    const int field_part_dim = f.part_dim();
-    for (int ipart = 0; ipart < f.nparts(); ++ipart) {
-      const auto& field_part_data = f.part_data<const T>(ipart);
+    const auto& stat_strides = compute_stat_strides(m_field.layout());
+    auto pnetcdf_reference_field = m_stat_field.view_nonconst<T>();
+    const int field_rank = m_field.layout().rank();
+    const int field_part_dim = m_field.part_dim();
+    for (int ipart = 0; ipart < m_field.nparts(); ++ipart) {
+      const auto& field_part_data = m_field.part_data<const T>(ipart);
       const auto& lat_part_data = m_lat->part_data<const Real>(ipart);
       const auto& lon_part_data = m_lon->part_data<const Real>(ipart);
-      const auto& field_part_layout = f.part_layout(ipart);
+      const auto& field_part_layout = m_field.part_layout(ipart);
       const auto& field_part_dims = field_part_layout.dims();
       for (int field_part_index = 0; field_part_index < field_part_layout.size(); ++field_part_index) {
         const int stat_index = compute_stat_index(
@@ -206,7 +207,7 @@ protected:
   std::shared_ptr<const Field> m_lat, m_lon, m_colgids;
   
   /// bounds for masking latitude and longitude (radians)
-  const Bounds m_lat_bounds, m_lon_bounds;
+  const Bounds<Real> m_lat_bounds, m_lon_bounds;
   /// mask value (default: 0.0)
   const Real m_mask_val;
   

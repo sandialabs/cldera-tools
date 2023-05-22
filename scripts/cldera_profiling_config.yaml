@@ -18,7 +18,15 @@ Profiling Output:
 Fields To Track: [SO2, H2SO4]
 
 SO2:
-  Compute Stats: [global_max]
+  Compute Stats: [tropo_anomaly]
+  tropo_anomaly:
+    type: piped
+    outer:
+      type: vertical_integral
+      average: true
+      lev_idx_bounds: [1,10]
+    inner:
+      type: pnetcdf
 H2SO4:
   Compute Stats: [global_min]
 ...

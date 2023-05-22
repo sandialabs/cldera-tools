@@ -1,6 +1,6 @@
 #include "cldera_max_field_test.hpp"
 #include "cldera_field.hpp"
-#include "profiling/stats/cldera_field_stat_factory.hpp"
+#include "profiling/stats/cldera_field_stat.hpp"
 
 namespace cldera {
 
@@ -11,12 +11,13 @@ MaxFieldTest::MaxFieldTest(const std::string& name,
 : FieldTest(name, field)
 , m_max(max)
 {
-  m_max_stat = create_stat(ekat::ParameterList("global_max"),comm);
+  m_max_stat = StatFactory::instance().create("global_max",comm,ekat::ParameterList("global_max"));
 }
 
 bool MaxFieldTest::test(const TimeStamp& t)
 {
-  const auto field_max = m_max_stat->compute(*m_field);
+  m_max_stat->set_field(*m_field);
+  const auto field_max = m_max_stat->compute(t);
   if (field_max.data<Real>()[0] > m_max)
   {
     if(m_save_history_on_failure)

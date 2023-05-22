@@ -25,35 +25,32 @@ public:
 
   std::string type () const override { return "zonal_mean"; }
 
-  void reset () {
-    m_lat = m_area = nullptr;
-    m_zonal_area = 0;
-    m_inited = 0;
+  std::vector<std::string> get_aux_fields_names () const {
+    return {"lat", "area"};
   }
-  void initialize (const std::shared_ptr<const Field>& lat, const std::shared_ptr<const Field>& area) {
-    if (m_inited) {
-      return;
-    }
 
-    EKAT_REQUIRE_MSG (lat->name() == "lat" && area->name() == "area",
-        "Error! Field names are not lat, area!\n");
-    m_lat = lat;
-    m_area = area;
+protected:
+  void set_aux_fields_impl (const std::map<std::string,Field>& fields)
+  {
+    m_lat  = fields.at("lat");
+    m_area = fields.at("area");
 
-    const int nparts = m_area->nparts();
-    EKAT_REQUIRE_MSG (nparts == m_lat->nparts(),
+    // Sanity checks
+    const int nparts = m_area.nparts();
+    EKAT_REQUIRE_MSG (nparts == m_lat.nparts(),
         "Error! area should have the same number of parts as lat!\n");
 
-    // Compute zonal area
-    EKAT_REQUIRE_MSG (m_lat->layout().size() == m_area->layout().size(),
+    EKAT_REQUIRE_MSG (m_lat.layout().size() == m_area.layout().size(),
         "Error! lat and area should be the same size!\n");
+
+    // Compute zonal area (the scaling factor of the zonal integral)
     m_zonal_area = 0.0;
     Real c = 0;
     Real temp, y;
     for (int ipart = 0; ipart < nparts; ++ipart) {
-      const auto& part_layout = m_area->part_layout(ipart);
-      const auto& lat_part_data = m_lat->part_data<const Real>(ipart);
-      const auto& area_part_data = m_area->part_data<const Real>(ipart);
+      const auto& part_layout = m_area.part_layout(ipart);
+      const auto& lat_part_data = m_lat.part_data<const Real>(ipart);
+      const auto& area_part_data = m_area.part_data<const Real>(ipart);
       for (int part_index = 0; part_index < part_layout.size(); ++part_index) {
         const Real lat_val = lat_part_data[part_index];
         if (lat_val > m_lat_bounds.min && lat_val < m_lat_bounds.max) {
@@ -65,53 +62,52 @@ public:
       }
     }
     track_mpi_all_reduce(m_comm,&m_zonal_area,1,MPI_SUM,name()+"_initialize");
-    EKAT_REQUIRE_MSG (m_zonal_area>0,
-        "Error! Zonal area is zero for stat '" + name() + "'!\n");
-
-    m_inited = true;
+    EKAT_REQUIRE_MSG (m_zonal_area > 0,
+        "Error! Zonal area should be positive.\n"
+        " - stat name : " << name() << "\n"
+        " - zonal area: " << m_zonal_area << "\n");
   }
 
-protected:
-  void compute_impl (const Field& f, Field& stat) const override {
-    EKAT_REQUIRE_MSG (m_lat != nullptr && m_area != nullptr,
+  void compute_impl () override {
+    EKAT_REQUIRE_MSG (m_aux_fields_set,
         "Error! lat/area fields not initialized!\n");
 
-    const int nparts = f.nparts();
-    EKAT_REQUIRE_MSG (nparts == m_lat->nparts() && nparts == m_area->nparts(),
-        "Error! Field " + f.name() + " should have the same number of parts as lat/area!\n");
+    const int nparts = m_field.nparts();
+    EKAT_REQUIRE_MSG (nparts == m_lat.nparts() && nparts == m_area.nparts(),
+        "Error! Field " + m_field.name() + " should have the same number of parts as lat/area!\n");
 
-    const auto dt = f.data_type();
+    const auto dt = m_field.data_type();
     if (dt==IntType) {
-      do_compute_impl<int>(f,stat);
+      do_compute_impl<int>();
     } else if (dt==RealType) {
-      do_compute_impl<Real>(f,stat);
+      do_compute_impl<Real>();
     } else {
       EKAT_ERROR_MSG ("[FieldZonalMean] Unrecognized/unsupported data type (" + e2str(dt) + ")\n");
     }
   }
 
   template <typename T>
-  void do_compute_impl (const Field& f, Field& stat) const {
-    const auto& stat_strides = compute_stat_strides(f.layout());
+  void do_compute_impl () {
+    const auto& stat_strides = compute_stat_strides(m_field.layout());
 
-    auto temp_c = view_1d_host<T>("temp_c", stat.layout().size());
-    auto stat_view = stat.view_nonconst<T>();
+    auto temp_c = view_1d_host<T>("temp_c", m_stat_field.layout().size());
+    auto stat_view = m_stat_field.view_nonconst<T>();
     Kokkos::deep_copy(temp_c, 0);
     Kokkos::deep_copy(stat_view, 0);
 
     // Determine if field has levels
-    const int field_rank = f.layout().rank();
-    const auto& field_names = f.layout().names();
+    const int field_rank = m_field.layout().rank();
+    const auto& field_names = m_field.layout().names();
     const int field_level_dim = std::distance(field_names.begin(), std::find(field_names.begin(), field_names.end(), "lev"));
     const bool has_lev = not (field_level_dim == field_rank);
 
     T temp, y;
-    const int field_part_dim = f.part_dim();
-    for (int ipart = 0; ipart < f.nparts(); ++ipart) {
-      const auto& field_part_data = f.part_data<const T>(ipart);
-      const auto& lat_part_data = m_lat->part_data<const Real>(ipart);
-      const auto& area_part_data = m_area->part_data<const Real>(ipart);
-      const auto& field_part_layout = f.part_layout(ipart);
+    const int field_part_dim = m_field.part_dim();
+    for (int ipart = 0; ipart < m_field.nparts(); ++ipart) {
+      const auto& field_part_data = m_field.part_data<const T>(ipart);
+      const auto& lat_part_data = m_lat.part_data<const Real>(ipart);
+      const auto& area_part_data = m_area.part_data<const Real>(ipart);
+      const auto& field_part_layout = m_field.part_layout(ipart);
       const auto& field_part_dims = field_part_layout.dims();
       for (int field_part_index = 0; field_part_index < field_part_layout.size(); ++field_part_index) {
         if (has_lev) {
@@ -133,15 +129,15 @@ protected:
       }
     }
     // Clock MPI ops
-    track_mpi_all_reduce(m_comm,stat_view.data(),stat.layout().size(),MPI_SUM,name());
+    track_mpi_all_reduce(m_comm,stat_view.data(),m_stat_field.layout().size(),MPI_SUM,name());
     for (int i = 0; i < stat_view.size(); ++i)
       stat_view(i) /= m_zonal_area;
   }
 
-  const Bounds m_lat_bounds, m_lev_bounds;
-  std::shared_ptr<const Field> m_lat, m_area;
+  const Bounds<Real> m_lat_bounds, m_lev_bounds;
+  const ekat::Comm m_comm;
+  Field m_lat, m_area;
   Real m_zonal_area = 0.0;
-  bool m_inited = false;
 };
 
 } // namespace cldera

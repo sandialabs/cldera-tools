@@ -14,19 +14,19 @@ public:
    : FieldStat(comm,pl)
   { /* Nothing to do here */ }
 
-  std::string type () const { return "identity"; }
+  std::string type () const override { return "identity"; }
 
   // Given a field, return the layout that the computed stat will have
-  FieldLayout stat_layout (const FieldLayout& field_layout) const {
+  FieldLayout stat_layout (const FieldLayout& field_layout) const override {
     return field_layout;
   }
 
-  void compute_impl (const Field& f, Field& stat) const {
-    const auto dt = f.data_type();
+  void compute_impl () override {
+    const auto dt = m_field.data_type();
     if (dt==IntType) {
-      do_compute_impl<int>(f,stat);
+      do_compute_impl<int>();
     } else if (dt==RealType) {
-      do_compute_impl<Real>(f,stat);
+      do_compute_impl<Real>();
     } else {
       EKAT_ERROR_MSG ("[FieldIdentity] Unrecognized/unsupported data type (" + e2str(dt) + ")\n");
     }
@@ -36,22 +36,22 @@ private:
   using view_Nd_host = typename KokkosTypesHost::template view_ND<T,N>;
 
   template<typename T>
-  void do_compute_impl (const Field& f, Field& stat) const {
+  void do_compute_impl () {
     using pair_t = Kokkos::pair<int,int>;
     constexpr auto ALL = Kokkos::ALL();
 
-    auto stat_data = stat.data_nonconst<T>();
-    const int rank = f.layout().rank();
-    const auto& fdims = f.layout().dims();
+    auto stat_data = m_stat_field.data_nonconst<T>();
+    const int rank = m_field.layout().rank();
+    const auto& fdims = m_field.layout().dims();
 
-    const int nparts = f.nparts();
-    const int part_dim = f.part_dim();
+    const int nparts = m_field.nparts();
+    const int part_dim = m_field.part_dim();
     int part_start = 0;
     for (int p=0; p<nparts; ++p) {
-      const auto& part_layout = f.part_layout(p);
+      const auto& part_layout = m_field.part_layout(p);
       const int part_size = part_layout.dims()[part_dim];
       const int part_end = part_start + part_size;
-      auto fpart_data = f.part_data<const T>(p);
+      auto fpart_data = m_field.part_data<const T>(p);
       switch (rank) {
         case 1:
         {
@@ -92,7 +92,7 @@ private:
         }
         default:
           EKAT_ERROR_MSG ("[FieldIdentity] Unsupported field rank\n"
-              "  - field name: " + f.name() + "\n"
+              "  - field name: " + m_field.name() + "\n"
               "  - field rank: " + std::to_string(rank) + "\n");
       }
       part_start = part_end;

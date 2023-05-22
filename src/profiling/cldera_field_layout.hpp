@@ -3,8 +3,6 @@
 
 #include "cldera_profiling_types.hpp"
 
-#include <ekat/ekat_assert.hpp>
-
 #include <vector>
 #include <string>
 
@@ -23,20 +21,7 @@ public:
   FieldLayout () = default;
 
   FieldLayout (const std::vector<int>& dims,
-               const std::vector<std::string>& names)
-  {
-    for (auto d : dims) {
-      EKAT_REQUIRE_MSG (d>0, "Error! Invalid dimension (" + std::to_string(d) + "\n");
-    }
-    m_dims = dims;
-
-    EKAT_REQUIRE_MSG (names.size()==m_dims.size(),
-        "Error! Size of names and dims array must match.\n");
-    m_names = names;
-    for (int i=0; i<rank(); ++i) {
-      m_kokkos_layout.dimension[i] = m_dims[i];
-    }
-  }
+               const std::vector<std::string>& names);
 
   const std::vector<int>& dims () const { return m_dims; }
   const std::vector<std::string>& names () const { return m_names; }
@@ -44,14 +29,15 @@ public:
   int extent (const int i) const { return m_dims[i]; }
   std::string name (const int i) const { return m_names[i]; }
 
+  int dim_idx (const std::string& name) const;
   int rank () const { return dims().size(); }
-  long long size () const {
-    long long s = 1;
-    for (auto d : dims()) {
-      s *= d;
-    }
-    return s;
-  }
+  long long size () const;
+
+  bool has_dim_name (const std::string& name) const;
+
+  FieldLayout strip_dim (const std::string& name) const;
+
+  int extent (const std::string& name);
 
   Kokkos::LayoutRight kokkos_layout () const { return m_kokkos_layout; }
 

@@ -1,6 +1,6 @@
 #include "cldera_min_field_test.hpp"
 #include "cldera_field.hpp"
-#include "profiling/stats/cldera_field_stat_factory.hpp"
+#include "profiling/stats/cldera_field_stat.hpp"
 
 namespace cldera {
 
@@ -11,12 +11,13 @@ MinFieldTest::MinFieldTest(const std::string& name,
 : FieldTest(name, field)
 , m_min(min)
 {
-  m_min_stat = create_stat(ekat::ParameterList("global_min"),comm);
+  m_min_stat = StatFactory::instance().create("global_min",comm,ekat::ParameterList("global_min"));
 }
 
 bool MinFieldTest::test(const TimeStamp& t)
 {
-  const auto field_min = m_min_stat->compute(*m_field);
+  m_min_stat->set_field(*m_field);
+  const auto field_min = m_min_stat->compute(t);
   if (field_min.data<Real>()[0] < m_min)
   {
     if(m_save_history_on_failure)

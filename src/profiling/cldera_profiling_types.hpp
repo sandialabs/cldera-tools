@@ -18,20 +18,24 @@ using KokkosTypesHost = ekat::KokkosTypes<ekat::HostDevice>;
 template<typename T, typename MT = Kokkos::MemoryManaged>
 using view_1d_host = typename KokkosTypesHost::template view_1d<T,MT>;
 
+template<typename T, int N, typename MT = Kokkos::MemoryManaged>
+using view_Nd_host = typename KokkosTypesHost::template view_ND<T,N,MT>;
+
 // A pair used to store min/max bounds
+template<typename T>
 struct Bounds {
   Bounds () = default;
-  Bounds (const Real min_, const Real max_)
+  Bounds (const T min_, const T max_)
    : min(min_), max(max_) {}
 
-  Bounds (const std::vector<Real>& bounds) {
+  Bounds (const std::vector<T>& bounds) {
     EKAT_REQUIRE_MSG (bounds.size()==2,
         "Error! Invalid size for bounds vector (" << bounds.size() << ").\n");
     min = bounds[0];
     max = bounds[1];
   }
-  Real min;
-  Real max;
+  T min;
+  T max;
 };
 
 // Type of statistics to be tracked on a Field

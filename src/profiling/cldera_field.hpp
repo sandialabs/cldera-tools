@@ -101,6 +101,15 @@ public:
   template<typename T>
   view_1d_host<      T> view_nonconst ();
 
+  template<typename T,int N>
+  view_Nd_host<const T,N> part_nd_view (const int ipart) const;
+  template<typename T,int N>
+  view_Nd_host<      T,N> part_nd_view_nonconst (const int ipart);
+  template<typename T,int N>
+  view_Nd_host<const T,N> nd_view () const;
+  template<typename T,int N>
+  view_Nd_host<      T,N> nd_view_nonconst ();
+
   // Get raw data
   template<typename T>
   const T* part_data (const int ipart) const;
@@ -305,6 +314,61 @@ Field::view_nonconst ()
 {
   check_single_part("view_nonconst");
   return part_view_nonconst<T>(0);
+}
+
+template<typename T, int N>
+view_Nd_host<const T,N>
+Field::part_nd_view (const int ipart) const
+{
+  EKAT_REQUIRE_MSG (m_committed,
+      "Error! Field '" + m_name + "' was not committed yet.\n");
+  EKAT_REQUIRE_MSG (N==m_layout.rank(),
+      "Error! Field::part_nd_view requires template arg N to match the field rank.\n"
+      " - field name: " + name() + "\n"
+      " - field rank: " + std::to_string(m_layout.rank()) + "\n"
+      " - input N   : " + std::to_string(N) + "\n");
+
+  check_data_type<T>();
+  check_part_idx(ipart);
+
+  const auto data = char2ptr<const T>(m_data[ipart].data());
+  return view_Nd_host<const T,N>(data,part_layout(ipart).kokkos_layout());
+}
+
+template<typename T, int N>
+view_Nd_host<T,N>
+Field::part_nd_view_nonconst (const int ipart)
+{
+  EKAT_REQUIRE_MSG (m_committed,
+      "Error! Field '" + m_name + "' was not committed yet.\n");
+  EKAT_REQUIRE_MSG (N==m_layout.rank(),
+      "Error! Field::part_nd_view requires template arg N to match the field rank.\n"
+      " - field name: " + name() + "\n"
+      " - field rank: " + std::to_string(m_layout.rank()) + "\n"
+      " - input N   : " + std::to_string(N) + "\n");
+
+
+  check_data_type<T>();
+  check_part_idx(ipart);
+
+  const auto data = char2ptr<T>(m_data_nonconst[ipart].data());
+  return view_Nd_host<T,N>(data,part_layout(ipart).kokkos_layout());
+}
+
+template<typename T, int N>
+view_Nd_host<const T,N>
+Field::nd_view () const
+{
+  check_single_part("view");
+  return part_nd_view<const T,N>(0);
+}
+
+template<typename T, int N>
+view_Nd_host<T,N>
+Field::nd_view_nonconst ()
+{
+  check_single_part("view_nonconst");
+  return part_nd_view_nonconst<T,N>(0);
 }
 
 template<typename T>

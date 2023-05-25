@@ -46,19 +46,46 @@ target_include_directories (cldera-profiling
 )
 
 set (CLDERA_PROFILING_HEADERS
+  cldera_bounds_field_test.hpp
+  cldera_data_type.hpp
   cldera_field.hpp
   cldera_field_layout.hpp
-  cldera_profiling_session.hpp
+  cldera_field_test.hpp
+  cldera_field_test_factory.hpp
+  cldera_graph.hpp
+  cldera_graph_factory.hpp
+  cldera_graph_vertex.hpp
+  cldera_max_field_test.hpp
+  cldera_min_field_test.hpp
+  cldera_mpi_timing_wrappers.hpp
+  cldera_pathway.hpp
+  cldera_pathway_factory.hpp
   cldera_profiling_archive.hpp
   cldera_profiling_interface.hpp
+  cldera_profiling_session.hpp
   cldera_profiling_test_manager.hpp
   cldera_profiling_types.hpp
-  stats/cldera_field_stat.hpp
+  cldera_time_stamp.hpp
+  stats/cldera_field_avg_along_columns.hpp
+  stats/cldera_field_bounded.hpp
+  stats/cldera_field_bounding_box.hpp
+  stats/cldera_field_global_avg.hpp
   stats/cldera_field_global_max.hpp
   stats/cldera_field_global_min.hpp
   stats/cldera_field_global_sum.hpp
-  stats/cldera_field_global_avg.hpp
-  stats/cldera_field_stat_factory.hpp
+  stats/cldera_field_identity.hpp
+  stats/cldera_field_masked_integral.hpp
+  stats/cldera_field_max_along_columns.hpp
+  stats/cldera_field_min_along_columns.hpp
+  stats/cldera_field_pnetcdf_reference.hpp
+  stats/cldera_field_stat.hpp
+  stats/cldera_field_stat_along_axis.hpp
+  stats/cldera_field_stat_pipe.hpp
+  stats/cldera_field_stat_utils.hpp
+  stats/cldera_field_sum_along_columns.hpp
+  stats/cldera_field_vertical_contraction.hpp
+  stats/cldera_field_zonal_mean.hpp
+  stats/cldera_register_stats.hpp
 )
 set_target_properties (cldera-profiling PROPERTIES
   PUBLIC_HEADER "${CLDERA_PROFILING_HEADERS}")

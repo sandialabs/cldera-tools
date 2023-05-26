@@ -25,12 +25,33 @@ public:
     return m_outer->stat_layout(m_inner->stat_layout(fl));
   }
 
+  std::vector<std::string> get_aux_fields_names () const {
+    std::vector<std::string> aux_fnames;
+    for (const auto& it : m_outer->get_aux_fields_names()) {
+      aux_fnames.push_back(it);
+    }
+    for (const auto& it : m_inner->get_aux_fields_names()) {
+      aux_fnames.push_back(it);
+    }
+
+    // sort and remove duplicates
+    std::sort(aux_fnames.begin(),aux_fnames.end());
+    auto it = std::unique(aux_fnames.begin(),aux_fnames.end());
+    aux_fnames.erase(it,aux_fnames.end());
+    return aux_fnames;
+  }
+
 protected:
 
   void set_field_impl (const Field& f) {
     m_inner->set_field(f);
     m_outer->set_field(m_inner->get_stat_field());
     m_stat_field = m_outer->get_stat_field();
+  }
+
+  void set_aux_fields_impl (const std::map<std::string,Field>& fields) {
+    m_outer->set_aux_fields(fields);
+    m_inner->set_aux_fields(fields);
   }
 
   void compute_impl () {

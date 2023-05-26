@@ -34,8 +34,8 @@ public:
     auto names = fl.names();
     auto dims  = fl.dims();
     auto pos = fl.dim_idx(masked_dim);
-    names[pos] = m_mask_field.name();
     dims[pos] = m_mask_val_to_stat_entry.size();
+    names[pos] = "dim" + std::to_string(dims[pos]);
     return FieldLayout(dims,names);
   }
 
@@ -145,7 +145,7 @@ protected:
         // Offset of part-index into the unpartitioned field
         int offset = 0;
 
-        auto sview = m_stat_field.nd_view_nonconst<T,1>();
+        auto sview = m_stat_field.nd_view_nonconst<Real,1>();
 
         // Loop over input field parts
         for (int p=0; p<m_field.nparts(); ++p) {
@@ -157,7 +157,7 @@ protected:
 
           // Loop over entries of this part
           for (int i=0; i<fpl.dims()[0]; ++i) {
-            midx = m(offset+i);
+            midx = m_mask_val_to_stat_entry.at(m(offset+i));
 
             // Update field (weighted) integral (and weight integral)
             if (m_use_weight) {
@@ -182,7 +182,7 @@ protected:
         int offset_j = 0;
 
         // Init stat to 0
-        auto sview = m_stat_field.nd_view_nonconst<T,2>();
+        auto sview = m_stat_field.nd_view_nonconst<Real,2>();
         Kokkos::deep_copy(sview,0);
 
         // Loop over input field parts
@@ -242,7 +242,7 @@ protected:
         int offset_k = 0;
 
         // Init stat to 0
-        auto sview = m_stat_field.nd_view_nonconst<T,3>();
+        auto sview = m_stat_field.nd_view_nonconst<Real,3>();
         Kokkos::deep_copy(sview,0);
 
         // Loop over input field parts
@@ -308,7 +308,6 @@ protected:
         EKAT_ERROR_MSG ("Error! [FieldMaskedIntegral] Unsupported field rank (" + std::to_string (fl.rank()) + ")\n");
     }
   }
-
 
   // The mask field
   Field         m_mask_field;

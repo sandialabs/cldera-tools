@@ -10,7 +10,7 @@ def parse_command_line(args, description):
 ###############################################################################
     parser = argparse.ArgumentParser(
         usage="""
-  {0} -i file_in -o file_out
+  {0} -i file_in -m file_out
     OR
   {0} --help\n\n
 """.format(pathlib.Path(args[0]).name),
@@ -66,7 +66,7 @@ def create_ipcc_masks(input_filename,mask_filename,overwrite):
             {
                 "lat" : lat,
                 "lon" : lon,
-                "mask" : mask
+                "mask" : xr.Variable('ncol',mask)
             }
     )
     ds_out.to_netcdf(path=f_out)

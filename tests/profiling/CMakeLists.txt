@@ -49,6 +49,9 @@ EkatCreateUnitTest (vertical_contraction vertical_contraction.cpp
 EkatCreateUnitTest (piped_stats piped_stats.cpp
   LIBS cldera-profiling ekat)
 
+EkatCreateUnitTest (masked_integral masked_integral.cpp
+  LIBS cldera-profiling ekat)
+
 # Test Pathway
 EkatCreateUnitTest (pathway pathway.cpp
   LIBS cldera-profiling ekat)

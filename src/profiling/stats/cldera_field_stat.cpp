@@ -28,7 +28,7 @@ set_field (const Field& f) {
       " - stat name : " + name() + "\n"
       " - field name: " + f.name() + "\n");
   m_field = f;
-  m_stat_field = Field (f.name() + "_" + name(), stat_layout(f.layout()), DataAccess::Copy, stat_data_type());
+  m_stat_field = Field (name(), stat_layout(f.layout()), DataAccess::Copy, stat_data_type());
   m_stat_field.commit();
 
   set_field_impl (f);

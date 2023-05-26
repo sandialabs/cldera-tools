@@ -609,6 +609,7 @@ void add_var (      NCFile& file,
   var->nrecords = 0;
   std::vector<int> dims_ids;
 
+  var->size = 1;
   for (const auto& d : dims) {
     EKAT_REQUIRE_MSG (has_dim(file,d),
         "Error! Could not add variable to NC file. Dimension '" + d + "' not in file.\n"
@@ -621,6 +622,7 @@ void add_var (      NCFile& file,
 
     auto dim = file.dims.at(d);
     var->dims.push_back(file.dims.at(d));
+    var->size *= dim->len;
   }
 
   var->compute_extents ();

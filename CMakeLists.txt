@@ -54,10 +54,13 @@ if (CLDERA_ENABLE_TESTS)
 
   # System tests
   add_subdirectory (tests)
-endif()
 
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/data/sample_database.nc
-  DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/data)
+  file(COPY        ${CMAKE_CURRENT_SOURCE_DIR}/data/ipcc_mask_ne4pg2.nc
+       DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/data)
+  file(COPY        ${CMAKE_CURRENT_SOURCE_DIR}/data/sample_database.nc
+       DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/data)
+
+endif()
 
 ###########################################
 ###   Package CLDERA as a CMake package   ###

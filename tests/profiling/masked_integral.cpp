@@ -82,6 +82,7 @@ TEST_CASE ("vertical_contraction") {
     }
     return fr;
   };
+  auto mask_real = int2real(mask,"w");
 
   auto extrude_mask = [&](const std::string& name, const int nlevs, const bool lev_dim_first) {
     const auto& ml = mask.layout();
@@ -113,7 +114,33 @@ TEST_CASE ("vertical_contraction") {
     return f;
   };
 
-  SECTION ("2d_no_w") {
+  // Also write results to file, so we can use it for downstream unit tests
+  auto ofile = io::pnetcdf::open_file("results.nc",comm,io::pnetcdf::IOMode::Write);
+  io::pnetcdf::add_dim(*ofile,"lev",nlevs,false);
+  io::pnetcdf::add_dim(*ofile,"ncol",ncol,false);
+  io::pnetcdf::add_dim(*ofile,stat_dim_name,num_regions,false);
+
+  io::pnetcdf::add_time(*ofile,"double");
+  io::pnetcdf::add_var(*ofile,"s2d_no_w","double",{stat_dim_name},true);
+  io::pnetcdf::add_var(*ofile,"s2d_w","double",{stat_dim_name},true);
+  io::pnetcdf::add_var(*ofile,"s3d_no_w","double",{lev_name,stat_dim_name},true);
+  io::pnetcdf::add_var(*ofile,"s3d_w","double",{lev_name,stat_dim_name},true);
+  io::pnetcdf::add_var(*ofile,"mask","double",{"ncol"},false);
+  io::pnetcdf::add_var(*ofile,"mask_ids","int",{stat_dim_name},false);
+
+  io::pnetcdf::enddef(*ofile);
+
+  // Write mask, and mask values
+  io::pnetcdf::write_var(*ofile,"mask",mask_real.data<Real>());
+  std::vector<int> mask_ids;
+  for (int i=0; i<ncol; ++i) {
+    if (std::find(mask_ids.begin(),mask_ids.end(),mask_data[i])==mask_ids.end()) {
+      mask_ids.push_back(mask_data[i]);
+    }
+  }
+  io::pnetcdf::write_var(*ofile,"mask_ids",mask_ids.data());
+
+  {
     // Integrate mask field itself
     auto stat = create_stat(mask);
     auto out = stat->compute(time);
@@ -132,11 +159,11 @@ TEST_CASE ("vertical_contraction") {
       REQUIRE (out_data(idx) == mid*n);
       ++idx;
     }
+    io::pnetcdf::write_var(*ofile,"s2d_no_w",out_data.data());
   }
 
-  SECTION ("2d_w") {
+  {
     // Integrate mask field itself, using mask itself as a weight
-    auto mask_real = int2real(mask,"w");
     auto stat = create_stat(mask,&mask_real);
     auto out = stat->compute(time);
 
@@ -154,9 +181,10 @@ TEST_CASE ("vertical_contraction") {
       REQUIRE (out_data(idx) == mid*mid*n);
       ++idx;
     }
+    io::pnetcdf::write_var(*ofile,"s2d_w",out_data.data());
   }
 
-  SECTION ("3d_no_w") {
+  {
     // Integrate a field where f(lev,col) = lev*mask(col)
     for (bool lev_dim_first : {true, false}) { 
       auto f = extrude_mask ("f3d",nlevs,lev_dim_first);
@@ -189,12 +217,15 @@ TEST_CASE ("vertical_contraction") {
         }
         ++idx;
       }
+      if (lev_dim_first) {
+        // Do this only for 'normal' e3sm layout
+          io::pnetcdf::write_var(*ofile,"s3d_no_w",out_data.data());
+      }
     }
   }
 
-  SECTION ("3d_w") {
+  {
     // Integrate a field where f(lev,col) = lev*mask(col), using mask itself as a weight
-    auto mask_real = int2real(mask,"w");
     for (bool lev_dim_first : {true, false}) { 
       auto f = extrude_mask ("f3d",nlevs,lev_dim_first);
 
@@ -226,6 +257,12 @@ TEST_CASE ("vertical_contraction") {
         }
         ++idx;
       }
+      if (lev_dim_first) {
+        // Do this only for 'normal' e3sm layout
+          io::pnetcdf::write_var(*ofile,"s3d_w",out_data.data());
+      }
     }
   }
+  io::pnetcdf::update_time(*ofile,1.0);
+  io::pnetcdf::close_file(*ofile);
 }

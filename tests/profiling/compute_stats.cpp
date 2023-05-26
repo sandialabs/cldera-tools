@@ -47,6 +47,7 @@ TEST_CASE ("stats_tests") {
       auto stat = StatFactory::instance().create(type,comm,pl);
       REQUIRE_THROWS (stat->compute(time)); // field not set yet
       stat->set_field(f);
+      stat->create_stat_field();
       stat_fields.emplace(sname,stat->compute(time));
 
       expected.emplace(sname,Field(sname,stat_fields.at(sname).layout(),DataAccess::Copy));
@@ -76,6 +77,7 @@ TEST_CASE ("stats_tests") {
 
     auto stat = StatFactory::instance().create("global_sum",comm,ekat::ParameterList("global_sum"));
     stat->set_field(f);
+    stat->create_stat_field();
     const auto computed = stat->compute(time).data<int>()[0];
     const auto expected = (dim0+1)*dim0/2;
     REQUIRE (computed==expected);
@@ -100,6 +102,7 @@ TEST_CASE ("stats_tests") {
     for (auto sname : stats_names) {
       auto stat = StatFactory::instance().create(sname,comm,ekat::ParameterList(sname));
       stat->set_field(f);
+      stat->create_stat_field();
       stat_fields.emplace(sname, stat->compute(time));
       expected.emplace(sname, Field(sname, stat_fields.at(sname).layout(), DataAccess::Copy));
       expected.at(sname).commit();
@@ -146,6 +149,7 @@ TEST_CASE ("stats_tests") {
     for (auto sname : stats_names) {
       auto stat = StatFactory::instance().create(sname,comm,ekat::ParameterList(sname));
       stat->set_field(foo);
+      stat->create_stat_field();
       stat_fields.emplace(sname, stat->compute(time));
       expected.emplace(sname, Field(sname, stat_fields.at(sname).layout(), DataAccess::Copy));
       expected.at(sname).commit();
@@ -189,6 +193,7 @@ TEST_CASE ("stats_tests") {
     bounded_pl.set<std::vector<Real>>("Bounds", {12.1, 20.1});
     const auto bounded_stat = StatFactory::instance().create("bounded",comm,bounded_pl);
     bounded_stat->set_field(foo);
+    bounded_stat->create_stat_field();
     const auto bounded_field = bounded_stat->compute(time);
     const Real bounded_expected[] = {
         0.0, 0.0, 0.0, 13.0,
@@ -234,11 +239,12 @@ TEST_CASE ("stats_tests") {
     bounding_box_pl.set<std::vector<Real>>("Longitude Bounds", {0.0, 1.0});
     auto bounding_box_stat = StatFactory::instance().create("bounding_box",comm,bounding_box_pl);
     bounding_box_stat->set_field(foo);
-    REQUIRE_THROWS(bounding_box_stat->compute(time)); // set_aux_fields() required
+    REQUIRE_THROWS(bounding_box_stat->create_stat_field()); // set_aux_fields() required
     REQUIRE_THROWS(bounding_box_stat->set_aux_fields(dum_lat, dum_lon)); // dum_lat wrong name
     bounding_box_stat->set_aux_fields(lat, dum_lon);
     REQUIRE_THROWS(bounding_box_stat->compute(time)); // dum_lon wrong size
     bounding_box_stat->set_aux_fields(lat, lon);
+    bounding_box_stat->create_stat_field();
     const auto bounding_box_field = bounding_box_stat->compute(time);
     const Real bounding_box_expected[] = {
         0.0, 0.0, 12.0, 0.0,
@@ -272,10 +278,11 @@ TEST_CASE ("stats_tests") {
     zonal_mean_pl.set<std::vector<Real>>("Latitude Bounds", {0.0, 1.0});
     auto zonal_mean_stat = StatFactory::instance().create("zonal_mean",comm,zonal_mean_pl);
     zonal_mean_stat->set_field(foo);
-    REQUIRE_THROWS(zonal_mean_stat->compute(time)); // set_aux_fields() required
+    REQUIRE_THROWS(zonal_mean_stat->create_stat_field()); // set_aux_fields() required
     REQUIRE_THROWS(zonal_mean_stat->set_aux_fields(dum_lat, dum_area)); // dum_lat wrong name
     REQUIRE_THROWS(zonal_mean_stat->set_aux_fields(lat, dum_area)); // dum_area wrong size
     zonal_mean_stat->set_aux_fields(lat, area);
+    zonal_mean_stat->create_stat_field();
     const auto zonal_mean_field = zonal_mean_stat->compute(time);
     const Real zonal_area = area_data[1] + area_data[2];
     const Real zonal_mean_expected[] = {

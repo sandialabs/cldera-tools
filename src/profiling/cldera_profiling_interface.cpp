@@ -301,6 +301,7 @@ void cldera_commit_all_fields_c ()
         aux_fields[fn] = archive.get_field(fn);
       }
       stat->set_aux_fields(aux_fields);
+      stat->create_stat_field();
       req_stats.push_back(stat);
     }
   }

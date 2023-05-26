@@ -131,10 +131,13 @@ TEST_CASE ("vertical_contraction") {
   // s2d_masked, s3d_masked, v3d_masked
   std::map<std::string,Field> tgt_stats;
   sum_stat->set_field(s2d_masked);
+  sum_stat->create_stat_field ();
   tgt_stats[s2d.name()] = sum_stat->compute(time);
   sum_stat->set_field(s3d_masked);
+  sum_stat->create_stat_field ();
   tgt_stats[s3d.name()] = sum_stat->compute(time);
   sum_stat->set_field(v3d_masked);
+  sum_stat->create_stat_field ();
   tgt_stats[v3d.name()] = sum_stat->compute(time);
 
   std::map<std::string,Field> aux_fields =
@@ -165,6 +168,7 @@ TEST_CASE ("vertical_contraction") {
 
       stat->set_field(f);
       stat->set_aux_fields(aux_fields);
+      stat->create_stat_field ();
       auto stat_f = stat->compute(time);
       const auto& tgt_f = tgt_stats.at(f.name());
 

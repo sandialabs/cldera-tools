@@ -25,6 +25,13 @@ public:
     return m_outer->stat_layout(m_inner->stat_layout(fl));
   }
 
+  void create_stat_field () {
+    m_inner->create_stat_field ();
+    m_outer->set_field(m_inner->get_stat_field());
+    m_outer->create_stat_field();
+    m_stat_field = m_outer->get_stat_field();
+  }
+
   std::vector<std::string> get_aux_fields_names () const {
     std::vector<std::string> aux_fnames;
     for (const auto& it : m_outer->get_aux_fields_names()) {
@@ -45,8 +52,6 @@ protected:
 
   void set_field_impl (const Field& f) {
     m_inner->set_field(f);
-    m_outer->set_field(m_inner->get_stat_field());
-    m_stat_field = m_outer->get_stat_field();
   }
 
   void set_aux_fields_impl (const std::map<std::string,Field>& fields) {

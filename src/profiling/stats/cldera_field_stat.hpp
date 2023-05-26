@@ -52,6 +52,9 @@ public:
 
   const Field& get_stat_field () const { return m_stat_field; }
 
+  // Virtual, in case derived classes need to add more stuff
+  virtual void create_stat_field ();
+
 protected:
   // If derived classes need to perform some additional setup steps when setting the field,
   // they can override this method

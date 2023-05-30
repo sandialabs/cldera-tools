@@ -51,7 +51,7 @@ def parse_command_line(args, description):
                         help="Location of the nc file with masks for the regions where var is defined")
     parser.add_argument("-n","--mask-name", default=None,
                         help="Name of the mask variable in mask file")
-    parser.add_argument("-t","--time",default=None,
+    parser.add_argument("-t","--time",default=None,type=int,
                         help="Single time frame to use when producing an image")
     parser.add_argument("varname",
                         help="Variable to plot")
@@ -104,11 +104,13 @@ def plot_over_ipcc_regions(input_filename,radians,lev,output_filename,mask_file,
     ndims = len(dims)
     expect(ndims<=3, f"Unsupported variable layout: {dims}.")
     has_time = 'time' in dims
+    expect (time is None or has_time, f"Flag -t/--time was used for non-time-dependent variable '{varname}{dims}'.",ValueError)
     if has_time:
         time_dim = ds.variables['time']
         nt = len(time_dim[:])
         time_dim = dims.index('time')
         expect(time_dim==0,f"We expect time to be the slowest dim, but layout is {dims}",ValueError)
+        expect (time is None or (time>=0 and time<nt),f"Input time slice ({time}) out of bounds: [0,{nt})")
     has_ncol = 'ncol' in dims
     if has_ncol:
         ncol_dim = dims.index('ncol')
@@ -168,14 +170,12 @@ def plot_over_ipcc_regions(input_filename,radians,lev,output_filename,mask_file,
             writer = animation.writers['ffmpeg'](fps=10)
             ani.save("movie.mp4" if output_filename is None else  output_filename,writer=writer,dpi=dpi)
     else:
-        print("CREATE HEAT MAP")
         # We need to create a "heat map"
         def create_data_2d(data):
             data2d = np.zeros((ncols))
             for i in range(0,ncols):
                 mval = int(mask[i])
                 idx = m2idx[mval]
-                print (f"col={i},mask={mask[i]},lat={lat[i]},lon={lon[i]}")
                 data2d[i] = data[idx]
             return data2d
         do_contour(create_data_2d(get_data_at_time(0)),True)

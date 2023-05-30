@@ -70,7 +70,7 @@ def plot_over_ipcc_regions(input_filename,radians,lev,output_filename,mask_file,
     ax = plt.axes(projection=ccrs.EckertIII())
     ax.coastlines()
     ax.set_global()
-
+    ax.gridlines(xlocs=range(-180,180,60), ylocs=range(-90,90,30),draw_labels=True)
     #  Overlay IPCC regions
     ar6 = rm.defined_regions.ar6.all
     text_kws = dict(
@@ -92,18 +92,18 @@ def plot_over_ipcc_regions(input_filename,radians,lev,output_filename,mask_file,
     min_lat = np.amin(lat);
     min_lon = np.amin(lon);
     if min_lon >= 0:
-        print (f" -> min_lon: {min_lon}. Subtracting 180, to get it in [-180,180]")
-        lon = lon - 180
+        print (f" -> min_lon: {min_lon}. Wrapping longitude around, to get it in [-180,180]")
+        lon = ((lon+180) % 360) - 180
     if min_lat >= 0:
-        print (f" -> min_lat: {min_lat}. Subtracting 90, to get it in [-90,90]")
-        lat = lat - 90
+        print (f" -> min_lat: {min_lat}. Wrapping latitude around, to get it in [-90,90]")
+        lon = ((lat+90) % 180) - 90
 
     # Get variable layout
     var = ds.variables[varname]
     dims = var.dimensions
     ndims = len(dims)
     expect(ndims<=3, f"Unsupported variable layout: {dims}.")
-    has_time = 'time' in ds.variables.keys()
+    has_time = 'time' in dims
     if has_time:
         time_dim = ds.variables['time']
         nt = len(time_dim[:])
@@ -141,56 +141,57 @@ def plot_over_ipcc_regions(input_filename,radians,lev,output_filename,mask_file,
 
     # Helper function, to get slice of data at given time index
     def get_data_at_time(n):
-        data = var
+        data = var[:]
         if has_lev:
             data = np.take(data,lev,lev_dim)
         if has_time:
             data = np.take(data,n,time_dim)
         return data
 
+    def do_contour(data,set_colorbar=False,nlevels=60):
+        filled_c = ax.tricontourf(lon, lat, data,
+                       transform=ccrs.PlateCarree(),alpha=1.0,
+                        levels=np.linspace(np.amin(data)-0.0001,np.amax(data)+0.0001,nlevels))
+        if set_colorbar:
+            fig.colorbar(filled_c, orientation="horizontal")
+
     if has_ncol:
-        filled_c = ax.tricontourf(lon, lat, get_data_at_time(0),
-                       transform=ccrs.PlateCarree(),alpha=1.0)
-        fig.colorbar(filled_c, orientation="horizontal")
+        do_contour(get_data_at_time(0),True)
         def plot_at_time (n):
             data = get_data_at_time(n)
-            filled_c = ax.tricontourf(lon, lat, data,
-                           transform=ccrs.PlateCarree(),alpha=0.8)
+            do_contour(data)
 
         if time is not None or not has_time:
-            plot_at_time(time)
             plt.savefig("fig.png" if output_filename is None else output_filename)
         else:
             ani = animation.FuncAnimation(fig,plot_at_time,nt,interval=100,repeat=False)
             writer = animation.writers['ffmpeg'](fps=10)
             ani.save("movie.mp4" if output_filename is None else  output_filename,writer=writer,dpi=dpi)
     else:
+        print("CREATE HEAT MAP")
         # We need to create a "heat map"
         def create_data_2d(data):
             data2d = np.zeros((ncols))
             for i in range(0,ncols):
                 mval = int(mask[i])
                 idx = m2idx[mval]
+                print (f"col={i},mask={mask[i]},lat={lat[i]},lon={lon[i]}")
                 data2d[i] = data[idx]
             return data2d
-        filled_c = ax.tricontourf(lon, lat, create_data_2d(get_data_at_time(0)),
-                       transform=ccrs.PlateCarree(),alpha=1.0)
-        fig.colorbar(filled_c, orientation="horizontal")
+        do_contour(create_data_2d(get_data_at_time(0)),True)
         def plot_at_time (n):
             data = get_data_at_time(n)
             data2d = create_data_2d(data)
-            filled_c = ax.tricontourf(lon, lat, data2d,
-                           transform=ccrs.PlateCarree(),alpha=0.8)
+            do_contour(data2d)
 
         if time is None or not has_time:
-            plot_at_time(time)
             plt.savefig("fig.png" if output_filename is None else output_filename)
         else:
             ani = animation.FuncAnimation(fig,plot_at_time,nt,interval=100,repeat=False)
             writer = animation.writers['ffmpeg'](fps=10)
             ani.save("movie.mp4" if output_filename is None else output_filename,writer=writer,dpi=dpi)
 
-    plt.show()
+    #  plt.show()
     return True
 
 ###############################################################################

@@ -10,6 +10,23 @@ import matplotlib.patheffects as pe
 import matplotlib.pyplot as plt
 
 ###############################################################################
+def expect(condition, error_msg, exc_type=SystemExit, error_prefix="ERROR:"):
+###############################################################################
+    """
+    Similar to assert except doesn't generate an ugly stacktrace. Useful for
+    checking user error, not programming error.
+
+    >>> expect(True, "error1")
+    >>> expect(False, "error2")
+    Traceback (most recent call last):
+        ...
+    SystemExit: ERROR: error2
+    """
+    if not condition:
+        msg = error_prefix + " " + error_msg
+        raise exc_type(msg)
+
+###############################################################################
 def parse_command_line(args, description):
 ###############################################################################
     parser = argparse.ArgumentParser(
@@ -28,19 +45,21 @@ def parse_command_line(args, description):
                         help="whether lat/lon in input file are in radians")
     parser.add_argument("-l","--lev", default=None, type=int,
                         help="If variable has a lev/ilev, slice it a this vertical level")
-    parser.add_argument("-o","--output_filename", default="movie.mp4",
+    parser.add_argument("-o","--output_filename", default=None,
                         help="Name of mp4 file to generate")
     parser.add_argument("-m","--mask-file", default=None,
                         help="Location of the nc file with masks for the regions where var is defined")
     parser.add_argument("-n","--mask-name", default=None,
                         help="Name of the mask variable in mask file")
+    parser.add_argument("-t","--time",default=None,
+                        help="Single time frame to use when producing an image")
     parser.add_argument("varname",
                         help="Variable to plot")
 
     return parser.parse_args(args[1:])
 
 ###############################################################################
-def plot_over_ipcc_regions(input_filename,radians,lev,output_filename,mask_file,mask_name,varname):
+def plot_over_ipcc_regions(input_filename,radians,lev,output_filename,mask_file,mask_name,time,varname):
 ###############################################################################
 
     dpi = 100
@@ -79,23 +98,17 @@ def plot_over_ipcc_regions(input_filename,radians,lev,output_filename,mask_file,
         print (f" -> min_lat: {min_lat}. Subtracting 90, to get it in [-90,90]")
         lat = lat - 90
 
-    # Get time dimension length
-    has_time = 'time' in ds.variables.keys()
-    if not has_time:
-        print ("Cannot handle datasets without time")
-        raise
-    time = ds.variables['time']
-    nt = len(time[:])
-
     # Get variable layout
     var = ds.variables[varname]
     dims = var.dimensions
     ndims = len(dims)
-    if ndims>3:
-        raise ValueError(f"Unsupported variable layout: {dims}.")
-    time_dim = dims.index('time')
-    if time_dim!=0:
-        raise ValueError(f"We expect time to be the slowest dim, but layout is {dims}")
+    expect(ndims<=3, f"Unsupported variable layout: {dims}.")
+    has_time = 'time' in ds.variables.keys()
+    if has_time:
+        time_dim = ds.variables['time']
+        nt = len(time_dim[:])
+        time_dim = dims.index('time')
+        expect(time_dim==0,f"We expect time to be the slowest dim, but layout is {dims}",ValueError)
     has_ncol = 'ncol' in dims
     if has_ncol:
         ncol_dim = dims.index('ncol')
@@ -118,22 +131,21 @@ def plot_over_ipcc_regions(input_filename,radians,lev,output_filename,mask_file,
             if m not in m2idx.keys():
                 idx = len(m2idx)
                 m2idx[m] = idx
-
-    has_lev = False
-    if 'lev' in dims or 'ilev' in dims:
-        if lev is None:
-            raise ValueError(f"Variable has a vertical level dimension: {var.dimensions}. "
-                               "You must provide -l/--lev N argument.")
+    has_lev = 'lev' in dims or 'ilev' in dims
+    if has_lev:
+        expect (lev is not None,
+                "Variable has a vertical level dimension: {var.dimensions}. "
+                "You must provide -l/--lev N argument.",ValueError)
         lev_dim = dims.index('lev') if 'lev' in dims else dims.index('ilev')
         has_lev = True
 
     # Helper function, to get slice of data at given time index
     def get_data_at_time(n):
+        data = var
         if has_lev:
-            data_t = np.take(var,n,time_dim)
-            data = np.take(data_t,lev,lev_dim-1)
-        else:
-            data = np.take(var,n,time_dim)
+            data = np.take(data,lev,lev_dim)
+        if has_time:
+            data = np.take(data,n,time_dim)
         return data
 
     if has_ncol:
@@ -145,9 +157,13 @@ def plot_over_ipcc_regions(input_filename,radians,lev,output_filename,mask_file,
             filled_c = ax.tricontourf(lon, lat, data,
                            transform=ccrs.PlateCarree(),alpha=0.8)
 
-        ani = animation.FuncAnimation(fig,plot_at_time,nt,interval=100,repeat=False)
-        writer = animation.writers['ffmpeg'](fps=10)
-        ani.save(output_filename,writer=writer,dpi=dpi)
+        if time is not None or not has_time:
+            plot_at_time(time)
+            plt.savefig("fig.png" if output_filename is None else output_filename)
+        else:
+            ani = animation.FuncAnimation(fig,plot_at_time,nt,interval=100,repeat=False)
+            writer = animation.writers['ffmpeg'](fps=10)
+            ani.save("movie.mp4" if output_filename is None else  output_filename,writer=writer,dpi=dpi)
     else:
         # We need to create a "heat map"
         def create_data_2d(data):
@@ -166,11 +182,15 @@ def plot_over_ipcc_regions(input_filename,radians,lev,output_filename,mask_file,
             filled_c = ax.tricontourf(lon, lat, data2d,
                            transform=ccrs.PlateCarree(),alpha=0.8)
 
-        ani = animation.FuncAnimation(fig,plot_at_time,nt,interval=100,repeat=False)
-        writer = animation.writers['ffmpeg'](fps=10)
-        ani.save(output_filename,writer=writer,dpi=dpi)
+        if time is None or not has_time:
+            plot_at_time(time)
+            plt.savefig("fig.png" if output_filename is None else output_filename)
+        else:
+            ani = animation.FuncAnimation(fig,plot_at_time,nt,interval=100,repeat=False)
+            writer = animation.writers['ffmpeg'](fps=10)
+            ani.save("movie.mp4" if output_filename is None else output_filename,writer=writer,dpi=dpi)
 
-    #  plt.show()
+    plt.show()
     return True
 
 ###############################################################################

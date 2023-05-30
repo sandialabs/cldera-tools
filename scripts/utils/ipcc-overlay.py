@@ -41,7 +41,7 @@ def parse_command_line(args, description):
 
     parser.add_argument("-i","--input_filename", required=True,
                         help="NC file with fields to plot")
-    parser.add_argument("-r","--radians", action='store_true',
+    parser.add_argument("-d","--degrees", action='store_true',
                         help="whether lat/lon in input file are in radians")
     parser.add_argument("-l","--lev", default=None, type=int,
                         help="If variable has a lev/ilev, slice it a this vertical level")
@@ -53,16 +53,19 @@ def parse_command_line(args, description):
                         help="Name of the mask variable in mask file")
     parser.add_argument("-t","--time",default=None,type=int,
                         help="Single time frame to use when producing an image")
+    parser.add_argument("-r","--resolution", default=10, type=int,
+                        help="Number of levels to use in the contour plot")
     parser.add_argument("varname",
                         help="Variable to plot")
 
     return parser.parse_args(args[1:])
 
 ###############################################################################
-def plot_over_ipcc_regions(input_filename,radians,lev,output_filename,mask_file,mask_name,time,varname):
+def plot_over_ipcc_regions(input_filename,degrees,lev,output_filename,mask_file,mask_name,time,resolution,varname):
 ###############################################################################
 
     dpi = 100
+    expect (resolution>0,f"Invalid number of levels ({resolution}). Value must be positive")
 
     # Create figure, and set some static info/data
     fig = plt.figure()
@@ -84,8 +87,8 @@ def plot_over_ipcc_regions(input_filename,radians,lev,output_filename,mask_file,
     ds = nc.Dataset(input_filename,mode='r')
     lat = ds.variables['lat'][:]
     lon = ds.variables['lon'][:]
-    if radians:
-        print (" -> converting lat/lon to degrees")
+    if not degrees:
+        print (" -> converting lat/lon from radians to degrees")
         lat = lat*180/np.pi
         lon = lon*180/np.pi
 
@@ -150,10 +153,10 @@ def plot_over_ipcc_regions(input_filename,radians,lev,output_filename,mask_file,
             data = np.take(data,n,time_dim)
         return data
 
-    def do_contour(data,set_colorbar=False,nlevels=60):
+    def do_contour(data,set_colorbar=False):
         filled_c = ax.tricontourf(lon, lat, data,
                        transform=ccrs.PlateCarree(),alpha=1.0,
-                        levels=np.linspace(np.amin(data)-0.0001,np.amax(data)+0.0001,nlevels))
+                       levels=np.linspace(np.amin(data)-0.0001,np.amax(data)+0.0001,resolution))
         if set_colorbar:
             fig.colorbar(filled_c, orientation="horizontal")
 

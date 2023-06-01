@@ -15,8 +15,6 @@ public:
                        const ekat::ParameterList& pl)
    : FieldStat(comm,pl)
   {
-    m_mask_value   = m_params.get<int>("mask_value");
-    m_mask_dim_name = m_params.get<std::string>("mask_dim_name");
     m_use_weight = m_params.isParameter("weight_field");
   }
 
@@ -32,7 +30,13 @@ public:
   }
 
   FieldLayout stat_layout (const FieldLayout& fl) const override {
-    return fl.strip_dim(m_mask_dim_name);
+    const auto& masked_dim = m_mask_field.layout().names()[0];
+    auto names = fl.names();
+    auto dims  = fl.dims();
+    auto pos = fl.dim_idx(masked_dim);
+    dims[pos] = m_mask_val_to_stat_entry.size();
+    names[pos] = "dim" + std::to_string(dims[pos]);
+    return FieldLayout(dims,names);
   }
 
   // Since we may have weights, let's just always use Real for the result.
@@ -44,17 +48,18 @@ protected:
     const auto& mask_name = m_params.get<std::string>("mask_field");
     const auto& m = fields.at(mask_name);
     const auto& fl = m.layout();
+    const auto& mask_dim = fl.names()[0];
     EKAT_REQUIRE_MSG (fl.rank()==1,
         "Error! FieldMaskedIntegral requires a 1-dim mask field.\n"
         " - stat name: " + name() + "\n"
         " - mask field name: " + m.name() + "\n"
         " - mask field layout: " + ekat::join(fl.names(),",") + "\n");
 
-    EKAT_REQUIRE_MSG (fl.names()[0]==m_mask_dim_name,
-        "Error! Input mask field layout does not match stored mask dim name.\n"
+    EKAT_REQUIRE_MSG (m_field.layout().has_dim_name(mask_dim),
+        "Error! Input mask field layout incompatible with stored field layout.\n"
         " - stat name: " + name() + "\n"
-        " - input mask dim name: " + fl.names()[0] + "\n"
-        " - stored mask dim name: " + m_mask_dim_name + "\n");
+        " - input mask layout: " + mask_dim + "\n"
+        " - stored field: " + ekat::join(m_field.layout().names(),",") + "\n");
 
     // To avoid complicated if statements at runtime, ensure m_mask_field has one part.
     // If it has 2+ parts, create a single-part version via FieldIdentity stat.
@@ -89,6 +94,19 @@ protected:
           " - weight field nparts: " + std::to_string(m_weight_field.nparts()) + "\n"
           " - input field nparts: " + std::to_string(m_field.nparts()) + "\n");
     }
+
+    // First, gather all the mask values we have
+    auto data = m_mask_field.data<int>();
+    auto size = m_mask_field.layout().size();
+    std::set<int> vals;
+    for (int i=0; i<size; ++i) {
+      vals.insert(data[i]);
+    }
+
+    // Then, map each mask value to an index in 0,...,num_mask_values-1
+    for (auto v : vals) {
+      m_mask_val_to_stat_entry[v] = m_mask_val_to_stat_entry.size();
+    }
   }
 
   void compute_impl () override {
@@ -112,10 +130,14 @@ protected:
     const auto& fl = m_field.layout();
     auto m = m_mask_field.view<int>();
 
+    // Init stat to 0
+    Kokkos::deep_copy(m_stat_field.view_nonconst<Real>(),0.0);
+
     // We'll use this to decide which of the input field's indices
     // is needed to index the stat field
-    auto mask_dim_pos = m_field.layout().dim_idx(m_mask_dim_name);
+    auto mask_dim_pos = m_field.layout().dim_idx(m_mask_field.layout().names()[0]);
 
+    int midx;
     view_1d_host<const Real> w;
     switch (fl.rank()) {
       case 1:
@@ -123,9 +145,7 @@ protected:
         // Offset of part-index into the unpartitioned field
         int offset = 0;
 
-        // Init stat to 0
-        auto& sdata = *m_stat_field.data_nonconst<Real>();
-        sdata = 0;
+        auto sview = m_stat_field.nd_view_nonconst<Real,1>();
 
         // Loop over input field parts
         for (int p=0; p<m_field.nparts(); ++p) {
@@ -137,14 +157,13 @@ protected:
 
           // Loop over entries of this part
           for (int i=0; i<fpl.dims()[0]; ++i) {
-            if (m(offset+i)!=m_mask_value)
-              continue;
+            midx = m_mask_val_to_stat_entry.at(m(offset+i));
 
             // Update field (weighted) integral (and weight integral)
             if (m_use_weight) {
-              sdata += fview(i)*w(i);
+              sview(midx) += fview(i)*w(i);
             } else {
-              sdata += fview(i);
+              sview(midx) += fview(i);
             }
           }
 
@@ -153,7 +172,7 @@ protected:
         }
 
         // Global reduction of (weighted) integral
-        m_comm.all_reduce(&sdata,1,MPI_SUM);
+        m_comm.all_reduce(sview.data(),sview.size(),MPI_SUM);
         break;
       }
       case 2:
@@ -163,7 +182,7 @@ protected:
         int offset_j = 0;
 
         // Init stat to 0
-        auto sview = m_stat_field.nd_view_nonconst<T,1>();
+        auto sview = m_stat_field.nd_view_nonconst<Real,2>();
         Kokkos::deep_copy(sview,0);
 
         // Loop over input field parts
@@ -177,29 +196,29 @@ protected:
 
           // Loop over part indices
           for (int i=0; i<fpl.dims()[0]; ++i) {
-            // Check mask only if i index is the masked one
-            if (mask_dim_pos==0 && m(i+offset_i)!=m_mask_value)
-              continue;
+            // If i index is the masked one, get stat mask index
+            if (mask_dim_pos==0)
+              midx = m_mask_val_to_stat_entry.at(m(i+offset_i));
 
             for (int j=0; j<fpl.dims()[1]; ++j) {
-              // Check mask only if j index is the masked one
-              if (mask_dim_pos==1 && m(j+offset_j)!=m_mask_value)
-                continue;
+              // If j index is the masked one, get stat mask index
+              if (mask_dim_pos==1)
+                midx = m_mask_val_to_stat_entry.at(m(j+offset_j));
 
               // Use non-masked index to access stat,
               // and masked index to access the weight
               if (m_use_weight) {
                 if (mask_dim_pos==0) {
-                  sview(j+offset_j) += w(i)*fview(i,j);
+                  sview(midx,j+offset_j) += w(i)*fview(i,j);
                 } else {
-                  sview(i+offset_i) += w(j)*fview(i,j);
+                  sview(i+offset_i,midx) += w(j)*fview(i,j);
                 }
               } else {
                 // Simply add
                 if (mask_dim_pos==0) {
-                  sview(j+offset_j) += fview(i,j);
+                  sview(midx,j+offset_j) += fview(i,j);
                 } else {
-                  sview(i+offset_i) += fview(i,j);
+                  sview(i+offset_i,midx) += fview(i,j);
                 }
               }
             }
@@ -223,7 +242,7 @@ protected:
         int offset_k = 0;
 
         // Init stat to 0
-        auto sview = m_stat_field.nd_view_nonconst<T,2>();
+        auto sview = m_stat_field.nd_view_nonconst<Real,3>();
         Kokkos::deep_copy(sview,0);
 
         // Loop over input field parts
@@ -237,38 +256,38 @@ protected:
 
           // Loop over part indices
           for (int i=0; i<fpl.dims()[0]; ++i) {
-            // Check mask only if i index is the masked one
-            if (mask_dim_pos==0 && m(i+offset_i)!=m_mask_value)
-              continue;
+            // If i index is the masked one, get stat mask index
+            if (mask_dim_pos==0)
+              midx = m_mask_val_to_stat_entry.at(m(i+offset_i));
 
             for (int j=0; j<fpl.dims()[1]; ++j) {
-              // Check mask only if j index is the masked one
-              if (mask_dim_pos==1 && m(j+offset_j)!=m_mask_value)
-                continue;
+              // If j index is the masked one, get stat mask index
+              if (mask_dim_pos==0)
+                midx = m_mask_val_to_stat_entry.at(m(j+offset_j));
 
               for (int k=0; k<fpl.dims()[2]; ++k) {
-                // Check mask only if k index is the masked one
-                if (mask_dim_pos==2 && m(k+offset_k)!=m_mask_value)
-                  continue;
+                // If k index is the masked one, get stat mask index
+                if (mask_dim_pos==0)
+                  midx = m_mask_val_to_stat_entry.at(m(k+offset_k));
 
                 // Use non-masked index to access stat,
                 // and masked index to access the weight
                 if (m_use_weight) {
                   if (mask_dim_pos==0) {
-                    sview(j+offset_j,k+offset_k) += w(i)*fview(i,j,k);
+                    sview(midx,j+offset_j,k+offset_k) += w(i)*fview(i,j,k);
                   } else if (mask_dim_pos==1) {
-                    sview(i+offset_i,k+offset_k) += w(j)*fview(i,j,k);
+                    sview(i+offset_i,midx,k+offset_k) += w(j)*fview(i,j,k);
                   } else {
-                    sview(i+offset_i,j+offset_j) += w(k)*fview(i,j,k);
+                    sview(i+offset_i,j+offset_j,midx) += w(k)*fview(i,j,k);
                   }
                 } else {
                   // Simply add
                   if (mask_dim_pos==0) {
-                    sview(j+offset_j,k+offset_k) += fview(i,j,k);
+                    sview(midx,j+offset_j,k+offset_k) += fview(i,j,k);
                   } else if (mask_dim_pos==1) {
-                    sview(i+offset_i,k+offset_k) += fview(i,j,k);
+                    sview(i+offset_i,midx,k+offset_k) += fview(i,j,k);
                   } else {
-                    sview(i+offset_i,j+offset_j) += fview(i,j,k);
+                    sview(i+offset_i,j+offset_j,midx) += fview(i,j,k);
                   }
                 }
               }
@@ -290,16 +309,12 @@ protected:
     }
   }
 
-
   // The mask field
   Field         m_mask_field;
 
-  // The value of m_mask_field that denotes entries to be tallied
-  int           m_mask_value;
+  // Map every mask value to an index in [0,N), with N=number_of_mask_values
+  std::map<int,int>   m_mask_val_to_stat_entry;
   
-  // Store the name of the dimension along which we integrate
-  std::string   m_mask_dim_name;
-
   // Optionally, we weigh the integrand by a weight field
   bool          m_use_weight;
   Field         m_weight_field;

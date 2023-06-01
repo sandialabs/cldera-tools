@@ -81,6 +81,7 @@ TEST_CASE ("vertical_contraction") {
 
   // Test s3d
   stat->set_field(s3d);
+  stat->create_stat_field();
   auto s3d_vi = stat->compute(time);
   REQUIRE (s3d_vi.layout().rank()==1);
   auto s3d_vi_view = s3d_vi.nd_view<Real,1>();
@@ -94,6 +95,7 @@ TEST_CASE ("vertical_contraction") {
 
   // Test v3d
   stat->set_field(v3d);
+  stat->create_stat_field();
   auto v3d_vi = stat->compute(time);
   REQUIRE (v3d_vi.layout().rank()==2);
   auto v3d_vi_view = v3d_vi.nd_view<Real,2>();

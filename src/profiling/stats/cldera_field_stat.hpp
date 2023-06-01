@@ -52,16 +52,15 @@ public:
 
   const Field& get_stat_field () const { return m_stat_field; }
 
+  // Virtual, in case derived classes need to add more stuff
+  virtual void create_stat_field ();
+
 protected:
   // If derived classes need to perform some additional setup steps when setting the field,
   // they can override this method
 
   virtual void set_field_impl (const Field& /* f */) {}
-  virtual void set_aux_fields_impl (const std::map<std::string,Field>&) {
-    EKAT_REQUIRE_MSG (get_aux_fields_names().size()==0,
-        "Error! This stat needs aux fields, but set_aux_fields_impl was not overridden.\n"
-        " - stat name: " + name() + "\n");
-  }
+  virtual void set_aux_fields_impl (const std::map<std::string,Field>&) {}
   virtual void compute_impl () = 0;
 
   ekat::ParameterList   m_params;

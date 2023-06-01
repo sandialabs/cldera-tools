@@ -12,11 +12,12 @@ MaxFieldTest::MaxFieldTest(const std::string& name,
 , m_max(max)
 {
   m_max_stat = StatFactory::instance().create("global_max",comm,ekat::ParameterList("global_max"));
+  m_max_stat->set_field(*m_field);
+  m_max_stat->create_stat_field();
 }
 
 bool MaxFieldTest::test(const TimeStamp& t)
 {
-  m_max_stat->set_field(*m_field);
   const auto field_max = m_max_stat->compute(t);
   if (field_max.data<Real>()[0] > m_max)
   {

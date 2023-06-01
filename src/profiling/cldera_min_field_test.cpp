@@ -12,11 +12,12 @@ MinFieldTest::MinFieldTest(const std::string& name,
 , m_min(min)
 {
   m_min_stat = StatFactory::instance().create("global_min",comm,ekat::ParameterList("global_min"));
+  m_min_stat->set_field(*m_field);
+  m_min_stat->create_stat_field();
 }
 
 bool MinFieldTest::test(const TimeStamp& t)
 {
-  m_min_stat->set_field(*m_field);
   const auto field_min = m_min_stat->compute(t);
   if (field_min.data<Real>()[0] < m_min)
   {

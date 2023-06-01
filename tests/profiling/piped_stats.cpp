@@ -63,7 +63,9 @@ TEST_CASE ("vertical_contraction") {
   auto pipe = f.create("pipe",comm,pl_pipe);
 
   gsum->set_field(s3d);
+  gsum->create_stat_field();
   pipe->set_field(s3d);
+  pipe->create_stat_field();
 
   auto stat_gsum = gsum->compute(time);
   auto stat_pipe = pipe->compute(time);

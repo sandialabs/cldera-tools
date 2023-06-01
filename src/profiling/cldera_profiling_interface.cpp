@@ -2,10 +2,8 @@
 
 #include "cldera_profiling_session.hpp"
 #include "cldera_profiling_archive.hpp"
-#include "stats/cldera_field_bounding_box.hpp"
-#include "stats/cldera_field_pnetcdf_reference.hpp"
-#include "stats/cldera_field_zonal_mean.hpp"
 #include "cldera_pathway_factory.hpp"
+#include "stats/cldera_register_stats.hpp"
 
 #include "timing/cldera_timing_session.hpp"
 
@@ -284,16 +282,16 @@ void cldera_commit_all_fields_c ()
   using vos_t = std::vector<std::string>;
 
   auto& factory = StatFactory::instance();
+  register_stats();
   auto& requests = s.create<requests_t>("requests");
   const auto& fnames = params.get<vos_t>("Fields To Track");
-  const int freq = params.get("Time Averaging Window Size",1);
   for (const auto& fname : fnames) {
     auto& req_pl = params.sublist(fname);
     auto& req_stats = requests[fname];
     const auto& f = archive.get_field(fname);
     for (auto stat_name : req_pl.get<vos_t>("Compute Stats")) {
       auto& stat_pl = req_pl.sublist(stat_name);
-      const auto& stat_type = stat_pl.get<std::string>("Type",stat_name);
+      const auto& stat_type = stat_pl.get<std::string>("type",stat_name);
       auto stat = factory.create(stat_type,s.get_comm(),stat_pl);
       stat->set_field(f);
       std::map<std::string,Field> aux_fields;
@@ -301,6 +299,7 @@ void cldera_commit_all_fields_c ()
         aux_fields[fn] = archive.get_field(fn);
       }
       stat->set_aux_fields(aux_fields);
+      stat->create_stat_field();
       req_stats.push_back(stat);
     }
   }

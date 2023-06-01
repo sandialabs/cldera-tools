@@ -101,9 +101,9 @@ TEST_CASE ("stats - pnetcdf") {
   // std::cout << "]" << std::endl;
 
   // now grab the T variable depending on the timestep
-  auto Tvar = file->vars.at("T"); // defined on lev x cols, for each time
-  std::vector<double> tdata(nlev*ncol);
-  read_var(*file,"T",tdata.data(),0);
+  // auto Tvar = file->vars.at("T"); // defined on lev x cols, for each time
+  // std::vector<double> tdata(nlev*ncol);
+  // read_var(*file,"T",tdata.data(),0);
 
   // // print T for sanity (seems correct)
   // std::cout << "T=[";

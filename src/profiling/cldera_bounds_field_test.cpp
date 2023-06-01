@@ -12,12 +12,16 @@ BoundsFieldTest::BoundsFieldTest(const std::string& name,
  , m_bounds(bounds)
 {
   m_max_stat = StatFactory::instance().create("global_max",comm,ekat::ParameterList("global_max"));
+  m_max_stat->set_field(*m_field);
+  m_max_stat->create_stat_field();
+
   m_min_stat = StatFactory::instance().create("global_min",comm,ekat::ParameterList("global_max"));
+  m_min_stat->set_field(*m_field);
+  m_min_stat->create_stat_field();
 }
 
 bool BoundsFieldTest::test(const TimeStamp& t)
 {
-  m_min_stat->set_field(*m_field);
   const auto field_min = m_min_stat->compute(t);
   if (field_min.data<Real>()[0] < m_bounds.min)
   {
@@ -28,7 +32,6 @@ bool BoundsFieldTest::test(const TimeStamp& t)
     return false;
   }
 
-  m_max_stat->set_field(*m_field);
   const auto field_max = m_max_stat->compute(t);
   if (field_max.data<Real>()[0] > m_bounds.max)
   {

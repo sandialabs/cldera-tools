@@ -286,9 +286,11 @@ open_file (const std::string& fname, const ekat::Comm& comm, const IOMode mode)
       } else {
         EKAT_ERROR_MSG ("Error! Unrecognized/unsupported data type: " + std::to_string(dtype) + "\n");
       }
+      var->size = 1;
       for (int idim=0; idim<var_ndims; ++idim) {
         auto dname = dim_id2name.at(var_dimids[idim]);
         var->dims.push_back(file->dims.at(dname));
+        var->size *= var->dims.back()->len;
       }
 
       if (var->dims[0]->name=="time") {
@@ -607,6 +609,7 @@ void add_var (      NCFile& file,
   var->nrecords = 0;
   std::vector<int> dims_ids;
 
+  var->size = 1;
   for (const auto& d : dims) {
     EKAT_REQUIRE_MSG (has_dim(file,d),
         "Error! Could not add variable to NC file. Dimension '" + d + "' not in file.\n"
@@ -619,6 +622,7 @@ void add_var (      NCFile& file,
 
     auto dim = file.dims.at(d);
     var->dims.push_back(file.dims.at(d));
+    var->size *= dim->len;
   }
 
   var->compute_extents ();
@@ -777,11 +781,11 @@ void read_var (const NCFile& file, const std::string& vname,
                              start.data(),count.data(),
                              data,var->size,mpi_dtype);
 #ifdef CLDERA_DEBUG
-      EKAT_REQUIRE_MSG (ret==NC_NOERR,
-          "Error! Could not read non-decomposed variable.\n"
-          "  - file name : " + file.name + "\n"
-          "  - var name  : " + var->name + "\n"
-          "  - err code : " + std::to_string(ret) + "\n");
+    EKAT_REQUIRE_MSG (ret==NC_NOERR,
+        "Error! Could not read non-decomposed variable.\n"
+        "  - file name : " + file.name + "\n"
+        "  - var name  : " + var->name + "\n"
+        "  - err code : " + std::to_string(ret) + "\n");
 #endif
   }
   ts.stop_timer("io::read_var");

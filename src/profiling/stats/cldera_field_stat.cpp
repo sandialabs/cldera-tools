@@ -15,6 +15,10 @@ set_aux_fields (const std::map<std::string,Field>& fields) {
         "Error! Input map is missing a required auxiliary field:\n"
         " - stat name: " + name() + "\n"
         " - aux field name: " + it + "\n");
+    EKAT_REQUIRE_MSG (fields.at(it).committed(),
+        "Error! Input aux field is not yet committed.\n"
+        " - stat name: " + name() + "\n"
+        " - aux field name: " + it + "\n");
   }
   set_aux_fields_impl (fields);
 
@@ -28,10 +32,20 @@ set_field (const Field& f) {
       " - stat name : " + name() + "\n"
       " - field name: " + f.name() + "\n");
   m_field = f;
-  m_stat_field = Field (f.name() + "_" + name(), stat_layout(f.layout()), DataAccess::Copy, stat_data_type());
-  m_stat_field.commit();
 
   set_field_impl (f);
+}
+
+void FieldStat::
+create_stat_field () {
+  EKAT_REQUIRE_MSG (m_field.committed(),
+      "Error! Cannot create stat field until input field is set.\n"
+      " - stat name: " + name() + "\n");
+  EKAT_REQUIRE_MSG (m_aux_fields_set or get_aux_fields_names().size()==0,
+      "Error! Cannot create stat field until all aux fields are set.\n"
+      " - stat name: " + name() + "\n");
+  m_stat_field = Field (name(), stat_layout(m_field.layout()), DataAccess::Copy, stat_data_type());
+  m_stat_field.commit();
 }
 
 // Compute the stat field

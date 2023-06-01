@@ -15,7 +15,7 @@ Profiling Output:
   Flush Frequency: 10
   Enable Output: true
   Save Geometry Fields: true
-Fields To Track: [SO2, H2SO4]
+Fields To Track: [SO2, SULFATE]
 
 SO2:
   Compute Stats: [tropo_anomaly]
@@ -24,9 +24,10 @@ SO2:
     outer:
       type: vertical_integral
       average: true
-      lev_idx_bounds: [1,10]
+      level_bounds: [1,10]
     inner:
-      type: pnetcdf
-H2SO4:
+      type: zonal_mean
+      Latitude Bounds: [-40.0, 40.0]
+SULFATE:
   Compute Stats: [global_min]
 ...

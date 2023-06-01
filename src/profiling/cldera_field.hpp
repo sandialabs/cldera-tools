@@ -127,6 +127,8 @@ public:
   DataAccess data_access () const { return m_data_access; }
   DataType data_type () const { return m_data_type; }
 
+  template<typename T>
+  void deep_copy (const T val);
 private:
 
   // Methods to go to and from the internal char* storage
@@ -369,6 +371,16 @@ Field::nd_view_nonconst ()
 {
   check_single_part("view_nonconst");
   return part_nd_view_nonconst<T,N>(0);
+}
+
+template<typename T>
+void Field::
+deep_copy (const T val)
+{
+  for (int p=0; p<m_nparts; ++p) {
+    auto pv = part_view_nonconst<T>(p);
+    Kokkos::deep_copy(pv,val);
+  }
 }
 
 template<typename T>

@@ -34,6 +34,11 @@ struct Bounds {
     min = bounds[0];
     max = bounds[1];
   }
+
+  std::vector<T> to_vector () const {
+    return std::vector<T>{min,max};
+  }
+
   T min;
   T max;
 };

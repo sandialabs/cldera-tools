@@ -73,6 +73,7 @@ protected:
       auto& s = StatFactory::instance();
       FieldIdentity id(m_comm,ekat::ParameterList(m.name()));
       id.set_field(m);
+      id.create_stat_field();
       m_mask_field = id.compute(m_timestamp);
     }
 
@@ -282,12 +283,12 @@ protected:
 
             for (int j=0; j<fpl.dims()[1]; ++j) {
               // If j index is the masked one, get stat mask index
-              if (mask_dim_pos==0)
+              if (mask_dim_pos==1)
                 midx = m_mask_val_to_stat_entry.at(m(j+offset_j));
 
               for (int k=0; k<fpl.dims()[2]; ++k) {
                 // If k index is the masked one, get stat mask index
-                if (mask_dim_pos==0)
+                if (mask_dim_pos==2)
                   midx = m_mask_val_to_stat_entry.at(m(k+offset_k));
 
                 // Use non-masked index to access stat,

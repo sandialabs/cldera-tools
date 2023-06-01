@@ -119,12 +119,13 @@ TEST_CASE ("vertical_contraction") {
         // Input field does not have vertical dim
         REQUIRE_THROWS (stat->set_field(s2d));
 
-        std::cout << "        - 3d scalar field (nlevs,ncols) ..." << std::endl;
+        std::cout << "        - 3d scalar field (nlevs,ncols) ........." << std::endl;
         stat->set_field(s3d_fwd);
         if (weighted) {
           aux_fields["w2d"] = w2d_fwd;
           stat->set_aux_fields(aux_fields);
         }
+        stat->create_stat_field();
         auto s3d_fwd_vi = stat->compute(time);
 
         REQUIRE (s3d_fwd_vi.layout().rank()==1);
@@ -142,15 +143,16 @@ TEST_CASE ("vertical_contraction") {
           }
           REQUIRE (s3d_fwd_vi_view(col)==tgt);
         }
-        std::cout << "          3d scalar field (nlevs,ncols) ... OK!" << std::endl;
+        std::cout << "          3d scalar field (nlevs,ncols) ......... OK!" << std::endl;
 
         // Check s3d_bwd against s3d_fwd
-        std::cout << "        - 3d scalar field (ncols,nlevs) ..." << std::endl;
+        std::cout << "        - 3d scalar field (ncols,nlevs) ........." << std::endl;
         stat->set_field(s3d_bwd);
         if (weighted) {
           aux_fields["w2d"] = w2d_bwd;
           stat->set_aux_fields(aux_fields);
         }
+        stat->create_stat_field();
         auto s3d_bwd_vi = stat->compute(time);
 
         REQUIRE (s3d_bwd_vi.layout().rank()==1);
@@ -160,7 +162,7 @@ TEST_CASE ("vertical_contraction") {
         for (int col=0; col<ncols; ++col) {
           REQUIRE (s3d_bwd_vi_view(col)==s3d_fwd_vi_view(col));
         }
-        std::cout << "        - 3d scalar field (ncols,nlevs) ... OK!" << std::endl;
+        std::cout << "        - 3d scalar field (ncols,nlevs) ......... OK!" << std::endl;
 
         // Test v3d
         std::cout << "        - 3d vector field (nlevs,ndims,ncols) ..." << std::endl;
@@ -169,6 +171,7 @@ TEST_CASE ("vertical_contraction") {
           aux_fields["w2d"] = w2d_fwd;
           stat->set_aux_fields(aux_fields);
         }
+        stat->create_stat_field();
 
         auto v3d_fwd_vi = stat->compute(time);
 
@@ -198,6 +201,7 @@ TEST_CASE ("vertical_contraction") {
           aux_fields["w2d"] = w2d_bwd;
           stat->set_aux_fields(aux_fields);
         }
+        stat->create_stat_field();
 
         auto v3d_bwd_vi = stat->compute(time);
 

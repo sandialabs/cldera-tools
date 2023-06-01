@@ -158,6 +158,7 @@ protected:
 
       // Setup the weight integral stat, and, if w is constant, go ahead and compute it
       m_weight_integral_stat->set_field(m_weight_field);
+      m_weight_integral_stat->create_stat_field();
       m_weight_integral = m_weight_integral_stat->get_stat_field();
       if (m_constant_weight) {
         m_weight_integral_stat->compute(m_timestamp);

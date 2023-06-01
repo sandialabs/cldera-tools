@@ -194,11 +194,6 @@ protected:
   void do_compute_impl () {
 
     m_stat_field.deep_copy(0.0);
-    for (int i=0; i<m_stat_field.layout().size(); ++i) {
-      if (m_stat_field.data<Real>()[i]!=0.0) {
-        printf("something is off...\n");
-      }
-    }
     const auto& fl = m_field.layout();
 
     if (m_average and not m_constant_weight) {

@@ -16,9 +16,10 @@ public:
    : FieldStat(comm,pl)
   {
     m_use_weight = m_params.isParameter("weight_field");
+    m_average = m_params.get<bool>("average",true);
   }
 
-  std::string type () const { return "vertical_contraction"; }
+  std::string type () const { return "masked_integral"; }
 
   std::vector<std::string> get_aux_fields_names () const {
     std::vector<std::string> aux_fnames;
@@ -93,6 +94,25 @@ protected:
           " - stat name: " + name() + "\n"
           " - weight field nparts: " + std::to_string(m_weight_field.nparts()) + "\n"
           " - input field nparts: " + std::to_string(m_field.nparts()) + "\n");
+
+    }
+    if (m_average) {
+      ekat::ParameterList pl("");
+      pl.set("mask_field",m_mask_field.name());
+      FieldMaskedIntegral w_int_stat(m_comm,pl);
+      std::map<std::string,Field> aux_fields;
+      aux_fields["mask"] = m_mask_field;
+      if (m_use_weight) {
+        w_int_stat.set_field(m_weight_field);
+      } else {
+        Field w("",m_mask_field.layout(),DataAccess::Copy);
+        w.commit();
+        Kokkos::deep_copy(w.view_nonconst<Real>(),1);
+        w_int_stat.set_field(w);
+      }
+      w_int_stat.set_aux_fields (aux_fields);
+      w_int_stat.create_stat_field();
+      m_weight_integral = w_int_stat.compute(m_timestamp);
     }
 
     // First, gather all the mask values we have
@@ -307,6 +327,54 @@ protected:
       default:
         EKAT_ERROR_MSG ("Error! [FieldMaskedIntegral] Unsupported field rank (" + std::to_string (fl.rank()) + ")\n");
     }
+
+    if (m_average) {
+      auto wint_v = m_weight_integral.view<Real>();
+      switch (fl.rank()) {
+        case 1:
+        {
+          auto sview = m_stat_field.nd_view_nonconst<Real,1>();
+          for (int i=0; i<sview.extent_int(0); ++i) {
+            sview(i) /= wint_v(i);
+          }
+          break;
+        }
+        case 2:
+        {
+          auto sview = m_stat_field.nd_view_nonconst<Real,2>();
+          for (int i=0; i<sview.extent_int(0); ++i) {
+            for (int j=0; j<sview.extent_int(1); ++j) {
+              if (mask_dim_pos==0) {
+                sview(i,j) /= wint_v(i);
+              } else {
+                sview(i,j) /= wint_v(j);
+              }
+            }
+          }
+          break;
+        }
+        case 3:
+        {
+          auto sview = m_stat_field.nd_view_nonconst<Real,3>();
+          for (int i=0; i<sview.extent_int(0); ++i) {
+            for (int j=0; j<sview.extent_int(1); ++j) {
+              for (int k=0; k<sview.extent_int(2); ++k) {
+                if (mask_dim_pos==0) {
+                  sview(i,j,k) /= wint_v(i);
+                } else if (mask_dim_pos==1) {
+                  sview(i,j,k) /= wint_v(j);
+                } else {
+                  sview(i,j,k) /= wint_v(k);
+                }
+              }
+            }
+          }
+          break;
+        }
+        default:
+          EKAT_ERROR_MSG ("Error! [FieldMaskedIntegral] Unsupported field rank (" + std::to_string (fl.rank()) + ")\n");
+      }
+    }
   }
 
   // The mask field
@@ -317,7 +385,9 @@ protected:
   
   // Optionally, we weigh the integrand by a weight field
   bool          m_use_weight;
+  bool          m_average;
   Field         m_weight_field;
+  Field         m_weight_integral;
 };
 
 } // namespace cldera

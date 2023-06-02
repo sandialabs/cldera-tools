@@ -55,6 +55,7 @@ TEST_CASE ("vertical_contraction") {
     ekat::ParameterList pl("masked_integral");
     pl.set<std::string>("type","masked_integral");
     pl.set<std::string>("mask_field","mask");
+    pl.set("average",false);
 
     std::map<std::string,Field> aux_fields;
     aux_fields["mask"] = mask;

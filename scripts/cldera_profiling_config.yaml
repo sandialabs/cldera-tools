@@ -20,14 +20,17 @@ Fields To Track: [SO2, SULFATE]
 SO2:
   Compute Stats: [tropo_anomaly]
   tropo_anomaly:
-    type: piped
-    outer:
-      type: vertical_integral
-      average: true
-      level_bounds: [1,10]
+    type: pipe
     inner:
-      type: zonal_mean
-      Latitude Bounds: [-40.0, 40.0]
+      type: vertical_contraction
+      average: true
+      level_bounds: [60,72]
+    outer:
+      type: masked_integral
+      mask_field: mask
+      mask_file_name: /path/to/ipcc-mask-file.nc
+      weight_field: area
+      average: true
 SULFATE:
   Compute Stats: [global_min]
 ...

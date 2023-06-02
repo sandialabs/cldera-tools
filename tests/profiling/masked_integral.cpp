@@ -8,7 +8,7 @@
 
 #include <map>
 
-TEST_CASE ("vertical_contraction") {
+TEST_CASE ("masked_integral") {
   using namespace cldera;
 
   // REQUIRE_THROWS causes some start_timer calls to not be matched
@@ -23,12 +23,12 @@ TEST_CASE ("vertical_contraction") {
 
   ekat::Comm comm(MPI_COMM_WORLD);
 
-  // open the sample file
-  std::string pnetcdf_filename = "../../data/ipcc_mask_ne4pg2.nc";
-  auto file = io::pnetcdf::open_file(pnetcdf_filename,comm,io::pnetcdf::IOMode::Read);
+  // Get ncol from file
+  std::string mask_filename = "../../data/ipcc_mask_ne4pg2.nc";
+  auto mask_file = io::pnetcdf::open_file(mask_filename,comm,io::pnetcdf::IOMode::Read);
 
   // Grab ncol from file
-  const int ncol = file->dims.at("ncol")->len;
+  const int ncol = mask_file->dims.at("ncol")->len;
   const int nlevs = 10;
   const std::string lev_name = "lev";
 
@@ -36,29 +36,81 @@ TEST_CASE ("vertical_contraction") {
   int tod = 43000;
   TimeStamp time(ymd,tod);
 
-  // Read mask field from file
-  Field mask("mask", {ncol}, {"ncol"}, DataAccess::Copy, DataType::IntType);
+  // Create col gids distribution
+  std::vector<int> proc_ncols(comm.size());
+  int& my_ncols = proc_ncols[comm.rank()];
+  my_ncols = ncol / comm.size();
+  if (ncol % comm.size() > comm.rank()) {
+    ++my_ncols;
+  }
+  comm.all_gather(proc_ncols.data(),1);
+  int my_gid_start = 1;
+  for (int proc=0; proc<comm.rank(); ++proc) {
+    my_gid_start += proc_ncols[proc];
+  }
+  Field my_gids("col_gids",FieldLayout({my_ncols},{"ncol"}),DataAccess::Copy,DataType::IntType);
+  my_gids.commit();
+  auto gids = my_gids.data_nonconst<int>();
+  std::iota(gids,gids+my_ncols,my_gid_start);
+  std::vector<int> gids_offsets;
+  for (int i=0; i<my_ncols; ++i) {
+    gids_offsets.push_back(gids[i]-1);
+  }
+  io::pnetcdf::add_decomp(*mask_file,"ncol",gids_offsets);
+
+  // Load mask, so we can count how many cols are in each region
+  Field mask("mask",FieldLayout({my_ncols},{"ncol"}),DataAccess::Copy,DataType::IntType);
   mask.commit();
   auto mask_data = mask.data_nonconst<int>();
-  io::pnetcdf::read_var(*file,"mask",mask_data);
+  io::pnetcdf::read_var(*mask_file,"mask",mask_data);
 
-  // Count how many cols are in each region
   std::map<int,int> col_count;
-  for (int i=0; i<mask.layout().size(); ++i) {
+  for (int i=0; i<my_ncols; ++i) {
     ++col_count[mask_data[i]];
   }
-  const int num_regions = col_count.size();
+
+  // Broadcast values, so all procs know all mask values
+  std::set<int> mask_vals;
+  for (int proc=0; proc<comm.size(); ++proc) {
+    int nvals = col_count.size();
+    comm.broadcast(&nvals,1,proc);
+    std::vector<int> this_proc_vals;
+    if (proc==comm.rank()) {
+      for (auto it : col_count) {
+        this_proc_vals.push_back(it.first);
+      }
+    } else {
+      this_proc_vals.resize(nvals);
+    }
+
+    comm.broadcast(this_proc_vals.data(),nvals,proc);
+
+    for (auto v : this_proc_vals) {
+      mask_vals.insert(v);
+    }
+  }
+
+  // Adjust the col count for all mask vals
+  for (auto v : mask_vals) {
+    auto& count = col_count[v];
+    comm.all_reduce(&count,1,MPI_SUM);
+  }
+
+  const int num_regions = mask_vals.size();
   const auto stat_dim_name = "dim" + std::to_string(num_regions);
+
+  io::pnetcdf::close_file(*mask_file);
 
   // Helper lambda, to create/init a masked integral stat
   auto create_stat = [&] (const Field& f, const Field* w = nullptr) {
     ekat::ParameterList pl("masked_integral");
     pl.set<std::string>("type","masked_integral");
     pl.set<std::string>("mask_field","mask");
+    pl.set<std::string>("mask_file_name",mask_filename);
     pl.set("average",false);
 
     std::map<std::string,Field> aux_fields;
-    aux_fields["mask"] = mask;
+    aux_fields["col_gids"] = my_gids;
 
     if (w!=nullptr) {
       pl.set<std::string>("weight_field",w->name());
@@ -103,7 +155,7 @@ TEST_CASE ("vertical_contraction") {
 
     auto fview = f.nd_view_nonconst<int,2>();
     auto mview = mask.nd_view_nonconst<int,1>();
-    for (int icol=0; icol<ncol; ++icol) {
+    for (int icol=0; icol<my_ncols; ++icol) {
       for (int ilev=0; ilev<nlevs; ++ilev) {
         if (lev_dim_first) {
           fview(ilev,icol) = ilev*mview(icol);
@@ -118,7 +170,7 @@ TEST_CASE ("vertical_contraction") {
   // Also write results to file, so we can use it for downstream unit tests
   auto ofile = io::pnetcdf::open_file("results.nc",comm,io::pnetcdf::IOMode::Write);
   io::pnetcdf::add_dim(*ofile,"lev",nlevs,false);
-  io::pnetcdf::add_dim(*ofile,"ncol",ncol,false);
+  io::pnetcdf::add_dim(*ofile,"ncol",my_ncols,true);
   io::pnetcdf::add_dim(*ofile,stat_dim_name,num_regions,false);
 
   io::pnetcdf::add_time(*ofile,"double");
@@ -130,14 +182,13 @@ TEST_CASE ("vertical_contraction") {
   io::pnetcdf::add_var(*ofile,"mask_ids","int",{stat_dim_name},false);
 
   io::pnetcdf::enddef(*ofile);
+  io::pnetcdf::add_decomp(*ofile,"ncol",gids_offsets);
 
   // Write mask, and mask values
   io::pnetcdf::write_var(*ofile,"mask",mask_real.data<Real>());
   std::vector<int> mask_ids;
-  for (int i=0; i<ncol; ++i) {
-    if (std::find(mask_ids.begin(),mask_ids.end(),mask_data[i])==mask_ids.end()) {
-      mask_ids.push_back(mask_data[i]);
-    }
+  for (auto v : mask_vals) {
+    mask_ids.push_back(v);
   }
   io::pnetcdf::write_var(*ofile,"mask_ids",mask_ids.data());
 

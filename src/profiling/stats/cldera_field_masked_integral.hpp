@@ -97,9 +97,11 @@ protected:
           " - input field nparts: " + std::to_string(m_field.nparts()) + "\n");
 
     }
+
     if (m_average) {
       ekat::ParameterList pl("");
       pl.set("mask_field",m_mask_field.name());
+      pl.set("average",false);
       FieldMaskedIntegral w_int_stat(m_comm,pl);
       std::map<std::string,Field> aux_fields;
       aux_fields["mask"] = m_mask_field;

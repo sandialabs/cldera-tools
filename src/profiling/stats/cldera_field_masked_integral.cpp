@@ -61,21 +61,29 @@ set_aux_fields_impl (const std::map<std::string,Field>& fields)
         "Error! The weight field should have Real data type.\n"
         " - stat name: " + name() + "\n"
         " - weight data type: " + e2str(m_weight_field.data_type()) + "\n");
-    EKAT_REQUIRE_MSG (m_weight_field.nparts()==m_field.nparts(),
-        "Error! The weight field must have the same number of parts as the input field.\n"
-        " - stat name: " + name() + "\n"
-        " - weight field nparts: " + std::to_string(m_weight_field.nparts()) + "\n"
-        " - input field nparts: " + std::to_string(m_field.nparts()) + "\n");
 
+    // if (m_weight_field.nparts()!=m_field.nparts()
+    if (m_weight_field.nparts()>1) {
+      // For simplicity, make w a single-part field
+      auto& s = StatFactory::instance();
+      ekat::ParameterList pl;
+      pl.set("name",m_name + "::set_aux_fields_impl::weight_field");
+      auto id = s.create("identity",m_comm,pl);
+      id->set_field(m_weight_field);
+      id->create_stat_field();
+      m_weight_field = id->compute(m_timestamp);
+    }
   }
 
   if (m_average) {
-    ekat::ParameterList pl("");
+    ekat::ParameterList pl("w_int");
     pl.set("mask_field",m_mask_field.name());
     pl.set("average",false);
+    pl.set("mask_file_name",m_params.get<std::string>("mask_file_name"));
     FieldMaskedIntegral w_int_stat(m_comm,pl);
     std::map<std::string,Field> aux_fields;
     aux_fields["mask"] = m_mask_field;
+    aux_fields["col_gids"] = gids;
     if (m_use_weight) {
       w_int_stat.set_field(m_weight_field);
     } else {
@@ -156,7 +164,10 @@ do_compute_impl ()
   auto mask_dim_pos = m_field.layout().dim_idx(m_mask_field.layout().names()[0]);
 
   int midx;
-  view_1d_host<const Real> w;
+  view_1d_host<const Real> w_view;
+  if (m_use_weight) {
+    w_view = m_weight_field.view<const Real>();
+  }
   switch (fl.rank()) {
     case 1:
     {
@@ -169,9 +180,6 @@ do_compute_impl ()
       for (int p=0; p<m_field.nparts(); ++p) {
         auto fpl = m_field.part_layout(p);
         auto fview = m_field.part_nd_view<T,1>(p);
-        if (m_use_weight) {
-          w = m_weight_field.part_view<const Real>(p);
-        }
 
         // Loop over entries of this part
         for (int i=0; i<fpl.dims()[0]; ++i) {
@@ -179,7 +187,7 @@ do_compute_impl ()
 
           // Update field (weighted) integral (and weight integral)
           if (m_use_weight) {
-            sview(midx) += fview(i)*w(i);
+            sview(midx) += fview(i)*w_view(i+offset);
           } else {
             sview(midx) += fview(i);
           }
@@ -208,9 +216,6 @@ do_compute_impl ()
         auto fpl = m_field.part_layout(p);
         auto spl = stat_layout(fpl);
         auto fview = m_field.part_nd_view<T,2>(p);
-        if (m_use_weight) {
-          w = m_weight_field.part_view<const Real>(p);
-        }
 
         // Loop over part indices
         for (int i=0; i<fpl.dims()[0]; ++i) {
@@ -227,9 +232,9 @@ do_compute_impl ()
             // and masked index to access the weight
             if (m_use_weight) {
               if (mask_dim_pos==0) {
-                sview(midx,j+offset_j) += w(i)*fview(i,j);
+                sview(midx,j+offset_j) += fview(i,j)*w_view(i+offset_i);
               } else {
-                sview(i+offset_i,midx) += w(j)*fview(i,j);
+                sview(i+offset_i,midx) += fview(i,j)*w_view(j+offset_j);
               }
             } else {
               // Simply add
@@ -268,9 +273,6 @@ do_compute_impl ()
         auto fpl = m_field.part_layout(p);
         auto spl = stat_layout(fpl);
         auto fview = m_field.part_nd_view<T,3>(p);
-        if (m_use_weight) {
-          w = m_weight_field.part_view<const Real>(p);
-        }
 
         // Loop over part indices
         for (int i=0; i<fpl.dims()[0]; ++i) {
@@ -292,11 +294,11 @@ do_compute_impl ()
               // and masked index to access the weight
               if (m_use_weight) {
                 if (mask_dim_pos==0) {
-                  sview(midx,j+offset_j,k+offset_k) += w(i)*fview(i,j,k);
+                  sview(midx,j+offset_j,k+offset_k) += fview(i,j,k)*w_view(i+offset_i);
                 } else if (mask_dim_pos==1) {
-                  sview(i+offset_i,midx,k+offset_k) += w(j)*fview(i,j,k);
+                  sview(i+offset_i,midx,k+offset_k) += fview(i,j,k)*w_view(j+offset_j);
                 } else {
-                  sview(i+offset_i,j+offset_j,midx) += w(k)*fview(i,j,k);
+                  sview(i+offset_i,j+offset_j,midx) += fview(i,j,k)*w_view(k+offset_k);
                 }
               } else {
                 // Simply add
@@ -393,7 +395,9 @@ load_mask_field (const Field& my_col_gids)
     gids_1p = my_col_gids;
   } else {
     auto& s = StatFactory::instance();
-    auto id = s.create("identity",m_comm,ekat::ParameterList(""));
+    ekat::ParameterList pl;
+    pl.set("name",m_name + "::load_mask_field::col_gids");
+    auto id = s.create("identity",m_comm,pl);
     id->set_field(my_col_gids);
     id->create_stat_field();
     gids_1p = id->compute(m_timestamp);
@@ -403,7 +407,9 @@ load_mask_field (const Field& my_col_gids)
   int min_gid;
   {
     auto& s = StatFactory::instance();
-    auto min_gid_stat = s.create("global_min",m_comm,ekat::ParameterList(""));
+    ekat::ParameterList pl;
+    pl.set("name",m_name + "::load_mask_field::min_gid");
+    auto min_gid_stat = s.create("global_min",m_comm,pl);
     min_gid_stat->set_field(gids_1p);
     min_gid_stat->create_stat_field();
     min_gid = min_gid_stat->compute(m_timestamp).data<int>()[0];

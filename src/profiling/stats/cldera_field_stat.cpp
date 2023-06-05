@@ -52,7 +52,7 @@ create_stat_field () {
 Field FieldStat::
 compute (const TimeStamp& timestamp) {
   auto& ts = timing::TimingSession::instance();
-  ts.start_timer ("profiling::compute_" + m_stat_field.name());
+  ts.start_timer ("profiling::compute_" + name());
   EKAT_REQUIRE_MSG (m_stat_field.committed(),
       "Error! Field must be set in the stat before calling compute.\n"
       " - stat name : " + name() + "\n");
@@ -63,7 +63,7 @@ compute (const TimeStamp& timestamp) {
   // Call derived class impl
   compute_impl();
 
-  ts.stop_timer ("profiling::compute_" + m_stat_field.name());
+  ts.stop_timer ("profiling::compute_" + name());
   return m_stat_field;
 }
 

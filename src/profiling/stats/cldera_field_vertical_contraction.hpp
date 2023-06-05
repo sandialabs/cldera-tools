@@ -28,10 +28,9 @@ public:
     }
   }
 
+  std::string type () const override { return "vertical_contraction"; }
 
-  std::string type () const { return "vertical_contraction"; }
-
-  std::vector<std::string> get_aux_fields_names () const {
+  std::vector<std::string> get_aux_fields_names () const override {
     std::vector<std::string> aux_fnames;
     if (m_use_weight) {
       aux_fnames.push_back(m_params.get<std::string>("weight_field"));
@@ -52,11 +51,11 @@ public:
   }
 
   // For simplicity, let's just assume stat is always real
-  DataType stat_data_type() const { return DataType::RealType; }
+  DataType stat_data_type() const override { return DataType::RealType; }
 
 protected:
 
-  void set_field_impl (const Field& f) {
+  void set_field_impl (const Field& f) override {
     const auto& fl = f.layout();
     if (fl.has_dim_name("lev")) {
       m_vert_dim_pos = fl.dim_idx("lev");
@@ -87,79 +86,81 @@ protected:
     }
   }
 
-  void set_aux_fields_impl (const std::map<std::string,Field>& fields) {
-    const auto& wname = m_params.get<std::string>("weight_field");
-    m_weight_field = fields.at(wname);
-
-    // Sanity checks
-    EKAT_REQUIRE_MSG (m_weight_field.data_type()==RealType,
-        "Error! Weight field must have real data type.\n"
-        " - stat name: " + name() + "\n"
-        " - weight field data type: " + e2str(m_weight_field.data_type()) + "\n");
-
-
-    // Note: we allow the weight field to either be (nlev) or (nlev,ncols)
-    const auto& wl = m_weight_field.layout();
+  void set_aux_fields_impl (const std::map<std::string,Field>& fields) override {
     const auto& fl = m_field.layout();
-    EKAT_REQUIRE_MSG (wl.rank()==1 || wl.rank()==2,
-        "Error! Invalid rank for the VerticalContraction weight field.\n"
+    const auto lev_dim_name = fl.names()[m_vert_dim_pos];
+    const auto nlevs  = fl.dims()[m_vert_dim_pos];
+    if (m_use_weight) {
+      const auto& wname = m_params.get<std::string>("weight_field");
+      m_weight_field = fields.at(wname);
+
+      // Sanity checks
+      EKAT_REQUIRE_MSG (m_weight_field.data_type()==RealType,
+          "Error! Weight field must have real data type.\n"
+          " - stat name: " + name() + "\n"
+          " - weight field data type: " + e2str(m_weight_field.data_type()) + "\n");
+
+
+      // Note: we allow the weight field to either be (nlev) or (nlev,ncols)
+      const auto& wl = m_weight_field.layout();
+      EKAT_REQUIRE_MSG (wl.rank()==1 || wl.rank()==2,
+          "Error! Invalid rank for the VerticalContraction weight field.\n"
+          " - stat name: " + name() + "\n"
+          " - weight field layout: (" + ekat::join(wl.names(),",") + ")\n");
+      EKAT_REQUIRE_MSG (fl.rank()>1 or wl.rank()==1,
+          "Error! 2-dim weight field only allowed for 2+ dimensional input fields.\n"
+          " - stat name: " + name() + "\n"
+          " - input field layout: (" + ekat::join(fl.names(),",") + ")\n"
+          " - weight field layout: (" + ekat::join(wl.names(),",") + ")\n");
+      EKAT_REQUIRE_MSG (wl.has_dim_name(lev_dim_name),
+          "Error! Weight field layout does not have the expected vert dim name.\n"
+          " - stat name: " + name() + "\n"
+          " - input field layout: (" + ekat::join(fl.names(),",") + ")\n"
+          " - weight field layout: (" + ekat::join(wl.names(),",") + ")\n");
+
+      m_weight2d = wl.rank()==2;
+
+      // For simplicity, w must be partitioned just like m_field
+      EKAT_REQUIRE_MSG (not m_weight2d or m_weight_field.nparts()==m_field.nparts(),
+          "Error! 2d weight field must have same number of parts as input field.\n"
         " - stat name: " + name() + "\n"
-        " - weight field layout: (" + ekat::join(wl.names(),",") + ")\n");
-    EKAT_REQUIRE_MSG (fl.rank()>1 or wl.rank()==1,
-        "Error! 2-dim weight field only allowed for 2+ dimensional input fields.\n"
-        " - stat name: " + name() + "\n"
-        " - input field layout: (" + ekat::join(fl.names(),",") + ")\n"
-        " - weight field layout: (" + ekat::join(wl.names(),",") + ")\n");
-    const auto& vdim_name = fl.names()[m_vert_dim_pos];
-    EKAT_REQUIRE_MSG (wl.has_dim_name(vdim_name),
-        "Error! Weight field layout does not have the expected vert dim name.\n"
-        " - stat name: " + name() + "\n"
-        " - input field layout: (" + ekat::join(fl.names(),",") + ")\n"
-        " - weight field layout: (" + ekat::join(wl.names(),",") + ")\n");
+        " - weight field layout: (" + ekat::join(wl.names(),",") + ")\n"
+        " - input field nparts: " + std::to_string(m_field.nparts()) + "\n"
+        " - weight field nparts: " + std::to_string(m_weight_field.nparts()) + "\n");
 
-    m_weight2d = wl.rank()==2;
+      if (m_weight2d and fl.rank()==3) {
+        // We need to figure out which one is the weight non-lev dimension within
+        // the list of dimensions of the input field
+        auto non_lev_dim = wl.names()[0]==lev_dim_name ? wl.names()[1] : wl.names()[0];
+        m_w_first_non_lev_dim_same_as_f = 
+          m_vert_dim_pos==0 ? non_lev_dim==fl.names()[1] : non_lev_dim==fl.names()[0];
 
-    // For simplicity, w must be partitioned just like m_field
-    EKAT_REQUIRE_MSG (not m_weight2d or m_weight_field.nparts()==m_field.nparts(),
-        "Error! 2d weight field must have same number of parts as input field.\n"
-      " - stat name: " + name() + "\n"
-      " - weight field layout: (" + ekat::join(wl.names(),",") + ")\n"
-      " - input field nparts: " + std::to_string(m_field.nparts()) + "\n"
-      " - weight field nparts: " + std::to_string(m_weight_field.nparts()) + "\n");
-
-    if (m_weight2d and fl.rank()==3) {
-      // We need to figure out which one is the weight non-lev dimension within
-      // the list of dimensions of the input field
-      auto lev_dim = fl.names()[m_vert_dim_pos];
-      auto non_lev_dim = wl.names()[0]==lev_dim ? wl.names()[1] : wl.names()[0];
-      m_w_first_non_lev_dim_same_as_f = 
-        m_vert_dim_pos==0 ? non_lev_dim==fl.names()[1] : non_lev_dim==fl.names()[0];
-
-      // And we need to check that the lev and non-lev dims are ordered in the same
-      // way as in the input field
-      auto lev_first = fl.dim_idx(lev_dim)<fl.dim_idx(non_lev_dim);
-      EKAT_REQUIRE_MSG ( (lev_first and wl.dim_idx(lev_dim)==0) or 
-                         (not lev_first and wl.dim_idx(lev_dim)==1),
-        "Error! Dimensions are ordered differently in weight and input field.\n"
-        " - stat name: " + name() + "\n"
-        " - input field layout: (" + ekat::join(fl.names(),",") + ")\n"
-        " - weight field layout: (" + ekat::join(wl.names(),",") + ")\n");
-    }
-
-    if (m_average) {
-      m_constant_weight = m_params.get("constant_weight",false);
-
-      // Setup the weight integral stat, and, if w is constant, go ahead and compute it
-      m_weight_integral_stat->set_field(m_weight_field);
-      m_weight_integral_stat->create_stat_field();
-      m_weight_integral = m_weight_integral_stat->get_stat_field();
-      if (m_constant_weight) {
-        m_weight_integral_stat->compute(m_timestamp);
+        // And we need to check that the lev and non-lev dims are ordered in the same
+        // way as in the input field
+        auto lev_first = fl.dim_idx(lev_dim_name)<fl.dim_idx(non_lev_dim);
+        EKAT_REQUIRE_MSG ( (lev_first and wl.dim_idx(lev_dim_name)==0) or 
+                           (not lev_first and wl.dim_idx(lev_dim_name)==1),
+          "Error! Dimensions are ordered differently in weight and input field.\n"
+          " - stat name: " + name() + "\n"
+          " - input field layout: (" + ekat::join(fl.names(),",") + ")\n"
+          " - weight field layout: (" + ekat::join(wl.names(),",") + ")\n");
       }
-    } else {
+
+      if (m_average) {
+        m_constant_weight = m_params.get("constant_weight",false);
+
+        // Setup the weight integral stat, and, if w is constant, go ahead and compute it
+        m_weight_integral_stat->set_field(m_weight_field);
+        m_weight_integral_stat->create_stat_field();
+        m_weight_integral = m_weight_integral_stat->get_stat_field();
+        if (m_constant_weight) {
+          m_weight_integral_stat->compute(m_timestamp);
+        }
+      }
+    } else if (m_average) {
       if (m_weight2d) {
         auto lev_dim = fl.names()[m_vert_dim_pos];
-        m_weight_integral = Field("wint",wl.strip_dim(lev_dim),DataAccess::Copy);
+        m_weight_integral = Field("wint",m_weight_field.layout().strip_dim(lev_dim),DataAccess::Copy);
       } else {
         m_weight_integral = Field("wint",FieldLayout(),DataAccess::Copy);
       }

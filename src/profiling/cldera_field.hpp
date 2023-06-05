@@ -70,6 +70,8 @@ public:
          const std::vector<std::string>& dimnames,
          const T* data);
 
+  Field& operator= (const Field& src) = default;
+
   const std::string& name () const { return m_name; }
 
   // Get rank-global (not partitioned) and part layouts

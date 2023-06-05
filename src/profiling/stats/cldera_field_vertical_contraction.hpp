@@ -28,13 +28,6 @@ public:
     }
   }
 
-  FieldVerticalContraction (const ekat::Comm& comm,
-                         const ekat::ParameterList& pl,
-                         const Field& f)
-   : FieldVerticalContraction(comm,pl)
-  {
-    set_field(f);
-  }
 
   std::string type () const { return "vertical_contraction"; }
 

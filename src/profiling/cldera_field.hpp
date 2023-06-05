@@ -87,6 +87,8 @@ public:
 
   void commit ();
 
+  void rename (const std::string& name) { m_name = name; }
+
   // Copy into managed views, if m_data_access=Copy
   template<typename T>
   void copy_part_data (const int ipart, const T* data);

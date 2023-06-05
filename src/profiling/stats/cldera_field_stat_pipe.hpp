@@ -41,6 +41,7 @@ public:
     // The stat field is simply the stat field from m_outer
     m_outer->create_stat_field();
     m_stat_field = m_outer->get_stat_field();
+    m_stat_field.rename(m_name);
   }
 
   std::vector<std::string> get_aux_fields_names () const {

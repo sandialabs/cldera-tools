@@ -237,7 +237,9 @@ protected:
               }
             }
             // If m_average=false, wint=1
-            sview(offset+i) /= m_weight2d ? wint[offset+i] : wint[0];
+            if (m_average) {
+              sview(offset+i) /= m_weight2d ? wint[offset+i] : wint[0];
+            }
           }
           offset += spl.dims()[0];
         }
@@ -283,9 +285,10 @@ protected:
                 }
               }
 
-              // If m_average=false, wint=1
-              sview(i+offset_i,j+offset_j) /=
-                m_weight2d ? wint[offset_wint+wint_non_lev_i] : wint[0];
+              if (m_average) {
+                sview(i+offset_i,j+offset_j) /=
+                  m_weight2d ? wint[offset_wint+wint_non_lev_i] : wint[0];
+              }
             }
           }
 

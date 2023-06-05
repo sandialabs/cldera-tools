@@ -38,7 +38,6 @@ public:
   }
 
   void create_stat_field () {
-    // The stat field is simply the stat field from m_outer
     m_outer->create_stat_field();
     m_stat_field = m_outer->get_stat_field();
     m_stat_field.rename(m_name);
@@ -64,6 +63,14 @@ protected:
 
   void set_field_impl (const Field& f) {
     m_inner->set_field(f);
+
+    // If no aux fields are needed by the inner stat,
+    // we can create the inner stat field, and set it as input
+    // to the outer stat
+    if (m_inner->get_aux_fields_names().size()==0) {
+      m_inner->create_stat_field();
+      m_outer->set_field(m_inner->get_stat_field());
+    }
   }
 
   void set_aux_fields_impl (const std::map<std::string,Field>& fields) {

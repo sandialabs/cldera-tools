@@ -42,7 +42,7 @@ def parse_command_line(args, description):
     parser.add_argument("-i","--input_filename", required=True,
                         help="NC file with fields to plot")
     parser.add_argument("-d","--degrees", action='store_true',
-                        help="whether lat/lon in input file are in radians")
+                        help="whether lat/lon in input file are in degrees")
     parser.add_argument("-l","--lev", default=None, type=int,
                         help="If variable has a lev/ilev, slice it a this vertical level")
     parser.add_argument("-o","--output_filename", default=None,

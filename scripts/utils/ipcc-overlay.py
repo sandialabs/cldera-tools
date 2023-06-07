@@ -127,15 +127,19 @@ def plot_over_ipcc_regions(input_filename,degrees,lev,output_filename,mask_file,
         mask = dsm.variables[mask_name]
         if len(mask.dimensions)!=1 or mask.dimensions[0]!='ncol':
             raise ValueError(f"Unexpected layout for mask variable: {mask.dimensions}")
+
         # Since we don't know how mask labels are distributed, we need to map mask labels to [0,N),
-        # with N=num_mask_labels. We *ASSUME* that cldera-tools creates a mask stat where, say,
-        # the 10-th entry corresponds to the 10-th smallest mask value
+        # with N=num_mask_labels. We *ASSUME* that cldera-tools creates a mask stat where the entries
+        # are ordered based on the mask ids.
         ncols = dsm.dimensions['ncol'].size
         m2idx = {}
+        mvals = []
         for m in mask[:]:
-            if m not in m2idx.keys():
-                idx = len(m2idx)
-                m2idx[m] = idx
+            if m not in mvals:
+                mvals.append(m)
+        mvals.sort()
+        for m in mvals:
+            m2idx[m] = mvals.index(m)
     has_lev = 'lev' in dims or 'ilev' in dims
     if has_lev:
         expect (lev is not None,
@@ -187,7 +191,7 @@ def plot_over_ipcc_regions(input_filename,degrees,lev,output_filename,mask_file,
             data2d = create_data_2d(data)
             do_contour(data2d)
 
-        if time is None or not has_time:
+        if time is not None or not has_time:
             plt.savefig("fig.png" if output_filename is None else output_filename)
         else:
             ani = animation.FuncAnimation(fig,plot_at_time,nt,interval=100,repeat=False)

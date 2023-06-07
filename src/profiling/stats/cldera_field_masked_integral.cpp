@@ -170,6 +170,14 @@ template<typename T>
 void FieldMaskedIntegral::
 do_compute_impl ()
 {
+  if (m_output_mask_field) {
+    static bool already_computed = false;
+    if (not already_computed) {
+      m_stat_field = m_mask_field;
+      already_computed = true;
+    }
+    return;
+  }
   const auto& fl = m_field.layout();
   auto m = m_mask_field.view<int>();
 

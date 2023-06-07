@@ -21,7 +21,7 @@ public:
 
     if (m_average and m_use_weight) {
       // Use another instance of this class to compute the weight field integral
-      ekat::ParameterList pl("wsum");
+      ekat::ParameterList pl(m_name + "_weight_integral");
       pl.set("average",false);
       pl.set("level_bounds",m_lev_idx_bounds.to_vector());
       m_weight_integral_stat = std::make_shared<FieldVerticalContraction>(m_comm,pl);
@@ -157,15 +157,6 @@ protected:
           m_weight_integral_stat->compute(m_timestamp);
         }
       }
-    } else if (m_average) {
-      if (m_weight2d) {
-        auto lev_dim = fl.names()[m_vert_dim_pos];
-        m_weight_integral = Field("wint",m_weight_field.layout().strip_dim(lev_dim),DataAccess::Copy);
-      } else {
-        m_weight_integral = Field("wint",FieldLayout(),DataAccess::Copy);
-      }
-      m_weight_integral.commit();
-      m_weight_integral.deep_copy(1.0);
     }
   }
 

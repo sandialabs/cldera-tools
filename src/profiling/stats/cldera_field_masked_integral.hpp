@@ -11,14 +11,14 @@ public:
   FieldMaskedIntegral (const ekat::Comm& comm,
                        const ekat::ParameterList& pl);
 
-  std::string type () const { return "masked_integral"; }
+  std::string type () const override { return "masked_integral"; }
 
   std::vector<std::string> get_aux_fields_names () const override;
 
   FieldLayout stat_layout (const FieldLayout& fl) const override;
 
   // Since we may have weights, let's just always use Real for the result.
-  DataType stat_data_type() const { return DataType::RealType; }
+  DataType stat_data_type() const override { return DataType::RealType; }
 protected:
 
   void set_aux_fields_impl (const std::map<std::string,Field>& fields) override;
@@ -41,6 +41,9 @@ protected:
   bool          m_average;
   Field         m_weight_field;
   Field         m_weight_integral;
+
+  // Allows to have a stat that saves the mask field
+  bool          m_output_mask_field;
 };
 
 } // namespace cldera

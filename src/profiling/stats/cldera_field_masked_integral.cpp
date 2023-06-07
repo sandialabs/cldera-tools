@@ -13,6 +13,7 @@ FieldMaskedIntegral (const ekat::Comm& comm,
 {
   m_use_weight = m_params.isParameter("weight_field");
   m_average = m_params.get<bool>("average",true);
+  m_output_mask_field = m_params.get("output_mask_field",false);
 }
 
 std::vector<std::string>
@@ -22,7 +23,7 @@ get_aux_fields_names () const
   std::vector<std::string> aux_fnames;
   aux_fnames.push_back("col_gids");
   // aux_fnames.push_back(m_params.get<std::string>("mask_field"));
-  if (m_use_weight) {
+  if (not m_output_mask_field and m_use_weight) {
     aux_fnames.push_back(m_params.get<std::string>("weight_field"));
   }
   return aux_fnames;
@@ -32,6 +33,10 @@ FieldLayout
 FieldMaskedIntegral::
 stat_layout (const FieldLayout& fl) const
 {
+  if (m_output_mask_field) {
+    return m_mask_field.layout();
+  }
+
   const auto& masked_dim = m_mask_field.layout().names()[0];
   auto names = fl.names();
   auto dims  = fl.dims();
@@ -134,6 +139,18 @@ set_aux_fields_impl (const std::map<std::string,Field>& fields)
 
 void FieldMaskedIntegral::
 compute_impl () {
+  if (m_output_mask_field) {
+    static bool already_computed = false;
+    if (not already_computed) {
+      auto s = m_stat_field.view_nonconst<Real>();
+      auto m = m_mask_field.view<int>();
+      for (int i=0; i<m.extent_int(0); ++i) {
+        s[i] = m[i];
+      }
+      already_computed = true;
+    }
+    return;
+  }
   switch (m_field.data_type()) {
     case RealType:
       do_compute_impl<Real>();

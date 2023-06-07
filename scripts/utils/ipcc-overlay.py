@@ -8,6 +8,9 @@ import cartopy.crs as ccrs
 import matplotlib.animation as animation
 import matplotlib.patheffects as pe
 import matplotlib.pyplot as plt
+import ssl
+
+ssl._create_default_https_context = ssl._create_unverified_context
 
 ###############################################################################
 def expect(condition, error_msg, exc_type=SystemExit, error_prefix="ERROR:"):

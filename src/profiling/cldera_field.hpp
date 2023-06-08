@@ -70,6 +70,8 @@ public:
          const std::vector<std::string>& dimnames,
          const T* data);
 
+  Field& operator= (const Field& src) = default;
+
   const std::string& name () const { return m_name; }
 
   // Get rank-global (not partitioned) and part layouts
@@ -84,6 +86,8 @@ public:
   void set_data (const T* data);
 
   void commit ();
+
+  void rename (const std::string& name) { m_name = name; }
 
   // Copy into managed views, if m_data_access=Copy
   template<typename T>

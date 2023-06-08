@@ -1,33 +1,86 @@
-#########################################
-#      CLDERA CONFIG FILE TEMPLATE      #
-#                                       #
-#  This file (with this name!) must be  #
-#  placed inside the case folder, or    #
-#  the profiling tool will do nothing.  #
-#                                       #
-#########################################
+###################################################################
+#               CLDERA CONFIG FILE TEMPLATE                       #
+#                                                                 #
+#  This file (with this exact name!) must be placed inside the    #
+#  folder where the executable is being run from.                 #
+#  If this file is not found, the profiling tool will do nothing  #
+#                                                                 #
+###################################################################
 %YAML 1.0
 ---
-Add Compute Stats Barrier: false
-Timing Filename: my_timings.txt
-Profiling Output:
-  Filename: cldera_stats.nc
-  Flush Frequency: 10
-  Enable Output: true
-  Save Geometry Fields: true
-Fields To Track: [SO2, SULFATE]
 
-SO2:
-  Compute Stats: [tropo_anomaly]
-  tropo_anomaly:
-    type: piped
-    outer:
-      type: vertical_integral
-      average: true
-      level_bounds: [1,10]
+# Timings options
+Add Compute Stats Barrier: false    # If true, add MPI_Barrier at top of compute stats (default: false)
+Timing Filename: my_timings.txt     # cldera-tools timings will be dumped in this file
+Timings Flush Freq: 10              # If >0, timings file will be dumped every this many steps (default: 0)
+
+# I/O specs
+Profiling Output:
+  Filename: cldera_stats.nc         # stats output file
+  Flush Frequency: 10               # How often we write to disk
+  Enable Output: true               # set to false to disable I/O (for timing purposes)
+  Save Geometry Fields: true        # if true, lat/lon/area will be also saved
+
+# List of fields to track, and stats to compute for each field
+# Available stats (as of 06/08/2023)
+#  - identity: copies input field
+#  - global_X, with X=min,max,sum,avg: global reduction of field (along all its dimensions)
+#  - X_along_columns, with X=min,max,sum,avg: reduce only along 'ncol' dimension
+#  - zonal_mean: reduce over lat band (optional: also over vertical level interval)
+#  - bounded: copies input field, setting output to mask value if outside a certain interval
+#  - bounding_box: like zonal_mean, but also use lon bounds
+#  - vertical_contraction: compute sum or avg of field over vertical level interval
+#  - masked_integral: compute integral of field over regions defined by a mask field
+#  - pipe: compose two stats, with output of one being fed as input to the next one
+# NOTE: the stats names MUST be unique across all fields. E.g., the following is NOT valid:
+#
+#  Fields to Track: [a,b]
+#  a:
+#    Compute Stats: [gmax]
+#      gmax:
+#        type: global_max
+#  b:
+#    Compute Stats: [gmax]
+#      gmax:
+#        type: global_max
+
+Fields To Track: [SO2, T]
+T:
+  Compute Stats: [ipcc_lower_tropo_T,ipcc_strato_T,horiz_avg_T]
+  ipcc_lower_tropo_T:
+    type: pipe
     inner:
-      type: zonal_mean
-      Latitude Bounds: [-40.0, 40.0]
-SULFATE:
-  Compute Stats: [global_min]
+      type: vertical_contraction
+      average: true               # If true, compute average, otherwise just a sum (default: true)
+      level_bounds: [55,71]       # Bounds for vertical contraction, endpoints included
+    outer:
+      type: masked_integral
+      mask_field: mask            # Name of mask field in mask file (default: 'mask')
+      mask_file_name: <CLDERA_SOURCE_PATH>/data/ipcc_mask_ne4pg2.nc
+      weight_field: area
+      average: true               # If true, compute average, otherwise just a sum (default: true)
+  ipcc_strato_T:
+    type: pipe
+    inner:
+      type: vertical_contraction
+      average: true               # If true, compute average, otherwise just a sum (default: true)
+      level_bounds: [3,5]         # Bounds for vertical contraction, endpoints included
+    outer:
+      type: masked_integral
+      mask_field: mask            # Name of mask field in mask file (default: 'mask')
+      mask_file_name: <CLDERA_SOURCE_PATH>/data/ipcc_mask_ne4pg2.nc
+      weight_field: area
+      average: true               # If true, compute average, otherwise just a sum (default: true)
+  horiz_avg_T:
+    type: avg_along_columns
+SO2:
+  Compute Stats: [so2_gmax, so2_gmin, so2_eq_zmean]
+  so2_gmax:
+    type: global_max
+  so2_gmin:
+    type: global_min
+  so2_eq_zmean:
+    type: zonal_mean
+    Latitude Bounds: [-0.4, 0.4]  # Lat bounds for zonal region in radians, endpoints included
+    Level Bounds:    [3,5]        # Lev ounds for zonal region in radians, endpoints included (default: all)
 ...

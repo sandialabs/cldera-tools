@@ -147,6 +147,7 @@ setup_output_file ()
     // Compute min gid. This is 1 in E3SM, but just in case...
     auto min_stat = StatFactory::instance().create("global_min",m_comm,ekat::ParameterList("global_min"));
     min_stat->set_field(f);
+    min_stat->create_stat_field();
     auto min_gid = min_stat->compute(m_start_date).data<int>()[0];
 
     int my_ngids = f.layout().size();
@@ -172,6 +173,7 @@ setup_output_file ()
     const int np = f.nparts();
     auto I = StatFactory::instance().create("identity",m_comm,ekat::ParameterList("identity"));
     I->set_field(f);
+    I->create_stat_field();
     const auto f1p = np==1 ? f : I->compute(m_start_date);
     if (f.data_type()==DataType::RealType) {
       io::pnetcdf::write_var (*m_output_file,n,f1p.data<Real>());

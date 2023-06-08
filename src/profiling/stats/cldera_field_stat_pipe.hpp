@@ -1,6 +1,8 @@
 #ifndef CLDERA_FIELD_STAT_PIPE_HPP
 #define CLDERA_FIELD_STAT_PIPE_HPP
 
+#include "cldera_field_stat.hpp"
+
 namespace cldera
 {
 
@@ -8,11 +10,21 @@ class FieldStatPipe : public FieldStat
 {
 public:
   FieldStatPipe (const ekat::Comm& comm,
-                  const ekat::ParameterList& pl)
+                 const ekat::ParameterList& pl)
    : FieldStat(comm,pl)
   {
     auto& outer_pl = m_params.sublist("outer");
     auto& inner_pl = m_params.sublist("inner");
+
+    // This ensures that all pipe stats' inner/outer stats have different names.
+    // If names clash, the start/stop timers may run into problems like calling
+    // start_timer twice in a row without a corresponding stop_timer in between.
+    if (not outer_pl.isParameter("name")) {
+      outer_pl.set("name",m_name + "_outer");
+    }
+    if (not inner_pl.isParameter("name")) {
+      inner_pl.set("name",m_name + "_inner");
+    }
 
     auto& f = StatFactory::instance();
     m_outer = f.create(outer_pl.get<std::string>("type"),comm,outer_pl);
@@ -26,10 +38,9 @@ public:
   }
 
   void create_stat_field () {
-    m_inner->create_stat_field ();
-    m_outer->set_field(m_inner->get_stat_field());
     m_outer->create_stat_field();
     m_stat_field = m_outer->get_stat_field();
+    m_stat_field.rename(m_name);
   }
 
   std::vector<std::string> get_aux_fields_names () const {
@@ -52,11 +63,25 @@ protected:
 
   void set_field_impl (const Field& f) {
     m_inner->set_field(f);
+
+    // If no aux fields are needed by the inner stat,
+    // we can create the inner stat field, and set it as input
+    // to the outer stat
+    if (m_inner->get_aux_fields_names().size()==0) {
+      m_inner->create_stat_field();
+      m_outer->set_field(m_inner->get_stat_field());
+    }
   }
 
   void set_aux_fields_impl (const std::map<std::string,Field>& fields) {
-    m_outer->set_aux_fields(fields);
     m_inner->set_aux_fields(fields);
+
+    // We can let m_inner create the stat field, so we can finally start
+    // to setup the outer stat
+    m_inner->create_stat_field ();
+    
+    m_outer->set_field(m_inner->get_stat_field());
+    m_outer->set_aux_fields(fields);
   }
 
   void compute_impl () {

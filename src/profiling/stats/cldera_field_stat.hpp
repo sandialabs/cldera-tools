@@ -19,7 +19,7 @@ public:
    : m_params (pl)
    , m_comm (comm)
   {
-    m_name = m_params.get("Name",pl.name());
+    m_name = m_params.get("name",pl.name());
   }
 
   virtual ~FieldStat () = default;

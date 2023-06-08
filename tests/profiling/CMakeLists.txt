@@ -50,7 +50,10 @@ EkatCreateUnitTest (piped_stats piped_stats.cpp
   LIBS cldera-profiling ekat)
 
 EkatCreateUnitTest (masked_integral masked_integral.cpp
-  LIBS cldera-profiling ekat)
+  LIBS cldera-profiling ekat
+  MPI_RANKS 1 ${CLDERA_TESTS_MAX_RANKS}
+  MPI_EXEC_NAME ${CLDERA_TESTS_MPI_EXEC_NAME}
+  MPI_NP_FLAG ${CLDERA_TESTS_MPI_NP_FLAG})
 
 # Test Pathway
 EkatCreateUnitTest (pathway pathway.cpp

@@ -22,7 +22,6 @@ get_aux_fields_names () const
 {
   std::vector<std::string> aux_fnames;
   aux_fnames.push_back("col_gids");
-  // aux_fnames.push_back(m_params.get<std::string>("mask_field"));
   if (not m_output_mask_field and m_use_weight) {
     aux_fnames.push_back(m_params.get<std::string>("weight_field"));
   }
@@ -407,7 +406,7 @@ load_mask_field (const Field& my_col_gids)
 {
   const auto& filename = m_params.get<std::string>("mask_file_name");
   auto file = io::pnetcdf::open_file (filename,m_comm,io::pnetcdf::IOMode::Read);
-  const auto& mask_name = m_params.get<std::string>("mask_field");
+  const auto& mask_name = m_params.get<std::string>("mask_field","mask");
   
   EKAT_REQUIRE_MSG (file->vars.find(mask_name)!=file->vars.end(),
       "Error! Mask field not found in the NC file.\n"

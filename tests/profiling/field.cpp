@@ -112,4 +112,15 @@ TEST_CASE ("field") {
       REQUIRE (baz_pv[i]==baz2_pv[i]);
     }
   }
+
+  // Check deep copy method
+  baz2.deep_copy(-1.0);
+  baz2.deep_copy(baz);
+  for (int p=0; p<baz.nparts(); ++p) {
+    auto baz_pv  = baz.part_view<Real>(p);
+    auto baz2_pv = baz2.part_view<Real>(p);
+    for (size_t i=0; i<baz_pv.size(); ++i) {
+      REQUIRE (baz_pv[i]==baz2_pv[i]);
+    }
+  }
 }

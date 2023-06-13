@@ -181,6 +181,34 @@ Field Field::clone() const {
   return f;
 }
 
+void Field::deep_copy (const Field& src) {
+  EKAT_REQUIRE_MSG (m_committed and src.m_committed,
+      "Error! Cannot deep copy if src and/or tgt fields are not yet committed.\n"
+      " Source field: " + src.m_name + "\n"
+      " Target field: " + m_name + "\n");
+  EKAT_REQUIRE_MSG (m_layout==src.m_layout,
+      "Error! Cannot deep copy from a field with different layout.\n"
+      " Source field: " + src.m_name + "\n"
+      " Target field: " + m_name + "\n");
+  EKAT_REQUIRE_MSG (m_nparts==src.m_nparts,
+      "Error! Cannot deep copy from a field with different number of parts.\n"
+      " Source field: " + src.m_name + "\n"
+      " Target field: " + m_name + "\n");
+  for (int p=0; p<m_nparts; ++p) {
+    EKAT_REQUIRE_MSG (part_layout(p)==src.part_layout(p),
+        "Error! Cannot deep copy from a field with different part layouts.\n"
+        " Source field: " + src.m_name + "\n"
+        " Target field: " + m_name + "\n"
+        " Incompatible part index: " + std::to_string(p) + "\n"
+        " Source part layout: " + src.part_layout(p).to_string() + "\n"
+        " Target part layout: " + part_layout(p).to_string() + "\n"
+        );
+    auto src_pv = src.m_data[p];
+    auto tgt_pv = m_data_nonconst[p];
+    Kokkos::deep_copy(tgt_pv,src_pv);
+  }
+}
+
 void Field::
 check_single_part (const std::string& method_name) const {
   EKAT_REQUIRE_MSG (m_nparts==1,

@@ -135,6 +135,8 @@ public:
 
   template<typename T>
   void deep_copy (const T val);
+
+  void deep_copy (const Field& src);
 private:
 
   // Methods to go to and from the internal char* storage

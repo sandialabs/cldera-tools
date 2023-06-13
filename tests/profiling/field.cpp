@@ -87,4 +87,24 @@ TEST_CASE ("field") {
   REQUIRE(scalar.part_layout(0).rank()==0);
   REQUIRE(scalar.part_layout(0).size()==1);
 
+  // Check clone method
+  auto baz2 = baz.clone();
+  REQUIRE (baz2.name()==baz.name());
+  REQUIRE (baz2.layout()==baz.layout());
+  REQUIRE (baz2.nparts()==baz.nparts());
+  REQUIRE (baz2.part_dim()==baz.part_dim());
+  REQUIRE (baz2.data_access()==DataAccess::Copy);
+  REQUIRE (baz2.data_type()==baz.data_type());
+  for (int p=0; p<baz.nparts(); ++p) {
+    REQUIRE (baz2.part_layout(p)==baz.part_layout(p));
+    REQUIRE (baz2.part_layout(p)==baz.part_layout(p));
+
+    auto baz_pv  = baz.part_view<Real>(p);
+    auto baz2_pv = baz2.part_view<Real>(p);
+    REQUIRE (baz_pv.size()==baz2_pv.size());
+    REQUIRE (baz_pv.data()!=baz2_pv.data()); // Check it's not a shallow clone!
+    for (size_t i=0; i<baz_pv.size(); ++i) {
+      REQUIRE (baz_pv[i]==baz2_pv[i]);
+    }
+  }
 }

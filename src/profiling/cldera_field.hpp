@@ -131,6 +131,8 @@ public:
   DataAccess data_access () const { return m_data_access; }
   DataType data_type () const { return m_data_type; }
 
+  Field clone () const;
+
   template<typename T>
   void deep_copy (const T val);
 private:

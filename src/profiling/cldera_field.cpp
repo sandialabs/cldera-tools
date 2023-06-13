@@ -158,6 +158,29 @@ void Field::commit () {
   m_committed = true;
 }
 
+Field Field::clone() const {
+  EKAT_REQUIRE_MSG (m_committed,
+      "Error! You can only clone a committed field.\n"
+      " - Field name: " + m_name + "\n");
+  Field f(m_name,m_layout,m_nparts,m_part_dim,DataAccess::Copy,m_data_type);
+
+  // Recall, public/private is based on type, not instance, so we can
+  // access f's members
+  f.m_part_sizes = m_part_sizes;
+  f.m_committed = true;
+  f.m_data_nonconst.resize(m_nparts);
+  f.m_data.resize(m_nparts);
+
+  for (int i=0; i<m_nparts; ++i) {
+    auto iname = m_name + "_" + std::to_string(i);
+    f.m_data_nonconst[i] = view_1d_host<char> (iname,size_of(m_data_type)*part_layout(i).size());
+    f.m_data[i] = f.m_data_nonconst[i];
+    Kokkos::deep_copy(f.m_data_nonconst[i],m_data[i]);
+  }
+
+  return f;
+}
+
 void Field::
 check_single_part (const std::string& method_name) const {
   EKAT_REQUIRE_MSG (m_nparts==1,

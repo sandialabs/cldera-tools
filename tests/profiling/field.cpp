@@ -23,6 +23,11 @@ TEST_CASE ("field") {
   REQUIRE_THROWS (Field("",{5},{"col"},1,1)); // part dim OOB
   REQUIRE (foo.committed());
 
+  // Test FieldLayout::to_string()
+  REQUIRE (foo.layout().to_string()=="<col> (5)");
+  REQUIRE (bar.layout().to_string()=="<col,lev> (5,4)");
+  REQUIRE (baz.layout().to_string()=="<col,cmp,lev> (5,4,3)");
+
   foobar.set_part_size(0,5); // OK, same value
   foobar.set_part_size(0,5); // OK, same value
   REQUIRE_THROWS(foobar.set_part_size(0,6)); // Can't change part sizes

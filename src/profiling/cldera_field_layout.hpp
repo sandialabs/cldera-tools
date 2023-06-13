@@ -39,6 +39,8 @@ public:
 
   int extent (const std::string& name);
 
+  std::string to_string () const;
+
   Kokkos::LayoutRight kokkos_layout () const { return m_kokkos_layout; }
 
   friend bool operator== (const FieldLayout& lhs, const FieldLayout& rhs);

@@ -72,4 +72,12 @@ extent (const std::string& name) {
       " - input name  : " + name + "\n");
   return m_dims[std::distance(m_names.begin(),it)];
 }
+
+std::string FieldLayout::to_string () const {
+  std::string names = "<" + ekat::join(m_names,",") + ">";
+  std::string dims  = "(" + ekat::join(m_dims,",") + ")";
+
+  return names + " " + dims;
+}
+
 } // namespace cldera

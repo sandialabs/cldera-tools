@@ -69,15 +69,19 @@ private:
   std::list<std::string>                  m_fields_names;
 
   strmap_t<Field>                         m_fields;
-  std::list<strmap_t<strmap_t<Field>>>    m_fields_stats;
+
+  strmap_t<strmap_t<std::vector<Field>>>  m_fields_stats;
+
+  // We create each vector above just once (to save on alloc times),
+  // so we need to know which slot we need to use
 
   TimeStamp                               m_start_date;
-  std::list<TimeStamp>                    m_time_stamps;
+  std::vector<TimeStamp>                  m_time_stamps;
 
   std::shared_ptr<io::pnetcdf::NCFile>    m_output_file;
 
-  // TODO: make this a runtime option
-  int m_flush_freq = 10;
+  int m_curr_time_slot = 0;
+  int m_flush_freq = 1;
 };
 
 } // namespace cldera

@@ -312,6 +312,13 @@ void cldera_compute_stats_c (const int ymd, const int tod)
   // If input file was not provided, cldera does nothing
   if (not s.inited()) { return; }
 
+  cldera::TimeStamp time = {ymd, tod};
+  if (time==s.get<TimeStamp>("start_timestamp")) {
+    // E3SM runs a bit of its timestep during init, to bootstrap
+    // some surface fluxes. We are not interested in the stats at
+    // that time.
+    return;
+  }
   static int num_calls = 0;
 
   const auto& comm = s.get_comm();
@@ -337,8 +344,6 @@ void cldera_compute_stats_c (const int ymd, const int tod)
   auto& requests = s.get<requests_t>("requests");
 
   auto& archive = s.get<ProfilingArchive>("archive");
-
-  cldera::TimeStamp time = {ymd, tod};
 
   std::map<std::string, std::shared_ptr<const cldera::Field> > fields;
   for (const auto& it : requests) {

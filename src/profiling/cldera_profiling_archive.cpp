@@ -23,6 +23,7 @@ ProfilingArchive(const ekat::Comm& comm,
   if (m_params.get<bool>("Enable Output",true)) {
     create_output_file();
   }
+  m_time_stamps.resize(m_flush_freq);
 }
 
 ProfilingArchive::
@@ -61,9 +62,9 @@ setup_output_file ()
   io::pnetcdf::set_att(*m_output_file,"start_date","NC_GLOBAL",m_start_date.ymd());
   io::pnetcdf::set_att(*m_output_file,"start_time","NC_GLOBAL",m_start_date.tod());
 
-  for (const auto& it1 : m_fields_stats.front()) {
+  for (const auto& it1 : m_fields_stats) {
     for (const auto& it2 : it1.second) {
-      const auto& stat  = it2.second;
+      const auto& stat  = it2.second[0];
       const auto& stat_layout = stat.layout();
       const auto& stat_dims = stat_layout.dims();
       const auto& stat_names = stat_layout.names();
@@ -226,34 +227,35 @@ append_stat (const std::string& fname, const std::string& stat_name,
       "[ProfilingArchive::get_field] Error! Field '" + fname + "' not found.\n"
       "  List of current fields: " + ekat::join(m_fields_names,", "));
 
-  if (m_fields_stats.size()==0)
-    EKAT_REQUIRE_MSG (m_time_stamps.size()==0,
-        "Error! You had time stamps stored, but not stats.\n"
-        "       You should have already gotten an error.\n"
-        "       Please, contact developers.\n");
-
-  if (m_fields_stats.size()==m_time_stamps.size())
-    m_fields_stats.emplace_back();
-  m_fields_stats.back()[fname][stat_name] = stat;
+  auto& vec = m_fields_stats[fname][stat_name];
+  if (vec.size()==0) {
+    // It's the first time we append to this stat. Create the vector
+    vec.resize(m_flush_freq);
+    for (auto& f : vec)
+      f = stat.clone();
+  } else {
+    EKAT_REQUIRE_MSG (m_curr_time_slot<vec.size(),
+        "Error! We ran out of slots for this stat. Looks like you missed a call to flush_to_file?\n"
+        " - Field name: " + fname + "\n"
+        " - Stat name : " + stat_name + "\n");
+    vec[m_curr_time_slot].deep_copy(stat);
+  }
 }
 
 void ProfilingArchive::update_time (const TimeStamp& ts) {
-  EKAT_REQUIRE_MSG (m_fields_stats.size()==(m_time_stamps.size()+1),
-      "Error! It looks like you haven't stored any stat this time stamp.\n");
-  m_time_stamps.push_back(ts);
+  m_time_stamps[m_curr_time_slot] = ts;
 
-  if (static_cast<int>(m_time_stamps.size())>m_flush_freq) {
+  ++m_curr_time_slot;
+  if (m_curr_time_slot==m_flush_freq) {
     flush_to_file();
   }
 }
 
 void ProfilingArchive::flush_to_file ()
 {
-  if (m_output_file!=nullptr) {
-    const int num_steps = m_time_stamps.size();
-    if (num_steps == 0) {
-      return;
-    }
+  // Note: if m_curr_time_slot=0, then we are being called from the destructor,
+  // and no additional stat has been computed since the last flush.
+  if (m_output_file!=nullptr and m_curr_time_slot>0) {
 
     auto& timings = timing::TimingSession::instance();
     timings.start_timer("profiling::flush_to_file");
@@ -268,17 +270,14 @@ void ProfilingArchive::flush_to_file ()
     }
 
     // Loop over number of time records
-    auto ts_it = m_time_stamps.begin();
-    auto stats_it = m_fields_stats.begin();
-    for (int i=0; i<num_steps; ++i) {
-      const auto& ts = *ts_it;
-      const auto& stats = *stats_it;
+    for (int i=0; i<m_curr_time_slot; ++i) {
+      const auto& ts = m_time_stamps[i];
 
-      for (const auto& it1 : stats) {
+      for (const auto& it1 : m_fields_stats) {
         const auto& fname = it1.first;
         for (const auto& it2: it1.second) {
           const auto& sname = it2.first;
-          const auto& stat  = it2.second;
+          const auto& stat  = it2.second[i];
 
           const auto var_name = stat.name();
 
@@ -294,13 +293,9 @@ void ProfilingArchive::flush_to_file ()
         }
       }
       io::pnetcdf::update_time(*m_output_file,ts-m_start_date);
-
-      std::advance(ts_it,1);
-      std::advance(stats_it,1);
     }
 
-    m_time_stamps.clear();
-    m_fields_stats.clear();
+    m_curr_time_slot = 0;
 
     if (m_comm.am_i_root()) {
       printf(" [CLDERA] Flushing field stats to file ... done!\n");

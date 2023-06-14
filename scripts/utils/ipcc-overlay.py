@@ -9,25 +9,9 @@ import matplotlib.animation as animation
 import matplotlib.patheffects as pe
 import matplotlib.pyplot as plt
 import ssl
+from utils import expect
 
 ssl._create_default_https_context = ssl._create_unverified_context
-
-###############################################################################
-def expect(condition, error_msg, exc_type=SystemExit, error_prefix="ERROR:"):
-###############################################################################
-    """
-    Similar to assert except doesn't generate an ugly stacktrace. Useful for
-    checking user error, not programming error.
-
-    >>> expect(True, "error1")
-    >>> expect(False, "error2")
-    Traceback (most recent call last):
-        ...
-    SystemExit: ERROR: error2
-    """
-    if not condition:
-        msg = error_prefix + " " + error_msg
-        raise exc_type(msg)
 
 ###############################################################################
 def parse_command_line(args, description):
@@ -68,13 +52,15 @@ def parse_command_line(args, description):
                         help="Use a log scale in the plot")
     parser.add_argument("--cminmax", default=None, nargs='+',
                         help="Min/max value for colorbar in contour")
+    parser.add_argument("--ref-filename", default=None,
+                        help="NC file with avg/std fields for normalization")
     parser.add_argument("varname",
                         help="Variable to plot")
 
     return parser.parse_args(args[1:])
 
 ###############################################################################
-def plot_over_ipcc_regions(input_filename,degrees,lev,output_filename,mask_file,mask_name,time,time_start,time_end,time_freq,resolution,log_scale,cminmax,varname):
+def plot_over_ipcc_regions(input_filename,degrees,lev,output_filename,mask_file,mask_name,time,time_start,time_end,time_freq,resolution,log_scale,cminmax,ref_filename,varname):
 ###############################################################################
 
     dpi = 100
@@ -172,6 +158,11 @@ def plot_over_ipcc_regions(input_filename,degrees,lev,output_filename,mask_file,
         lev_dim = dims.index('lev') if 'lev' in dims else dims.index('ilev')
         has_lev = True
 
+    if ref_filename is not None:
+        ds_ref = nc.Dataset(ref_filename,mode='r')
+        var_mean = ds_ref.variables[varname+"_mean"]
+        var_std  = ds_ref.variables[varname+"_std"]
+
     # Deduce the time window specs 
     time_start = (0 if time is None else time) if time_start is None else time_start
     time_end = (nt if time is None else time) if time_end is None else time_end
@@ -182,6 +173,9 @@ def plot_over_ipcc_regions(input_filename,degrees,lev,output_filename,mask_file,
     # Helper function, to get slice of data at given time index
     def get_data_at_time(n):
         data = var[:]
+        if ref_filename is not None:
+            data -= var_mean[:]
+            data /= var_std[:]
         if has_lev:
             data = np.take(data,lev,lev_dim)
         if has_time:

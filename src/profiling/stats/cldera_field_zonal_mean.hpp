@@ -20,7 +20,7 @@ public:
   FieldZonalMean (const ekat::Comm& comm, const ekat::ParameterList& pl)
     : FieldStatAlongAxis(comm,pl,"ncol")
     , m_lat_bounds(pl.get<std::vector<Real>>("Latitude Bounds"))
-    , m_lev_bounds(m_params.get("Level Bounds",std::vector<Real>{0,std::numeric_limits<Real>::max()}))
+    , m_lev_bounds(m_params.get("Level Bounds",std::vector<int>{0,std::numeric_limits<int>::max()}))
   { /* Nothing to do here */ }
 
   std::string type () const override { return "zonal_mean"; }
@@ -111,7 +111,7 @@ protected:
       const auto& field_part_dims = field_part_layout.dims();
       for (int field_part_index = 0; field_part_index < field_part_layout.size(); ++field_part_index) {
         if (has_lev) {
-          const double level_index = compute_field_dim_index(field_part_index, field_rank, field_level_dim, field_part_dims);
+          const int level_index = compute_field_dim_index(field_part_index, field_rank, field_level_dim, field_part_dims);
           if (level_index < m_lev_bounds.min || level_index > m_lev_bounds.max)
             continue;
         }
@@ -134,7 +134,8 @@ protected:
       stat_view(i) /= m_zonal_area;
   }
 
-  const Bounds<Real> m_lat_bounds, m_lev_bounds;
+  const Bounds<Real> m_lat_bounds;
+  const Bounds<int>  m_lev_bounds;
   const ekat::Comm m_comm;
   Field m_lat, m_area;
   Real m_zonal_area = 0.0;

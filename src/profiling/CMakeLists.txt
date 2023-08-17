@@ -33,6 +33,7 @@ add_library (cldera-profiling
     stats/cldera_register_stats.cpp
     stats/cldera_field_stat.cpp
     stats/cldera_field_masked_integral.cpp
+    stats/cldera_field_bounded_masked_integral.cpp
 )
 set (MODULES_DIR ${CMAKE_CURRENT_BINARY_DIR}/profiling_modules)
 set_target_properties(cldera-profiling PROPERTIES
@@ -75,6 +76,7 @@ set (CLDERA_PROFILING_HEADERS
   stats/cldera_field_global_min.hpp
   stats/cldera_field_global_sum.hpp
   stats/cldera_field_identity.hpp
+  stats/cldera_field_bounded_masked_integral.hpp
   stats/cldera_field_masked_integral.hpp
   stats/cldera_field_max_along_columns.hpp
   stats/cldera_field_min_along_columns.hpp

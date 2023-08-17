@@ -91,10 +91,10 @@ set_aux_fields_impl (const std::map<std::string,Field>& fields)
     if (m_use_weight) {
       w_int_stat.set_field(m_weight_field);
     } else {
-      Field w("",m_mask_field.layout(),DataAccess::Copy);
-      w.commit();
-      Kokkos::deep_copy(w.view_nonconst<Real>(),1);
-      w_int_stat.set_field(w);
+      m_weight_field("",m_mask_field.layout(),DataAccess::Copy);
+      m_weight_field.commit();
+      Kokkos::deep_copy(m_weight_field.view_nonconst<Real>(),1);
+      w_int_stat.set_field(m_weight_field);
     }
     w_int_stat.set_aux_fields (aux_fields);
     w_int_stat.create_stat_field();
@@ -169,14 +169,6 @@ template<typename T>
 void FieldMaskedIntegral::
 do_compute_impl ()
 {
-  if (m_output_mask_field) {
-    static bool already_computed = false;
-    if (not already_computed) {
-      m_stat_field = m_mask_field;
-      already_computed = true;
-    }
-    return;
-  }
   const auto& fl = m_field.layout();
   auto m = m_mask_field.view<int>();
 

@@ -18,11 +18,6 @@ FieldBoundedMaskedIntegral (const ekat::Comm& comm,
 }
 
 void FieldBoundedMaskedIntegral::
-set_field_impl (const Field& f)
-{
-}
-
-void FieldBoundedMaskedIntegral::
 compute_impl () {
   switch (m_field.data_type()) {
     case RealType:

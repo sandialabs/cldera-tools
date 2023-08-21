@@ -39,7 +39,7 @@ void FieldBoundedMaskedIntegral::
 do_compute_impl ()
 {
   if (not m_has_bounds) {
-    FieldMaskedIntegral::do_compute_impl ();
+    FieldMaskedIntegral::do_compute_impl<T> ();
     return;
   }
   
@@ -87,7 +87,7 @@ do_compute_impl ()
 
         // Loop over entries of this part
         for (int i=0; i<fpl.dims()[0]; ++i) {
-          if (not bounds.contains(fview(i))) {
+          if (not m_bounds.contains(fview(i))) {
             continue;
           }
           midx = m_mask_val_to_stat_entry.at(m(offset+i));

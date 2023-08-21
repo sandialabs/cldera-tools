@@ -91,7 +91,7 @@ set_aux_fields_impl (const std::map<std::string,Field>& fields)
     if (m_use_weight) {
       w_int_stat.set_field(m_weight_field);
     } else {
-      m_weight_field("",m_mask_field.layout(),DataAccess::Copy);
+      m_weight_field = Field("",m_mask_field.layout(),DataAccess::Copy);
       m_weight_field.commit();
       Kokkos::deep_copy(m_weight_field.view_nonconst<Real>(),1);
       w_int_stat.set_field(m_weight_field);

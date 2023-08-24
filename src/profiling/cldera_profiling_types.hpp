@@ -39,6 +39,15 @@ struct Bounds {
     return std::vector<T>{min,max};
   }
 
+  bool contains (const T val) {
+    return val>=min && val<=max;
+  }
+
+  bool contains (const T val, bool closed_left, bool closed_right) {
+    return (closed_left  ? val>=min : val>min) and
+           (closed_right ? val<=max : val<max);
+  }
+
   T min;
   T max;
 };

@@ -14,6 +14,7 @@
 #include "cldera_field_vertical_contraction.hpp"
 #include "cldera_field_stat_pipe.hpp"
 #include "cldera_field_masked_integral.hpp"
+#include "cldera_field_bounded_masked_integral.hpp"
 
 namespace cldera {
 
@@ -40,6 +41,7 @@ void register_stats ()
   factory.register_product("vertical_contraction",&create_stat<FieldVerticalContraction>);
   factory.register_product("pipe",&create_stat<FieldStatPipe>);
   factory.register_product("masked_integral",&create_stat<FieldMaskedIntegral>);
+  factory.register_product("bounded_masked_integral",&create_stat<FieldBoundedMaskedIntegral>);
 }
 
 } // namespace cldera

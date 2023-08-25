@@ -18,6 +18,7 @@ namespace pnetcdf {
 enum class IOMode {
   Read,
   Write,
+  Append,
   Invalid
 };
 
@@ -30,6 +31,7 @@ inline std::string e2str (const IOMode m) {
   switch (m) {
     case IOMode::Read:    name = "read";    break;
     case IOMode::Write:   name = "write";   break;
+    case IOMode::Append:  name = "append";  break;
     case IOMode::Invalid: name = "invalid"; break;
   }
   return name;

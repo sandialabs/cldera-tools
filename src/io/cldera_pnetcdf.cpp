@@ -197,16 +197,13 @@ bool has_dim (const NCVar& var, const std::string& dname)
 std::shared_ptr<NCFile>
 open_file (const std::string& fname, const ekat::Comm& comm, const IOMode mode)
 {
-  EKAT_REQUIRE_MSG (mode==IOMode::Write || mode==IOMode::Read,
-      "Error! Invalid IO mode '" + e2str(mode) + "'.\n");
-
   int ret;
   auto file = std::make_shared<NCFile>();
   if (mode==IOMode::Write) {
     int ncmode = NC_CLOBBER | NC_64BIT_DATA;
     ret = ncmpi_create(comm.mpi_comm(), fname.c_str(), ncmode, MPI_INFO_NULL, &file->ncid);
   } else {
-    int ncmode = NC_NOWRITE;
+    int ncmode = mode==IOMode::Append ? NC_WRITE : NC_NOWRITE;
     ret = ncmpi_open(comm.mpi_comm(), fname.c_str(), ncmode, MPI_INFO_NULL, &file->ncid);
   }
 
@@ -220,7 +217,7 @@ open_file (const std::string& fname, const ekat::Comm& comm, const IOMode mode)
   file->mode = mode;
   file->comm = comm;
 
-  if (mode==IOMode::Read) {
+  if (mode==IOMode::Read or mode==IOMode::Append) {
     // Populate file with dims and vars
     char name [NC_MAX_NAME];
     int ndims, nvars, ngatts, unlimited;
@@ -453,7 +450,7 @@ void add_decomp (      NCFile& file,
   // partitioned in a subsequent phase. On the other hand, when we
   // open a file for writing, the dimension must have been registered
   // as partitioned.
-  auto read = file.mode==IOMode::Read;
+  auto read = file.mode==IOMode::Read or file.mode==IOMode::Append;
   if (read) {
     dim->is_partitioned = true;
 

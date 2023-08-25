@@ -71,10 +71,10 @@ void cldera_init_c (const MPI_Fint fcomm,
   s.create<TimeStamp>("stop_timestamp",stop);
 
   if(params.isSublist("Profiling Output")) {
-    s.create<ProfilingArchive>("archive",comm,case_t0,params.sublist("Profiling Output"));
+    s.create<ProfilingArchive>("archive",comm,case_t0,run_t0,params.sublist("Profiling Output"));
   } else {
     ekat::ParameterList profiling_output_list("Profiling Output");
-    s.create<ProfilingArchive>("archive",comm,case_t0,profiling_output_list);
+    s.create<ProfilingArchive>("archive",comm,case_t0,run_t0,profiling_output_list);
   }
 
   s.create<bool>("doPathway",params.isSublist("Pathway"));

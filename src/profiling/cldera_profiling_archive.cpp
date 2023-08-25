@@ -14,14 +14,19 @@ namespace cldera {
 
 ProfilingArchive::
 ProfilingArchive(const ekat::Comm& comm,
-                 const TimeStamp& start_date,
+                 const TimeStamp& case_t0,
+                 const TimeStamp& run_t0,
                  const ekat::ParameterList& params)
  : m_comm (comm)
  , m_params (params)
- , m_start_date (start_date)
+ , m_case_t0 (case_t0)
 {
   if (m_params.get<bool>("Enable Output",true)) {
-    create_output_file();
+    if (m_case_t0==run_t0) {
+      create_output_file();
+    } else {
+      resume_output_file();
+    }
   }
   m_time_stamps.resize(m_flush_freq);
 }
@@ -47,6 +52,15 @@ create_output_file ()
 }
 
 void ProfilingArchive::
+resume_output_file ()
+{
+  const auto& file_name = m_params.get<std::string>("Filename","cldera_stats.nc");
+
+  m_output_file = open_file (file_name, m_comm, io::pnetcdf::IOMode::Append);
+  m_flush_freq = m_params.get("Flush Frequency",10);
+}
+
+void ProfilingArchive::
 setup_output_file ()
 {
   auto& ts = timing::TimingSession::instance();
@@ -59,8 +73,8 @@ setup_output_file ()
   // Add time dimension
   io::pnetcdf::add_time (*m_output_file,"double");
 
-  io::pnetcdf::set_att(*m_output_file,"start_date","NC_GLOBAL",m_start_date.ymd());
-  io::pnetcdf::set_att(*m_output_file,"start_time","NC_GLOBAL",m_start_date.tod());
+  io::pnetcdf::set_att(*m_output_file,"start_date","NC_GLOBAL",m_case_t0.ymd());
+  io::pnetcdf::set_att(*m_output_file,"start_time","NC_GLOBAL",m_case_t0.tod());
 
   for (const auto& it1 : m_fields_stats) {
     for (const auto& it2 : it1.second) {
@@ -149,7 +163,7 @@ setup_output_file ()
     auto min_stat = StatFactory::instance().create("global_min",m_comm,ekat::ParameterList("global_min"));
     min_stat->set_field(f);
     min_stat->create_stat_field();
-    auto min_gid = min_stat->compute(m_start_date).data<int>()[0];
+    auto min_gid = min_stat->compute(m_case_t0).data<int>()[0];
 
     int my_ngids = f.layout().size();
     std::vector<int> gids(my_ngids);
@@ -175,7 +189,7 @@ setup_output_file ()
     auto I = StatFactory::instance().create("identity",m_comm,ekat::ParameterList("identity"));
     I->set_field(f);
     I->create_stat_field();
-    const auto f1p = np==1 ? f : I->compute(m_start_date);
+    const auto f1p = np==1 ? f : I->compute(m_case_t0);
     if (f.data_type()==DataType::RealType) {
       io::pnetcdf::write_var (*m_output_file,n,f1p.data<Real>());
     } else if (f.data_type()==DataType::IntType) {
@@ -292,7 +306,7 @@ void ProfilingArchive::flush_to_file ()
           }
         }
       }
-      io::pnetcdf::update_time(*m_output_file,ts-m_start_date);
+      io::pnetcdf::update_time(*m_output_file,ts-m_case_t0);
     }
 
     m_curr_time_slot = 0;

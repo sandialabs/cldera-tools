@@ -16,7 +16,7 @@ TEST_CASE ("archive") {
   params.set<std::string>("Filename","archive_tests.nc");
   params.set("Flush Frequency",5);
 
-  ProfilingArchive archive(comm,ts,params);
+  ProfilingArchive archive(comm,ts,ts,params);
 
   std::vector<Real> foo_data (20,3.0);
   archive.add_field(Field("foo",{5,4},{"col","lev"},foo_data.data()));

@@ -46,23 +46,31 @@ Profiling Output:
 
 Fields To Track: [SO2, T]
 T:
-  Compute Stats: [ipcc_lower_tropo_max_T,ipcc_strato_avg_T,horiz_avg_T]
-  ipcc_lower_tropo_max_T:
+  Compute Stats: [ipcc_lower_tropo_T,ipcc_strato_T,horiz_avg_T]
+  ipcc_lower_tropo_T:
     type: pipe
     inner:
       type: vertical_contraction
       average: true               # If true, compute average, otherwise just a sum (default: true)
       level_bounds: [55,71]       # Bounds for vertical contraction, endpoints included
     outer:
-      type: global_max
-  ipcc_strato_avg_T:
+      type: masked_integral
+      mask_field: mask            # Name of mask field in mask file (default: 'mask')
+      mask_file_name: <CLDERA_SOURCE_PATH>/data/ipcc_mask_ne4pg2.nc
+      weight_field: area
+      average: true               # If true, compute average, otherwise just a sum (default: true)
+  ipcc_strato_T:
     type: pipe
     inner:
       type: vertical_contraction
       average: true               # If true, compute average, otherwise just a sum (default: true)
       level_bounds: [3,5]         # Bounds for vertical contraction, endpoints included
     outer:
-      type: global_avg
+      type: masked_integral
+      mask_field: mask            # Name of mask field in mask file (default: 'mask')
+      mask_file_name: <CLDERA_SOURCE_PATH>/data/ipcc_mask_ne4pg2.nc
+      weight_field: area
+      average: true               # If true, compute average, otherwise just a sum (default: true)
   horiz_avg_T:
     type: avg_along_columns
 SO2:

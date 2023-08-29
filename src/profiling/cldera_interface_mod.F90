@@ -27,11 +27,11 @@ module cldera_interface_mod
 contains
 
   ! Initialize cldera session and main structures
-  subroutine cldera_init (comm, start_ymd, start_tod, stop_ymd, stop_tod)
+  subroutine cldera_init (comm, case_t0_ymd, case_t0_tod, run_t0_ymd, run_t0_tod, stop_ymd, stop_tod)
     use cldera_interface_f2c_mod, only: cldera_init_c
-    integer, intent(in) :: comm, start_ymd, start_tod, stop_ymd, stop_tod
+    integer, intent(in) :: comm, case_t0_ymd, case_t0_tod, run_t0_ymd, run_t0_tod, stop_ymd, stop_tod
 
-    call cldera_init_c(f2c(comm),start_ymd,start_tod,stop_ymd,stop_tod)
+    call cldera_init_c(f2c(comm),case_t0_ymd,case_t0_tod,run_t0_ymd,run_t0_tod,stop_ymd,stop_tod)
   end subroutine cldera_init
 
   subroutine cldera_set_log_unit (log_unit)

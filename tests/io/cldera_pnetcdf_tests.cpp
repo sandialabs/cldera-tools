@@ -64,7 +64,7 @@ void write_bad ()
   // Check write exceptions
   double ddata;
   int idata;
-  double* ptr;
+  double* ptr = nullptr;
   REQUIRE_THROWS (write_var(*file,"W",&ddata)); // Not a valid var
   REQUIRE_THROWS (write_var(*file,"T",&idata)); // Wrong data type ptr
   REQUIRE_THROWS (write_var(*file,"T",ptr));    // Invalid ptr
@@ -82,7 +82,10 @@ void write_bad ()
   close_file(*file);
 }
 
-void write ()
+void write (const std::string& fname_prefix,
+            const cldera::io::pnetcdf::IOMode mode,
+            const int num_steps = 1,
+            const int data_offset = 0)
 {
   // Do timings
   toggle_timing(true);
@@ -104,18 +107,21 @@ void write ()
   const int nlat = nglat / size;
 
   // Create file
-  auto file = open_file ("test_np" + std::to_string(size) +".nc",comm,IOMode::Write);
+  auto file = open_file (fname_prefix + "_np" + std::to_string(size) +".nc",comm,mode);
 
-  // Add dims
-  add_dim (*file,"lat",nlat,true);
-  add_dim (*file,"lon",nglon);
-  add_dim (*file,"dim2",2);
+  if (mode==IOMode::Write) {
+    // Add dims
+    add_dim (*file,"lat",nlat,true);
+    add_dim (*file,"lon",nglon);
+    add_dim (*file,"dim2",2);
 
-  // Add vars
-  add_var(*file,"T","double",{"lat","lon"},true);
-  add_var(*file,"V","float",{"lat","lon","dim2"},false);
-  add_var(*file,"I","long long",{"lat","lon"},true);
-  add_var(*file,"V","float",{"lat","lon","dim2"},false); // Var already added, but with same specs, so should be fine
+    // Add vars
+    add_var(*file,"T","double",{"lat","lon"},true);
+    add_var(*file,"V","float",{"lat","lon","dim2"},false);
+    add_var(*file,"I","long long",{"lat","lon"},true);
+    add_var(*file,"V","float",{"lat","lon","dim2"},false); // Var already added, but with same specs, so should be fine
+    add_time(*file,"int");
+  }
 
   // Partition along lat dimension
   std::vector<int> my_lat;
@@ -130,7 +136,9 @@ void write ()
   set_att (*file,"units","V",std::string("m/s"));
 
   // Close define phase
-  enddef (*file);
+  if (mode==IOMode::Write) {
+    enddef (*file);
+  }
 
   // Add decomposition
   add_decomp (*file,"lat",my_lat);
@@ -140,28 +148,25 @@ void write ()
   std::vector<double>     tdata(nlats*nglon);
   std::vector<float>      vdata(nlats*nglon*2);
   std::vector<long long>  idata(nlats*nglon);
-  for (int i=0; i<nlats; ++i) {
-    int idx = my_lat[i];
-    std::iota(tdata.begin()+i*nglon,  tdata.begin()+(i+1)*nglon,idx*nglon);
-    std::iota(vdata.begin()+i*nglon*2,vdata.begin()+(i+1)*nglon*2,idx*nglon*2);
-    std::iota(idata.begin()+i*nglon,  idata.begin()+(i+1)*nglon,idx*nglon);
+  for (int step=0; step<num_steps; ++step) {
+    for (int i=0; i<nlats; ++i) {
+      int idx = my_lat[i];
+      std::iota(tdata.begin()+i*nglon,  tdata.begin()+(i+1)*nglon,  step+data_offset+idx*nglon);
+      std::iota(vdata.begin()+i*nglon*2,vdata.begin()+(i+1)*nglon*2,step+data_offset+idx*nglon*2);
+      std::iota(idata.begin()+i*nglon,  idata.begin()+(i+1)*nglon,  step+data_offset+idx*nglon);
+    }
+
+    write_var(*file,"T",tdata.data());
+    write_var(*file,"V",vdata.data());
+    write_var(*file,"I",idata.data());
+
+    update_time(*file,step+data_offset);
   }
 
-  write_var(*file,"T",tdata.data());
-  write_var(*file,"V",vdata.data());
-  write_var(*file,"I",idata.data());
-
   close_file(*file);
-
-  std::stringstream blackhole;
-  std::ostream& cout = std::cout;
-  std::ostream& null = blackhole;
-
-  std::ostream& out = comm.am_i_root() ? cout : null;
-  timing::TimingSession::instance().dump(out,comm);
 }
 
-void read ()
+void read (const std::string& fname_prefix)
 {
   // Do timings
   toggle_timing(true);
@@ -173,7 +178,7 @@ void read ()
   const int rank = comm.rank();
   const int size = comm.size();
 
-  auto file = open_file ("test_np" + std::to_string(size) +".nc",comm,IOMode::Read);
+  auto file = open_file (fname_prefix + "_np" + std::to_string(size) +".nc",comm,IOMode::Read);
 
   // Partition along lat dimension, but differently from how it was done during write
   // Divide lat entries evenly, and do some extra work to account for remainders
@@ -207,7 +212,7 @@ void read ()
   REQUIRE (file->dims.at("dim2")->len==2);
 
   // Check vars
-  REQUIRE (file->vars.size()==3);
+  REQUIRE (file->vars.size()==4); // 3 vars plus 'time'
 
   auto T = file->vars.at("T");
   REQUIRE (T->dims.size()==3);
@@ -279,17 +284,29 @@ void read ()
   toggle_timing(true);
 
   close_file(*file);
-
-  std::stringstream blackhole;
-  std::ostream& cout = std::cout;
-  std::ostream& null = blackhole;
-  std::ostream& out = comm.am_i_root() ? cout : null;
-
-  timing::TimingSession::instance().dump(out,comm);
 }
 
 TEST_CASE ("pnetcdf_io") {
+  using namespace cldera::timing;
+  using namespace cldera::io::pnetcdf;
+  ekat::Comm comm(MPI_COMM_WORLD);
+  // Check we indeed throw exceptions when needed
   write_bad ();
-  write ();
-  read  ();
+
+  // Write, read, and compare
+  write ("simple_test",IOMode::Write);
+  read  ("simple_test");
+
+  // Write 2 steps
+  write ("monolithic",IOMode::Write,2,0);
+  write ("restarted",IOMode::Write,1,0);
+  write ("restarted",IOMode::Append,1,1);
+
+  // Print timing stats, just for fun
+  std::stringstream blackhole;
+  std::ostream& cout = std::cout;
+  std::ostream& null = blackhole;
+
+  std::ostream& out = comm.am_i_root() ? cout : null;
+  TimingSession::instance().dump(out,comm);
 }

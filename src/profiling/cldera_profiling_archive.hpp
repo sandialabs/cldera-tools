@@ -35,7 +35,8 @@ public:
   using stat_ptr_t = std::shared_ptr<FieldStat>;
 
   ProfilingArchive (const ekat::Comm& comm,
-                    const TimeStamp& start_date,
+                    const TimeStamp& case_t0,
+                    const TimeStamp& run_t0,
                     const ekat::ParameterList& params);
 
   // Flushes data to file, if needed
@@ -59,6 +60,7 @@ public:
   void update_time (const TimeStamp& ts);
 private:
   void create_output_file ();
+  void resume_output_file ();
   void setup_output_file ();
 
   void flush_to_file ();
@@ -72,14 +74,13 @@ private:
 
   strmap_t<strmap_t<std::vector<Field>>>  m_fields_stats;
 
-  // We create each vector above just once (to save on alloc times),
-  // so we need to know which slot we need to use
-
-  TimeStamp                               m_start_date;
+  TimeStamp                               m_case_t0;
   std::vector<TimeStamp>                  m_time_stamps;
 
   std::shared_ptr<io::pnetcdf::NCFile>    m_output_file;
 
+  // We create each field vector above just once (to save on alloc times),
+  // so we need to know which slot we need to use
   int m_curr_time_slot = 0;
   int m_flush_freq = 1;
 };

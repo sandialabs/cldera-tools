@@ -21,7 +21,8 @@ extern "C" {
 namespace cldera {
 
 void cldera_init_c (const MPI_Fint fcomm,
-                    const int start_ymd, const int start_tod,
+                    const int case_t0_ymd, const int case_t0_tod,
+                    const int run_t0_ymd, const int run_t0_tod,
                     const int stop_ymd, const int stop_tod)
 {
   auto& ts = timing::TimingSession::instance();
@@ -62,16 +63,18 @@ void cldera_init_c (const MPI_Fint fcomm,
   using vos_t = std::vector<std::string>;
 
   auto& params = s.get_params() = ekat::parse_yaml_file(filename);
-  TimeStamp start (start_ymd,start_tod);
+  TimeStamp case_t0 (case_t0_ymd,case_t0_tod);
+  TimeStamp run_t0 (run_t0_ymd,run_t0_tod);
   TimeStamp stop (stop_ymd,stop_tod);
-  s.create<TimeStamp>("start_timestamp",start);
+  s.create<TimeStamp>("run_t0",run_t0);
+  s.create<TimeStamp>("case_t0",case_t0);
   s.create<TimeStamp>("stop_timestamp",stop);
 
   if(params.isSublist("Profiling Output")) {
-    s.create<ProfilingArchive>("archive",comm,start,params.sublist("Profiling Output"));
+    s.create<ProfilingArchive>("archive",comm,case_t0,run_t0,params.sublist("Profiling Output"));
   } else {
     ekat::ParameterList profiling_output_list("Profiling Output");
-    s.create<ProfilingArchive>("archive",comm,start,profiling_output_list);
+    s.create<ProfilingArchive>("archive",comm,case_t0,run_t0,profiling_output_list);
   }
 
   s.create<bool>("doPathway",params.isSublist("Pathway"));
@@ -313,7 +316,7 @@ void cldera_compute_stats_c (const int ymd, const int tod)
   if (not s.inited()) { return; }
 
   cldera::TimeStamp time = {ymd, tod};
-  if (time==s.get<TimeStamp>("start_timestamp")) {
+  if (time==s.get<TimeStamp>("run_t0")) {
     // E3SM runs a bit of its timestep during init, to bootstrap
     // some surface fluxes. We are not interested in the stats at
     // that time.
@@ -333,7 +336,7 @@ void cldera_compute_stats_c (const int ymd, const int tod)
   }
 
   if (comm.am_i_root()) {
-    printf(" [CLDERA] Computing stats ...\n");
+    printf(" [CLDERA] Computing stats at time %s...\n",time.to_string().c_str());
   }
 
   auto& ts = timing::TimingSession::instance();

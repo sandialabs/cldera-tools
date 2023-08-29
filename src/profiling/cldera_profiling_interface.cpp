@@ -336,7 +336,7 @@ void cldera_compute_stats_c (const int ymd, const int tod)
   }
 
   if (comm.am_i_root()) {
-    printf(" [CLDERA] Computing stats ...\n");
+    printf(" [CLDERA] Computing stats at time %s...\n",time.to_string().c_str());
   }
 
   auto& ts = timing::TimingSession::instance();

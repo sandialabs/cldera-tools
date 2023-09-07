@@ -18,12 +18,8 @@ def parse_command_line(args, description):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
 
-    parser.add_argument("-d","--dirname", required=True,
-                        help="Dirname for ensemble NC files")
     parser.add_argument("-f","--filename", required=True,
-                        help="Filename for ensemble NC files")
-    parser.add_argument("-p","--postfix-entity", default="d",
-                        help="Where the ens member number should be attached (d: directory, f:filename)")
+                        help="Filename for ensemble NC files. Special char '#' will expand into ens member number")
     parser.add_argument("-n","--num-files", required=True,type=int,
                         help="Number of ensemble files")
     parser.add_argument("-s","--start", default=1,type=int,
@@ -40,19 +36,19 @@ def parse_command_line(args, description):
     return parser.parse_args(args[1:])
 
 ###############################################################################
-def compute_ens_mean_std(dirname,filename,postfix_entity,num_files,start,width,output_file,overwrite,exclude):
+def compute_ens_mean_std(filename,num_files,start,width,output_file,overwrite,exclude):
 ###############################################################################
 
     expect (num_files>1, f"Input number of files must greater than 1 (got {num_files})")
+    expect ("#" in filename, "Input filename should contain the char '#', which will expand to the number of the ens member to parse")
 
     # ens files have int str attached
     nwidth = width if width>0 else len(str(start+num_files))
 
     # Open the first ens file, to init list of ens mean/std
     one_str = str(start).zfill(nwidth)
-    ens1_dirname  = dirname + f"{one_str if postfix_entity=='d' else ''}"
-    ens1_filename = filename + f"{one_str if postfix_entity=='f' else ''}"
-    ens1_file = (pathlib.Path(ens1_dirname) / ens1_filename).resolve().absolute()
+    ens1_filename = filename.replace("#",one_str)
+    ens1_file = pathlib.Path(ens1_filename).resolve().absolute()
     ens1_db = Dataset(ens1_file,'r')
 
     dims = {}
@@ -80,9 +76,8 @@ def compute_ens_mean_std(dirname,filename,postfix_entity,num_files,start,width,o
     for n in range(start,start+num_files):
         num = str(n).zfill(nwidth)
         print (f"updating means with ens member {num}")
-        ensN_dirname  = dirname + f"{num if postfix_entity=='d' else ''}"
-        ensN_filename = filename + f"{num if postfix_entity=='f' else ''}"
-        ensN_file = (pathlib.Path(ensN_dirname) / ensN_filename).resolve().absolute()
+        ensN_filename = filename.replace('#',num)
+        ensN_file = pathlib.Path(ensN_filename).resolve().absolute()
         ensN_db = Dataset(ensN_file,'r')
 
         for vname in vnames:
@@ -103,9 +98,8 @@ def compute_ens_mean_std(dirname,filename,postfix_entity,num_files,start,width,o
     for n in range(start,start+num_files):
         num = str(n).zfill(nwidth)
         print (f"updating std devs with ens member {num}")
-        ensN_dirname  = dirname + f"{num if postfix_entity=='d' else ''}"
-        ensN_filename = filename + f"{num if postfix_entity=='f' else ''}"
-        ensN_file = (pathlib.Path(ensN_dirname) / ensN_filename).resolve().absolute()
+        ensN_filename = filename.replace('#',num)
+        ensN_file = pathlib.Path(ensN_filename).resolve().absolute()
         ensN_db = Dataset(ensN_file,'r')
 
         for vname in vnames:

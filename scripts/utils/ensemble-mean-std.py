@@ -25,7 +25,7 @@ def parse_command_line(args, description):
     parser.add_argument("-s","--start", default=1,type=int,
                         help="Start index for ensemble members")
     parser.add_argument("-w","--width", default=0,type=int,
-                        help="Width of number in ens member string (default: width of start+num_files")
+                        help="Width of number in ens member string, to allow padding with 0's (default: no zero padding)")
     parser.add_argument("-o","--output-file",default="out.nc",
                         help="Name of output nc file")
     parser.add_argument("-O","--overwrite",action='store_true',
@@ -43,7 +43,7 @@ def compute_ens_mean_std(filename,num_files,start,width,output_file,overwrite,ex
     expect ("#" in filename, "Input filename should contain the char '#', which will expand to the number of the ens member to parse")
 
     # ens files have int str attached
-    nwidth = width if width>0 else len(str(start+num_files))
+    nwidth = width if width>0 else 0
 
     # Open the first ens file, to init list of ens mean/std
     one_str = str(start).zfill(nwidth)

@@ -16,7 +16,7 @@ Timings Flush Freq: 10              # If >0, timings file will be dumped every t
 
 # I/O specs
 Profiling Output:
-  Filename: cldera_stats.nc         # stats output file
+  filename_prefix: cldera_stats     # prefix of stats output filename
   Flush Frequency: 10               # How often we write to disk
   Enable Output: true               # set to false to disable I/O (for timing purposes)
   Save Geometry Fields: true        # if true, lat/lon/area will be also saved

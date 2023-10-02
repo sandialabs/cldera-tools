@@ -9,6 +9,7 @@
 #include <ekat/ekat_assert.hpp>
 
 #include <numeric>
+#include <fstream>
 
 namespace cldera {
 
@@ -22,12 +23,24 @@ ProfilingArchive(const ekat::Comm& comm,
  , m_case_t0 (case_t0)
 {
   if (m_params.get<bool>("Enable Output",true)) {
+    const auto& prefix = m_params.get<std::string>("filename_prefix","cldera_stats");
+    std::string filename;
+    io::pnetcdf::IOMode mode = io::pnetcdf::IOMode::Invalid;
+
     if (m_case_t0==run_t0) {
-      create_output_file();
+      filename = prefix + "-" + m_case_t0.to_string();
+      mode = io::pnetcdf::IOMode::Write;
     } else {
-      resume_output_file();
+      filename = prefix + "-" + m_case_t0.to_string();
+      mode = io::pnetcdf::IOMode::Append;
+      if (not std::ifstream(filename).good() or m_params.get("force_new_file",true)) {
+        filename = prefix + "-" + run_t0.to_string();
+        mode = io::pnetcdf::IOMode::Write;
+      }
     }
+    m_output_file = open_file (filename, m_comm, mode);
   }
+  m_flush_freq = m_params.get("Flush Frequency",10);
   m_time_stamps.resize(m_flush_freq);
 }
 
@@ -40,24 +53,6 @@ ProfilingArchive::
   if (m_output_file) {
     io::pnetcdf::close_file(*m_output_file);
   }
-}
-
-void ProfilingArchive::
-create_output_file ()
-{
-  const auto& file_name = m_params.get<std::string>("Filename","cldera_stats.nc");
-
-  m_output_file = open_file (file_name, m_comm, io::pnetcdf::IOMode::Write);
-  m_flush_freq = m_params.get("Flush Frequency",10);
-}
-
-void ProfilingArchive::
-resume_output_file ()
-{
-  const auto& file_name = m_params.get<std::string>("Filename","cldera_stats.nc");
-
-  m_output_file = open_file (file_name, m_comm, io::pnetcdf::IOMode::Append);
-  m_flush_freq = m_params.get("Flush Frequency",10);
 }
 
 void ProfilingArchive::

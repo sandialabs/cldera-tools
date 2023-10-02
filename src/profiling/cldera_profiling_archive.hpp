@@ -59,8 +59,6 @@ public:
 
   void update_time (const TimeStamp& ts);
 private:
-  void create_output_file ();
-  void resume_output_file ();
   void setup_output_file ();
 
   void flush_to_file ();

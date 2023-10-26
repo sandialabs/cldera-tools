@@ -304,13 +304,14 @@ void ProfilingArchive::flush_to_file ()
       io::pnetcdf::update_time(*m_output_file,ts-m_case_t0);
     }
 
-    m_curr_time_slot = 0;
-
     if (m_comm.am_i_root()) {
       printf(" [CLDERA] Flushing field stats to file ... done!\n");
     }
     timings.stop_timer("profiling::flush_to_file");
   }
+
+  // Whether we do have an output file or not, we must reset the time slot to 0
+  m_curr_time_slot = 0;
 }
 
 void ProfilingArchive::commit_all_fields ()

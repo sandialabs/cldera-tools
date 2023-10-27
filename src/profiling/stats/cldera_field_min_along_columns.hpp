@@ -58,8 +58,6 @@ protected:
     // Clock MPI ops
     track_mpi_all_reduce(m_comm,stat_view.data(),stat_view.size(),MPI_MIN,name());
   }
-
-  const ekat::Comm m_comm;
 };
 
 } // namespace cldera

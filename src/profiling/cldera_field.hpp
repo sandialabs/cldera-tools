@@ -132,6 +132,7 @@ public:
   DataType data_type () const { return m_data_type; }
 
   Field clone () const;
+  Field read_only () const;
 
   template<typename T>
   void deep_copy (const T val);

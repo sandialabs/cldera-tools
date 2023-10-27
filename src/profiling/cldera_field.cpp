@@ -179,6 +179,13 @@ Field Field::clone() const {
   return f;
 }
 
+Field Field::read_only() const {
+  Field f (*this);
+  // Ensure copy_part_data cannot be called on this clone
+  f.m_data_access = DataAccess::View;
+  return f;
+}
+
 void Field::deep_copy (const Field& src) {
   check_committed(true,"Field::deep_copy");
   EKAT_REQUIRE_MSG (src.m_committed,

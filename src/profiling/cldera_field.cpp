@@ -159,9 +159,7 @@ void Field::commit () {
 }
 
 Field Field::clone() const {
-  EKAT_REQUIRE_MSG (m_committed,
-      "Error! You can only clone a committed field.\n"
-      " - Field name: " + m_name + "\n");
+  check_committed(true,"Field::clone");
   Field f(m_name,m_layout,m_nparts,m_part_dim,DataAccess::Copy,m_data_type);
 
   // Recall, public/private is based on type, not instance, so we can
@@ -182,8 +180,9 @@ Field Field::clone() const {
 }
 
 void Field::deep_copy (const Field& src) {
-  EKAT_REQUIRE_MSG (m_committed and src.m_committed,
-      "Error! Cannot deep copy if src and/or tgt fields are not yet committed.\n"
+  check_committed(true,"Field::deep_copy");
+  EKAT_REQUIRE_MSG (src.m_committed,
+      "Error! Cannot deep copy if src field is not yet committed.\n"
       " Source field: " + src.m_name + "\n"
       " Target field: " + m_name + "\n");
   EKAT_REQUIRE_MSG (m_layout==src.m_layout,
@@ -222,6 +221,25 @@ check_part_idx (const int ipart) const {
       "  - Field name: " + m_name + "\n"
       "  - Part index: " + std::to_string(ipart) + "\n"
       "  - Num parts : " + std::to_string(m_nparts) + "\n");
+}
+
+void Field::
+check_committed (const bool expected, const std::string& context) const {
+  EKAT_REQUIRE_MSG (m_committed==expected,
+      "Error! Field was not in the expected committed state.\n"
+      "  - Field Name: " + m_name + "\n"
+      "  - Expected  : " + std::string(expected ? "committed" : "not committed") + "\n"
+      "  - Actual    : " + std::string(m_committed ? "committed" : "not committed") + "\n"
+      "  - Context   : " + context + "\n");
+}
+
+void Field::
+check_rank (const int N) const {
+  EKAT_REQUIRE_MSG (N==layout().rank(),
+      "Error! Wrong value for field rank.\n"
+      " - field name    : " + m_name + "\n"
+      " - field rank    : " + std::to_string(layout().rank()) + "\n"
+      " - requested rank: " + std::to_string(N) + "\n");
 }
 
 } // namespace cldera

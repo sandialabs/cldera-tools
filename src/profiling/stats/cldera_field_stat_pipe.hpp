@@ -73,15 +73,25 @@ protected:
     }
   }
 
-  void set_aux_fields_impl (const std::map<std::string,Field>& fields) {
-    m_inner->set_aux_fields(fields);
+  void set_aux_fields_impl () {
+    m_inner->set_aux_fields(m_aux_fields);
 
     // We can let m_inner create the stat field, so we can finally start
     // to setup the outer stat
     m_inner->create_stat_field ();
+
+    // Inner stat may have created some aux fields, so grab them
+    for (const auto& it : m_inner->get_aux_fields()) {
+      m_aux_fields[it.first] = it.second;
+    }
     
     m_outer->set_field(m_inner->get_stat_field());
-    m_outer->set_aux_fields(fields);
+    m_outer->set_aux_fields(m_aux_fields);
+
+    // Outer stat may have created some aux fields, so grab them
+    for (const auto& it : m_outer->get_aux_fields()) {
+      m_aux_fields[it.first] = it.second;
+    }
   }
 
   void compute_impl () {

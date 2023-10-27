@@ -86,13 +86,13 @@ protected:
     }
   }
 
-  void set_aux_fields_impl (const std::map<std::string,Field>& fields) override {
+  void set_aux_fields_impl () override {
     const auto& fl = m_field.layout();
     const auto lev_dim_name = fl.names()[m_vert_dim_pos];
     const auto nlevs  = fl.dims()[m_vert_dim_pos];
     if (m_use_weight) {
       const auto& wname = m_params.get<std::string>("weight_field");
-      m_weight_field = fields.at(wname);
+      m_weight_field = m_aux_fields.at(wname);
 
       // Sanity checks
       EKAT_REQUIRE_MSG (m_weight_field.data_type()==RealType,

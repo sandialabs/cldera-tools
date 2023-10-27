@@ -299,11 +299,29 @@ void cldera_commit_all_fields_c ()
       stat->set_field(f);
       std::map<std::string,Field> aux_fields;
       for (const auto& fn : stat->get_aux_fields_names()) {
-        aux_fields[fn] = archive.get_field(fn);
+        // It may seem that we should let archive error out here,
+        // if fn is not found. However, there's a good case for not doing it.
+        // Namely, all masked integral stats need a mask field. When the first
+        // instance is created, we have no mask in the archive, so the stat
+        // will load from nc file. After that, we'll put the stat in the archive
+        // so that we can pass it to the other instances using the same mask
+        if (archive.has_field(fn)) {
+          aux_fields[fn] = archive.get_field(fn);
+        }
       }
       stat->set_aux_fields(aux_fields);
       stat->create_stat_field();
       req_stats.push_back(stat);
+
+      // Add all fields computed by the stat to the archive
+      if (not archive.has_field(stat->get_stat_field().name())) {
+        archive.add_field(stat->get_stat_field());
+      }
+      for (const auto& it : stat->get_aux_fields()) {
+        if (not archive.has_field(it.first)) {
+          archive.add_field(it.second);
+        }
+      }
     }
   }
   ts.stop_timer("profiling::create_stats");

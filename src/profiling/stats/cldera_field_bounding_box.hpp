@@ -35,19 +35,27 @@ public:
     return {"lat", "lon"};
   }
 protected:
-  void set_aux_fields_impl (const std::map<std::string, Field>& fields) override {
-    m_lat = fields.at("lat");
-    m_lon = fields.at("lon");
+  void set_aux_fields_impl () override {
+    // We really needed all the aux fields
+    check_aux_fields (get_aux_fields_names());
+    m_lat = m_aux_fields.at("lat");
+    m_lon = m_aux_fields.at("lon");
+
+    EKAT_REQUIRE_MSG (m_field.nparts() == m_lat.nparts(),
+        "Error! Incompatible number of part for aux field 'lat'.\n"
+        "  - stat name   : " + name() + "\n"
+        "  - field name  : " + m_field.name() + "\n"
+        "  - field nparts: " + std::to_string(m_field.nparts()) + "\n"
+        "  - lat nparts  : " + std::to_string(m_lat.nparts()) + "\n");
+    EKAT_REQUIRE_MSG (m_field.nparts() == m_lon.nparts(),
+        "Error! Incompatible number of part for aux field 'lon'.\n"
+        "  - stat name   : " + name() + "\n"
+        "  - field name  : " + m_field.name() + "\n"
+        "  - field nparts: " + std::to_string(m_field.nparts()) + "\n"
+        "  - lon nparts  : " + std::to_string(m_lon.nparts()) + "\n");
   }
 
   void compute_impl () override {
-    EKAT_REQUIRE_MSG (m_lat.committed() && m_lon.committed(),
-        "Error! lat/lon fields not initialized!\n");
-
-    const int nparts = m_field.nparts();
-    EKAT_REQUIRE_MSG (nparts == m_lat.nparts() && nparts == m_lon.nparts(),
-        "Error! Field " + m_field.name() + " should have the same number of parts as lat/lon!\n");
-
     const auto dt = m_field.data_type();
     if (dt==IntType) {
       do_compute_impl<int>();

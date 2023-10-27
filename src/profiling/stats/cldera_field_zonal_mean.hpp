@@ -30,24 +30,38 @@ public:
   }
 
 protected:
-  void set_aux_fields_impl (const std::map<std::string,Field>& fields)
+  void set_aux_fields_impl () override
   {
-    m_lat  = fields.at("lat");
-    m_area = fields.at("area");
+    check_aux_fields(get_aux_fields_names());
+
+    m_lat  = m_aux_fields.at("lat");
+    m_area = m_aux_fields.at("area");
+
+    EKAT_REQUIRE_MSG (m_field.nparts() == m_lat.nparts(),
+        "Error! Incompatible number of part for aux field 'lat'.\n"
+        "  - stat name   : " + name() + "\n"
+        "  - field name  : " + m_field.name() + "\n"
+        "  - field nparts: " + std::to_string(m_field.nparts()) + "\n"
+        "  - lat nparts  : " + std::to_string(m_lat.nparts()) + "\n");
+    EKAT_REQUIRE_MSG (m_field.nparts() == m_area.nparts(),
+        "Error! Incompatible number of part for aux field 'area'.\n"
+        "  - stat name   : " + name() + "\n"
+        "  - field name  : " + m_field.name() + "\n"
+        "  - field nparts: " + std::to_string(m_field.nparts()) + "\n"
+        "  - area nparts  : " + std::to_string(m_area.nparts()) + "\n");
 
     // Sanity checks
-    const int nparts = m_area.nparts();
-    EKAT_REQUIRE_MSG (nparts == m_lat.nparts(),
-        "Error! area should have the same number of parts as lat!\n");
-
     EKAT_REQUIRE_MSG (m_lat.layout().size() == m_area.layout().size(),
-        "Error! lat and area should be the same size!\n");
+        "Error! lat and area should be the same size!\n"
+        "  - stat name  : " + name() + "\n"
+        "  - lat layout : " + m_lat.layout().to_string() + "\n"
+        "  - area layout: " + m_area.layout().to_string() + "\n");
 
     // Compute zonal area (the scaling factor of the zonal integral)
     m_zonal_area = 0.0;
     Real c = 0;
     Real temp, y;
-    for (int ipart = 0; ipart < nparts; ++ipart) {
+    for (int ipart = 0; ipart < m_field.nparts(); ++ipart) {
       const auto& part_layout = m_area.part_layout(ipart);
       const auto& lat_part_data = m_lat.part_data<const Real>(ipart);
       const auto& area_part_data = m_area.part_data<const Real>(ipart);
@@ -69,13 +83,6 @@ protected:
   }
 
   void compute_impl () override {
-    EKAT_REQUIRE_MSG (m_aux_fields_set,
-        "Error! lat/area fields not initialized!\n");
-
-    const int nparts = m_field.nparts();
-    EKAT_REQUIRE_MSG (nparts == m_lat.nparts() && nparts == m_area.nparts(),
-        "Error! Field " + m_field.name() + " should have the same number of parts as lat/area!\n");
-
     const auto dt = m_field.data_type();
     if (dt==IntType) {
       do_compute_impl<int>();

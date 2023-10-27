@@ -241,8 +241,7 @@ TEST_CASE ("stats_tests") {
     bounding_box_stat->set_field(foo);
     REQUIRE_THROWS(bounding_box_stat->create_stat_field()); // set_aux_fields() required
     REQUIRE_THROWS(bounding_box_stat->set_aux_fields(dum_lat, dum_lon)); // dum_lat wrong name
-    bounding_box_stat->set_aux_fields(lat, dum_lon);
-    REQUIRE_THROWS(bounding_box_stat->compute(time)); // dum_lon wrong size
+    REQUIRE_THROWS(bounding_box_stat->set_aux_fields(lat, dum_lon));  // dum_lon wrong nparts
     bounding_box_stat->set_aux_fields(lat, lon);
     bounding_box_stat->create_stat_field();
     const auto bounding_box_field = bounding_box_stat->compute(time);

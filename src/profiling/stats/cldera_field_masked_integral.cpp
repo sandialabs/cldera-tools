@@ -12,6 +12,9 @@ FieldMaskedIntegral (const ekat::Comm& comm,
  : FieldStat(comm,pl)
 {
   m_output_mask_field = m_params.get("output_mask_field",false);
+  if (not m_params.isParameter("mask_field")) {
+    m_params.set<std::string>("mask_field","mask");
+  }
   if (not m_output_mask_field) {
     m_use_weight = m_params.isParameter("weight_field");
     m_average = m_params.get<bool>("average",true);

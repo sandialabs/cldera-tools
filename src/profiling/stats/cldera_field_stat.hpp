@@ -33,8 +33,9 @@ public:
   // Given a field, return the layout that the computed stat will have
   virtual FieldLayout stat_layout (const FieldLayout& field_layout) const = 0;
 
-  // If derived stats need auxiliary fields, they need to override these
+  // If derived stats need auxiliary fields, they need to override this
   virtual std::vector<std::string> get_aux_fields_names () const { return {}; }
+
   void set_aux_fields (const std::map<std::string,Field>& fields);
 
   template<typename... Fs>
@@ -52,15 +53,25 @@ public:
 
   const Field& get_stat_field () const { return m_stat_field; }
 
+  const std::map<std::string,Field>& get_aux_fields () const { return m_aux_fields; }
+
   // Virtual, in case derived classes need to add more stuff
   virtual void create_stat_field ();
 
 protected:
+  // Some stats REQUIRE all aux fields to be present, while others can compute
+  // an aux field if missing. Hence, we cannot check that all names in
+  // get_aux_fields_names() are present in the map passed to set_aux_fields(),
+  // since we don't know what the derived class can do. So instead, we offer
+  // this method, which derived class can call passing the names of the
+  // aux fields that were *absolutely* needed.
+  void check_aux_fields (const std::vector<std::string>& names) const;
+
   // If derived classes need to perform some additional setup steps when setting the field,
   // they can override this method
 
   virtual void set_field_impl (const Field& /* f */) {}
-  virtual void set_aux_fields_impl (const std::map<std::string,Field>&) {}
+  virtual void set_aux_fields_impl () {}
   virtual void compute_impl () = 0;
 
   ekat::ParameterList   m_params;
@@ -72,6 +83,8 @@ protected:
   bool   m_aux_fields_set = false;
   Field  m_field;
   Field  m_stat_field;
+
+  std::map<std::string,Field> m_aux_fields;
 };
 
 template<typename... Fs>

@@ -48,8 +48,6 @@ protected:
     // Clock MPI ops
     track_mpi_all_reduce(m_comm,&max,m_stat_field.data_nonconst<T>(),1,MPI_MAX,name());
   }
-
-  ekat::Comm    m_comm;
 };
 
 } // namespace cldera

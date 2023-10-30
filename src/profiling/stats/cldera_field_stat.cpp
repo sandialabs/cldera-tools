@@ -4,6 +4,8 @@
 
 namespace cldera {
 
+// ------------------ FieldStat implementation ------------------ //
+
 void FieldStat::
 set_aux_fields (const std::map<std::string,Field>& fields) {
   EKAT_REQUIRE_MSG (m_field.committed(),
@@ -11,16 +13,16 @@ set_aux_fields (const std::map<std::string,Field>& fields) {
       " - stat name: " + name()  + "\n");
 
   for (const auto& it : get_aux_fields_names()) {
-    EKAT_REQUIRE_MSG (fields.count(it)==1,
-        "Error! Input map is missing a required auxiliary field:\n"
-        " - stat name: " + name() + "\n"
-        " - aux field name: " + it + "\n");
-    EKAT_REQUIRE_MSG (fields.at(it).committed(),
-        "Error! Input aux field is not yet committed.\n"
-        " - stat name: " + name() + "\n"
-        " - aux field name: " + it + "\n");
+    if (fields.count(it)>0) {
+      EKAT_REQUIRE_MSG (fields.at(it).committed(),
+          "Error! Input aux field is not yet committed.\n"
+          " - stat name: " + name() + "\n"
+          " - aux field name: " + it + "\n");
+
+      m_aux_fields[it] = fields.at(it).read_only();
+    }
   }
-  set_aux_fields_impl (fields);
+  set_aux_fields_impl ();
 
   m_aux_fields_set = true;
 }
@@ -74,6 +76,31 @@ stat_data_type() const {
       " - stat name : " + name() + "\n");
   return m_field.data_type();
 }
+
+void FieldStat::
+check_aux_fields (const std::vector<std::string>& names) const
+{
+  auto map_keys = [&]() {
+    std::string s;
+    if (m_aux_fields.size()==0) {
+      return s;
+    }
+    auto it = m_aux_fields.begin();
+    s += it->first;
+    for (it++; it!=m_aux_fields.end(); ++it) {
+      s += ", " + it->first;
+    }
+    return s;
+  };
+  for (const auto& n : names) {
+    EKAT_REQUIRE_MSG (m_aux_fields.count(n)>0,
+        "Error! A required field was not set in the aux field map.\n"
+        "  - missing field: " + n + "\n"
+        "  - aux fields   : " + map_keys() + "\n");
+  }
+}
+
+// ------------- FieldSinglePartStat implementation ------------- //
 
 std::vector<int>
 FieldSinglePartStat::

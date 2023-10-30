@@ -21,7 +21,7 @@ public:
   DataType stat_data_type() const override { return DataType::RealType; }
 protected:
 
-  void set_aux_fields_impl (const std::map<std::string,Field>& fields) override;
+  void set_aux_fields_impl () override;
 
   void compute_impl () override;
 

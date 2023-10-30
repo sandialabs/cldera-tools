@@ -132,6 +132,7 @@ public:
   DataType data_type () const { return m_data_type; }
 
   Field clone () const;
+  Field read_only () const;
 
   template<typename T>
   void deep_copy (const T val);
@@ -155,6 +156,8 @@ private:
   void check_data_type () const;
   void check_single_part (const std::string& method_name) const;
   void check_part_idx (const int i) const;
+  void check_committed (const bool expected, const std::string& context) const;
+  void check_rank (const int N) const;
 
   std::string             m_name;
   FieldLayout             m_layout;
@@ -206,6 +209,7 @@ template<typename T>
 void Field::
 set_part_data (const int ipart, const T* data)
 {
+  check_committed(false,"Field::set_part_data");
   EKAT_REQUIRE_MSG (m_data_access==DataAccess::View,
       "[Field::set_part_data]\n"
       "  Error! Attempt to set data pointer, but data access is 'Copy'.\n"
@@ -239,6 +243,7 @@ template<typename T>
 void Field::
 copy_part_data (const int ipart, const T* data)
 {
+  check_committed(true,"Field::copy_part_data");
   EKAT_REQUIRE_MSG (m_data_access==DataAccess::Copy,
       "[Field::copy_part_data]\n"
       "  Error! Attempt to copy data, but field data access is not 'Copy'.\n"
@@ -284,9 +289,7 @@ template<typename T>
 view_1d_host<const T>
 Field::part_view (const int ipart) const
 {
-  EKAT_REQUIRE_MSG (m_committed,
-      "Error! Field '" + m_name + "' was not committed yet.\n");
-
+  check_committed(true,"Field::part_view");
   check_data_type<T>();
   check_part_idx(ipart);
 
@@ -299,9 +302,7 @@ template<typename T>
 view_1d_host<T>
 Field::part_view_nonconst (const int ipart)
 {
-  EKAT_REQUIRE_MSG (m_committed,
-      "Error! Field '" + m_name + "' was not committed yet.\n");
-
+  check_committed(true,"Field::part_view_nonconst");
   check_data_type<T>();
   check_part_idx(ipart);
 
@@ -330,14 +331,8 @@ template<typename T, int N>
 view_Nd_host<const T,N>
 Field::part_nd_view (const int ipart) const
 {
-  EKAT_REQUIRE_MSG (m_committed,
-      "Error! Field '" + m_name + "' was not committed yet.\n");
-  EKAT_REQUIRE_MSG (N==m_layout.rank(),
-      "Error! Field::part_nd_view requires template arg N to match the field rank.\n"
-      " - field name: " + name() + "\n"
-      " - field rank: " + std::to_string(m_layout.rank()) + "\n"
-      " - input N   : " + std::to_string(N) + "\n");
-
+  check_committed(true,"Field::part_nd_view");
+  check_rank(N);
   check_data_type<T>();
   check_part_idx(ipart);
 
@@ -349,15 +344,8 @@ template<typename T, int N>
 view_Nd_host<T,N>
 Field::part_nd_view_nonconst (const int ipart)
 {
-  EKAT_REQUIRE_MSG (m_committed,
-      "Error! Field '" + m_name + "' was not committed yet.\n");
-  EKAT_REQUIRE_MSG (N==m_layout.rank(),
-      "Error! Field::part_nd_view requires template arg N to match the field rank.\n"
-      " - field name: " + name() + "\n"
-      " - field rank: " + std::to_string(m_layout.rank()) + "\n"
-      " - input N   : " + std::to_string(N) + "\n");
-
-
+  check_committed(true,"Field::part_nd_view_nonconst");
+  check_rank(N);
   check_data_type<T>();
   check_part_idx(ipart);
 

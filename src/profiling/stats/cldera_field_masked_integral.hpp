@@ -25,7 +25,7 @@ protected:
 
   void compute_impl () override;
 
-  template<typename T>
+  template<typename T, int N>
   void do_compute_impl ();
 
   void load_mask_field (const Field& my_col_gids);

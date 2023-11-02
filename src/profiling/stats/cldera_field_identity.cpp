@@ -1,4 +1,5 @@
 #include "cldera_field_identity.hpp"
+#include "profiling/utils/cldera_subview_utils.hpp"
 
 namespace cldera
 {
@@ -38,52 +39,33 @@ compute_impl () {
 
 template<typename T, int N>
 void FieldIdentity::
-do_compute_impl () {
-  using pair_t = Kokkos::pair<int,int>;
-  using data_nd_t = typename ekat::DataND<T,N>::type;
-  using strided_view_t = Kokkos::View<data_nd_t,Kokkos::LayoutStride,ekat::HostDevice,Kokkos::MemoryUnmanaged>;
-
-  constexpr auto ALL = Kokkos::ALL();
-
+do_compute_impl ()
+{
   auto stat_view = m_stat_field.nd_view_nonconst<T,N>();
 
   const int nparts = m_field.nparts();
   const int part_dim = m_field.part_dim();
+  auto non_part_layout = m_field.layout().strip_dim(part_dim);
+
   for (int p=0; p<nparts; ++p) {
     const auto& part_layout = m_field.part_layout(p);
     const int part_size = part_layout.dims()[part_dim];
     const int part_offset = m_field.part_offset(p);
-    pair_t part_range(part_offset,part_offset+part_size);
-
     auto fpart_view = m_field.part_nd_view<const T,N>(p);
 
-    if constexpr (N==1) {
-      auto stat_subview = Kokkos::subview(stat_view,part_range);
-      for (int i=0; i<part_layout.extent(0); ++i) {
-        stat_subview(i) = fpart_view(i);
-      }
-    } else if constexpr (N==2) {
-      auto stat_subview = part_dim==0
-                        ? Kokkos::subview(stat_view,part_range,ALL)
-                        : Kokkos::subview(stat_view,ALL,part_range);
-      for (size_t i=0; i<stat_subview.extent(0); ++i) {
-        for (size_t j=0; j<stat_subview.extent(1); ++j) {
-          stat_subview(i,j) = fpart_view(i,j);
-        }
-      }
-    } else {
-      // We can't use ternary op here, since the return type for the case part_dim=2
-      // has LayoutStride (recall that ?: op requires both values to have the same type)
-      strided_view_t stat_subview;
-      switch (part_dim) {
-        case 0: stat_subview = Kokkos::subview(stat_view,part_range,ALL,ALL); break;
-        case 1: stat_subview = Kokkos::subview(stat_view,ALL,part_range,ALL); break;
-        case 2: stat_subview = Kokkos::subview(stat_view,ALL,ALL,part_range); break;
-      }
-      for (size_t i=0; i<stat_subview.extent(0); ++i) {
-        for (size_t j=0; j<stat_subview.extent(1); ++j) {
-          for (size_t k=0; k<stat_subview.extent(2); ++k) {
-            stat_subview(i,j,k) = fpart_view(i,j,k);
+    for (int i=0; i<part_size; ++i) {
+      if constexpr (N==1) {
+        stat_view(i+part_offset) = fpart_view(i);
+      } else {
+        auto stat_slice = slice(stat_view,part_dim,i);
+        auto f_slice    = slice(fpart_view,part_dim,i);
+        for (int j=0; j<non_part_layout.extent(0); ++j) {
+          if constexpr (N==2) {
+            stat_slice(j) = f_slice(j);
+          } else {
+            for (int k=0; k<non_part_layout.extent(0); ++k) {
+              stat_slice(j,k) = f_slice(j,k);
+            }
           }
         }
       }

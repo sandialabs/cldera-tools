@@ -192,7 +192,7 @@ TEST_CASE ("masked_integral") {
   }
   io::pnetcdf::write_var(*ofile,"mask_ids",mask_ids.data());
 
-  {
+  SECTION ("integrate_mask") {
     // Integrate mask field itself
     auto stat = create_stat(mask);
     auto out = stat->compute(time);
@@ -214,7 +214,7 @@ TEST_CASE ("masked_integral") {
     io::pnetcdf::write_var(*ofile,"s2d_no_w",out_data.data());
   }
 
-  {
+  SECTION ("integrate_mask_with_mask_as_weight") {
     // Integrate mask field itself, using mask itself as a weight
     auto stat = create_stat(mask,&mask_real);
     auto out = stat->compute(time);
@@ -236,7 +236,7 @@ TEST_CASE ("masked_integral") {
     io::pnetcdf::write_var(*ofile,"s2d_w",out_data.data());
   }
 
-  {
+  SECTION ("integrate_lev_times_mask") {
     // Integrate a field where f(lev,col) = lev*mask(col)
     for (bool lev_dim_first : {true, false}) { 
       auto f = extrude_mask ("f3d",nlevs,lev_dim_first);
@@ -276,7 +276,7 @@ TEST_CASE ("masked_integral") {
     }
   }
 
-  {
+  SECTION ("integrate_lev_times_mask_with_mask_as_weight") {
     // Integrate a field where f(lev,col) = lev*mask(col), using mask itself as a weight
     for (bool lev_dim_first : {true, false}) { 
       auto f = extrude_mask ("f3d",nlevs,lev_dim_first);

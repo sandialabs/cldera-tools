@@ -51,18 +51,13 @@ do_compute_impl () {
   auto stat_view = m_stat_field.nd_view_nonconst<T,N>();
   Kokkos::deep_copy(stat_view, 0);
 
-  auto strip_dim = [] (std::vector<int>& d, int i) {
-    d.erase(d.begin()+i);
-    return d;
-  };
   const int part_dim = m_field.part_dim();
+  const auto non_part_layout = m_field.layout().strip_dim(part_dim);
   for (int ipart = 0; ipart < m_field.nparts(); ++ipart) {
     auto fview = m_field.part_nd_view<const T,N>(ipart);
     const auto part_layout = m_field.part_layout(ipart);
-    auto part_dims = part_layout.dims();
 
-    int part_size = part_dims[part_dim];
-    strip_dim(part_dims,part_dim);
+    int part_size = part_layout.extent(part_dim);
     const int offset = m_field.part_offset(ipart);
 
     for (int i=0; i<part_size; ++i) {
@@ -71,12 +66,12 @@ do_compute_impl () {
       if constexpr (N==1) {
         s () = m_bounds.contains(f()) ? f() : m_mask_val;
       } else if constexpr (N==2) {
-        for (int j=0; j<part_dims[0]; ++i) {
+        for (int j=0; j<non_part_layout.extent(0); ++i) {
           s (j) = m_bounds.contains(f(j)) ? f(j) : m_mask_val;
         }
       } else if constexpr (N==3) {
-        for (int j=0; j<part_dims[0]; ++j) {
-          for (int k=0; k<part_dims[1]; ++k) {
+        for (int j=0; j<non_part_layout.extent(0); ++j) {
+          for (int k=0; k<non_part_layout.extent(1); ++k) {
             s (j,k) = m_bounds.contains(f(j,k)) ? f(j,k) : m_mask_val;
           }
         }

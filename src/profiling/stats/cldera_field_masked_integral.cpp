@@ -1,4 +1,6 @@
 #include "cldera_field_masked_integral.hpp"
+#include "profiling/utils/cldera_subview_utils.hpp"
+#include "profiling/cldera_mpi_timing_wrappers.hpp"
 #include "io/cldera_pnetcdf.hpp"
 
 #include <ekat/util/ekat_string_utils.hpp>
@@ -178,245 +180,106 @@ compute_impl () {
     }
     return;
   }
-  switch (m_field.data_type()) {
-    case RealType:
-      do_compute_impl<Real>();
-      break;
-    case IntType:
-      do_compute_impl<int>();
-      break;
-    default:
-      EKAT_ERROR_MSG ("Error! Unexpected/unsupported field data type.\n"
-          " - field name: " + m_field.name() + "\n"
-          " - field data type: " + e2str(m_field.data_type()) + "\n"
-          " - stat name: " + name () + "\n");
+
+  const auto dt   = m_field.data_type();
+  const int  rank = m_field.layout().rank();
+  if (dt==DataType::RealType) {
+    switch (rank) {
+      case 1: return do_compute_impl<Real,1>();
+      case 2: return do_compute_impl<Real,2>();
+      case 3: return do_compute_impl<Real,3>();
+    }
+  } else if (dt==DataType::IntType) {
+    switch (rank) {
+      case 1: return do_compute_impl<int,1>();
+      case 2: return do_compute_impl<int,2>();
+      case 3: return do_compute_impl<int,3>();
+    }
+  } else {
+    EKAT_ERROR_MSG ("Error! Unexpected/unsupported field data type.\n"
+        " - field name: " + m_field.name() + "\n"
+        " - field data type: " + e2str(m_field.data_type()) + "\n"
+        " - stat name: " + name () + "\n");
   }
 }
 
-template<typename T>
+template<typename T, int N>
 void FieldMaskedIntegral::
 do_compute_impl ()
 {
-  const auto& fl = m_field.layout();
-  auto m = m_mask_field.view<int>();
+  auto sview = m_stat_field.nd_view_nonconst<Real,N>();
+  auto mview = m_mask_field.view<int>();
 
   // Init stat to 0
-  Kokkos::deep_copy(m_stat_field.view_nonconst<Real>(),0.0);
+  Kokkos::deep_copy(sview,0.0);
 
-  // We'll use this to decide which of the input field's indices
-  // is needed to index the stat field
-  auto mask_dim_pos = m_field.layout().dim_idx(m_mask_field.layout().names()[0]);
-
-  int midx;
   view_1d_host<const Real> w_view;
   if (m_use_weight) {
     w_view = m_weight_field.view<const Real>();
   }
-  switch (fl.rank()) {
-    case 1:
-    {
-      // Offset of part-index into the unpartitioned field
-      int offset = 0;
 
-      auto sview = m_stat_field.nd_view_nonconst<Real,1>();
+  const auto& mask_dim_name = m_mask_field.layout().names()[0];
+  const int mask_dim = m_field.layout().dim_idx(mask_dim_name);
+  const int part_dim = m_field.part_dim();
 
-      // Loop over input field parts
-      for (int p=0; p<m_field.nparts(); ++p) {
-        auto fpl = m_field.part_layout(p);
-        auto fview = m_field.part_nd_view<T,1>(p);
+  // NOTE: we operate under the assumption that either
+  //  - mask_dim==part_dim: we're integrating over the partitioned dim
+  //  - nparts==1: which dim is "partitioned" is arbitrary and irrelevant
+  // If we allowed a non-masked dim to be partitioned, then we would have
+  // to offset the stat indices also along the non-mask dimensions.
+  // That's too many cases, which are likely never needed
 
-        // Loop over entries of this part
-        for (int i=0; i<fpl.dims()[0]; ++i) {
-          midx = m_mask_val_to_stat_entry.at(m(offset+i));
+  for (int p=0; p<m_field.nparts(); ++p) {
+    auto fpl = m_field.part_layout(p);
+    auto fview = m_field.part_nd_view<T,N>(p);
 
-          // Update field (weighted) integral (and weight integral)
-          if (m_use_weight) {
-            sview(midx) += fview(i)*w_view(i+offset);
+    // Offset of this part into the unpartitioned dimension
+    const int part_offset = m_field.part_offset(p);
+
+    const int mask_dim_offset = mask_dim==part_dim ? part_offset : 0;
+    const int mask_dim_ext = fpl.extent(mask_dim_name);
+    for (int i=0; i<mask_dim_ext; ++i) {
+      auto mval = mview(i+mask_dim_offset);
+      auto midx = m_mask_val_to_stat_entry.at(mval);
+      auto w = m_use_weight ? w_view(i+mask_dim_offset) : 1;
+      if constexpr (N==1) {
+        sview(midx) += fview(i) * w;
+      } else {
+        auto f_slice = slice(fview,mask_dim,i);
+        auto s_slice = slice(sview,mask_dim,midx);
+        for (int j=0; j<f_slice.extent_int(0); ++j) {
+          if constexpr (N==2) {
+            s_slice(j) += f_slice(j) * w;
           } else {
-            sview(midx) += fview(i);
+             for (int k=0; k<f_slice.extent_int(1); ++k) {
+               s_slice(j,k) += f_slice(j,k) * w;
+             }
           }
         }
-
-        // Update offset
-        offset += fpl.dims()[0];
       }
-
-      // Global reduction of (weighted) integral
-      m_comm.all_reduce(sview.data(),sview.size(),MPI_SUM);
-      break;
     }
-    case 2:
-    {
-      // Offsets of i/j part-indices into the unpartitioned field
-      int offset_i = 0;
-      int offset_j = 0;
-
-      // Init stat to 0
-      auto sview = m_stat_field.nd_view_nonconst<Real,2>();
-      Kokkos::deep_copy(sview,0);
-
-      // Loop over input field parts
-      for (int p=0; p<m_field.nparts(); ++p) {
-        auto fpl = m_field.part_layout(p);
-        auto spl = stat_layout(fpl);
-        auto fview = m_field.part_nd_view<T,2>(p);
-
-        // Loop over part indices
-        for (int i=0; i<fpl.dims()[0]; ++i) {
-          // If i index is the masked one, get stat mask index
-          if (mask_dim_pos==0)
-            midx = m_mask_val_to_stat_entry.at(m(i+offset_i));
-
-          for (int j=0; j<fpl.dims()[1]; ++j) {
-            // If j index is the masked one, get stat mask index
-            if (mask_dim_pos==1)
-              midx = m_mask_val_to_stat_entry.at(m(j+offset_j));
-
-            // Use non-masked index to access stat,
-            // and masked index to access the weight
-            if (m_use_weight) {
-              if (mask_dim_pos==0) {
-                sview(midx,j+offset_j) += fview(i,j)*w_view(i+offset_i);
-              } else {
-                sview(i+offset_i,midx) += fview(i,j)*w_view(j+offset_j);
-              }
-            } else {
-              // Simply add
-              if (mask_dim_pos==0) {
-                sview(midx,j+offset_j) += fview(i,j);
-              } else {
-                sview(i+offset_i,midx) += fview(i,j);
-              }
-            }
-          }
-        }
-
-        // Update the offset of the dimension that is partitioned
-        offset_i += m_field.part_dim()==0 ? fpl.dims()[0] : 0;
-        offset_j += m_field.part_dim()==1 ? fpl.dims()[1] : 0;
-      }
-
-      // Global reduction of (weighted) integral
-      m_comm.all_reduce(sview.data(),sview.size(),MPI_SUM);
-
-      break;
-    }
-    case 3:
-    {
-      // Offsets of i/j/k part-indices into the unpartitioned field
-      int offset_i = 0;
-      int offset_j = 0;
-      int offset_k = 0;
-
-      // Init stat to 0
-      auto sview = m_stat_field.nd_view_nonconst<Real,3>();
-      Kokkos::deep_copy(sview,0);
-
-      // Loop over input field parts
-      for (int p=0; p<m_field.nparts(); ++p) {
-        auto fpl = m_field.part_layout(p);
-        auto spl = stat_layout(fpl);
-        auto fview = m_field.part_nd_view<T,3>(p);
-
-        // Loop over part indices
-        for (int i=0; i<fpl.dims()[0]; ++i) {
-          // If i index is the masked one, get stat mask index
-          if (mask_dim_pos==0)
-            midx = m_mask_val_to_stat_entry.at(m(i+offset_i));
-
-          for (int j=0; j<fpl.dims()[1]; ++j) {
-            // If j index is the masked one, get stat mask index
-            if (mask_dim_pos==1)
-              midx = m_mask_val_to_stat_entry.at(m(j+offset_j));
-
-            for (int k=0; k<fpl.dims()[2]; ++k) {
-              // If k index is the masked one, get stat mask index
-              if (mask_dim_pos==2)
-                midx = m_mask_val_to_stat_entry.at(m(k+offset_k));
-
-              // Use non-masked index to access stat,
-              // and masked index to access the weight
-              if (m_use_weight) {
-                if (mask_dim_pos==0) {
-                  sview(midx,j+offset_j,k+offset_k) += fview(i,j,k)*w_view(i+offset_i);
-                } else if (mask_dim_pos==1) {
-                  sview(i+offset_i,midx,k+offset_k) += fview(i,j,k)*w_view(j+offset_j);
-                } else {
-                  sview(i+offset_i,j+offset_j,midx) += fview(i,j,k)*w_view(k+offset_k);
-                }
-              } else {
-                // Simply add
-                if (mask_dim_pos==0) {
-                  sview(midx,j+offset_j,k+offset_k) += fview(i,j,k);
-                } else if (mask_dim_pos==1) {
-                  sview(i+offset_i,midx,k+offset_k) += fview(i,j,k);
-                } else {
-                  sview(i+offset_i,j+offset_j,midx) += fview(i,j,k);
-                }
-              }
-            }
-          }
-        }
-
-        // Update the offset of the dimension that is partitioned
-        offset_i += m_field.part_dim()==0 ? fpl.dims()[0] : 0;
-        offset_j += m_field.part_dim()==1 ? fpl.dims()[1] : 0;
-        offset_k += m_field.part_dim()==2 ? fpl.dims()[2] : 0;
-      }
-
-      // Global reduction of (weighted) integral
-      m_comm.all_reduce(sview.data(),sview.size(),MPI_SUM);
-      break;
-    }
-    default:
-      EKAT_ERROR_MSG ("Error! [FieldMaskedIntegral] Unsupported field rank (" + std::to_string (fl.rank()) + ")\n");
   }
+  track_mpi_all_reduce(m_comm,sview.data(),sview.size(),MPI_SUM,name());
 
   if (m_average) {
     auto wint_v = m_weight_integral.view<Real>();
-    switch (fl.rank()) {
-      case 1:
-      {
-        auto sview = m_stat_field.nd_view_nonconst<Real,1>();
-        for (int i=0; i<sview.extent_int(0); ++i) {
-          sview(i) /= wint_v(i);
-        }
-        break;
-      }
-      case 2:
-      {
-        auto sview = m_stat_field.nd_view_nonconst<Real,2>();
-        for (int i=0; i<sview.extent_int(0); ++i) {
-          for (int j=0; j<sview.extent_int(1); ++j) {
-            if (mask_dim_pos==0) {
-              sview(i,j) /= wint_v(i);
-            } else {
-              sview(i,j) /= wint_v(j);
+    auto num_mask_ids = sview.extent(mask_dim);
+    for (int i=0; i<num_mask_ids; ++i) {
+      auto w = wint_v(i);
+      if constexpr (N==1) {
+        sview(i) /= w;
+      } else {
+        auto s_slice = slice(sview,mask_dim,i);
+        for (int j=0; j<s_slice.extent_int(0); ++j) {
+          if constexpr (N==2) {
+            s_slice(j) /= w;
+          } else {
+            for (int k=0; k<s_slice.extent_int(1); ++k) {
+              s_slice(j,k) /= w;
             }
           }
         }
-        break;
       }
-      case 3:
-      {
-        auto sview = m_stat_field.nd_view_nonconst<Real,3>();
-        for (int i=0; i<sview.extent_int(0); ++i) {
-          for (int j=0; j<sview.extent_int(1); ++j) {
-            for (int k=0; k<sview.extent_int(2); ++k) {
-              if (mask_dim_pos==0) {
-                sview(i,j,k) /= wint_v(i);
-              } else if (mask_dim_pos==1) {
-                sview(i,j,k) /= wint_v(j);
-              } else {
-                sview(i,j,k) /= wint_v(k);
-              }
-            }
-          }
-        }
-        break;
-      }
-      default:
-        EKAT_ERROR_MSG ("Error! [FieldMaskedIntegral] Unsupported field rank (" + std::to_string (fl.rank()) + ")\n");
     }
   }
 }

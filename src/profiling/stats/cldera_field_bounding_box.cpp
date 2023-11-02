@@ -1,8 +1,7 @@
 #include "profiling/stats/cldera_field_bounding_box.hpp"
+#include "profiling/utils/cldera_subview_utils.hpp"
 
-#include <algorithm>
 #include <limits>
-#include <memory>
 
 namespace cldera {
 
@@ -67,74 +66,64 @@ void FieldBoundingBox::compute_impl ()
 }
 
 template <typename T,int N>
-void FieldBoundingBox::do_compute_impl () {
-  using pair_t = Kokkos::pair<int,int>;
-  using data_nd_t = typename ekat::DataND<T,N>::type;
-  using strided_view_t = Kokkos::View<data_nd_t,Kokkos::LayoutStride,ekat::HostDevice,Kokkos::MemoryUnmanaged>;
-
-  constexpr auto ALL = Kokkos::ALL();
-
+void FieldBoundingBox::do_compute_impl ()
+{
   auto stat_view = m_stat_field.nd_view_nonconst<T,N>();
 
-  // Determine if field has levels
-  const auto& field_names = m_field.layout().names();
-  const int lev_dim = std::distance(field_names.begin(), std::find(field_names.begin(), field_names.end(), "lev"));
-  const bool has_lev = lev_dim<N;
   const int part_dim = m_field.part_dim();
+
+  const auto& non_part_layout = m_field.layout().strip_dim(part_dim);
+
+  // Helper lambda for checking if 2d/3d point is inside bounds
+  auto in_latlon_bounds = [&](Real lat, Real lon) {
+    return m_lat_bounds.contains(lat) and
+           m_lon_bounds.contains(lon);
+  };
+
+  // Determine if field has levels, and the level idx **after part dim has been stripped**
+  const bool has_lev = m_field.layout().has_dim("lev");
+  auto lev_idx = has_lev ? non_part_layout.dim_idx("lev") : -1;
+  auto in_vert_bound = [&](int j, int k = -1) {
+    switch (lev_idx) {
+      case 0: return m_lev_bounds.contains(j);
+      case 1: return m_lev_bounds.contains(k);
+      default: return true;
+    }
+  };
 
   for (int ipart = 0; ipart < m_field.nparts(); ++ipart) {
     auto f_part_view = m_field.part_nd_view<const T,N>(ipart);
     auto lat_part_view = m_lat.part_nd_view<const Real,1>(ipart);
     auto lon_part_view = m_lon.part_nd_view<const Real,1>(ipart);
 
-    // Helper lambda for 2d/3d cases: deduce col/lev index, and check if inside bounds
-    auto in_bounds = [&](int i, int j, int k = -1) {
-      auto latlon_idx = part_dim==0 ? i : (part_dim==1 ? j : k);
-      auto lev_idx = lev_dim==0 ? i : (lev_dim==1 ? j : k);
-      return m_lat_bounds.contains(lat_part_view(latlon_idx)) and
-             m_lon_bounds.contains(lon_part_view(latlon_idx)) and
-             (not has_lev or m_lev_bounds.contains(lev_idx));
-    };
-
     const auto& part_layout = m_field.part_layout(ipart);
-    const auto& dims = part_layout.dims();
     const int part_size = part_layout.dims()[part_dim];
     const int part_offset = m_field.part_offset(ipart);
-    pair_t part_range(part_offset,part_offset+part_size);
 
-    if constexpr (N==1) {
-      auto stat_subview = Kokkos::subview(stat_view,part_range);
-      for (int i=0; i<dims[0]; ++i) {
-        if (m_lat_bounds.contains(lat_part_view(i)) and
-            m_lon_bounds.contains(lon_part_view(i))) {
-          stat_subview(i) = f_part_view(i);
-        }
+    for (int i=0; i<part_size; ++i) {
+      auto lat = lat_part_view(i);
+      auto lon = lon_part_view(i);
+      if (not in_latlon_bounds(lat,lon)) {
+        continue;
       }
-    } else if constexpr (N==2) {
-      auto stat_subview = part_dim==0
-                        ? Kokkos::subview(stat_view,part_range,ALL)
-                        : Kokkos::subview(stat_view,ALL,part_range);
-      for (size_t i=0; i<stat_subview.extent(0); ++i) {
-        for (size_t j=0; j<stat_subview.extent(1); ++j) {
-          if (in_bounds(i,j)) {
-            stat_subview(i,j) = f_part_view(i,j);
+
+      auto stat_slice = slice(stat_view,part_dim,part_offset+i);
+      auto f_slice    = slice(f_part_view,part_dim,i);
+      if constexpr (N==1) {
+        stat_slice() = f_part_view(i);
+      } else if constexpr (N==2) {
+        for (int j=0; j<non_part_layout.extent(0); ++j) {
+          // Note: if j is the lev dim, this check does something,
+          //       otherwise it always returns true
+          if (in_vert_bound(j)) {
+            stat_slice(j) = f_slice(j);
           }
         }
-      }
-    } else {
-      // We can't use ternary op here, since the return type for the case part_dim=2
-      // has LayoutStride (recall that ?: op requires both values to have the same type)
-      strided_view_t stat_subview;
-      switch (part_dim) {
-        case 0: stat_subview = Kokkos::subview(stat_view,part_range,ALL,ALL); break;
-        case 1: stat_subview = Kokkos::subview(stat_view,ALL,part_range,ALL); break;
-        case 2: stat_subview = Kokkos::subview(stat_view,ALL,ALL,part_range); break;
-      }
-      for (size_t i=0; i<stat_subview.extent(0); ++i) {
-        for (size_t j=0; j<stat_subview.extent(1); ++j) {
-          for (size_t k=0; k<stat_subview.extent(2); ++k) {
-            if (in_bounds(i,j,k)) {
-              stat_subview(i,j,k) = f_part_view(i,j,k);
+      } else {
+        for (int j=0; j<non_part_layout.extent(0); ++j) {
+          for (int k=0; k<non_part_layout.extent(1); ++k) {
+            if (in_vert_bound(j,k)) {
+              stat_slice(j,k) = f_slice(j,k);
             }
           }
         }

@@ -31,6 +31,7 @@ add_library (cldera-profiling
     cldera_interface_mod.F90
     cldera_interface_f2c_mod.F90
     stats/cldera_register_stats.cpp
+    stats/cldera_field_identity.cpp
     stats/cldera_field_stat.cpp
     stats/cldera_field_masked_integral.cpp
     stats/cldera_field_bounded_masked_integral.cpp

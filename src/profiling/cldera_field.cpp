@@ -54,12 +54,12 @@ Field (const std::string& n, const FieldLayout& fl,
       "  - Part dim   : " + std::to_string(part_dim) + "\n"
       "  - Field dims : [" + ekat::join(m_layout.dims(),",") + "]\n");
 
-  EKAT_REQUIRE_MSG (cv==DataAccess::View || part_dim_alloc_size==-1,
-    "Error! If DataAccess==Copy, do not attempt to prescribe part_dim_alloc_size.\n"
-    "  - Field name         : " + m_name + "\n"
-    "  - Part dim           : " + std::to_string(part_dim) + "\n"
-    "  - Field dims         : [" + ekat::join(m_layout.dims(),",") + "]\n"
-    "  - part dim alloc size: [" + std::to_string(part_dim_alloc_size) + "]\n");
+  // EKAT_REQUIRE_MSG (cv==DataAccess::View || part_dim_alloc_size==-1,
+  //   "Error! If DataAccess==Copy, do not attempt to prescribe part_dim_alloc_size.\n"
+  //   "  - Field name         : " + m_name + "\n"
+  //   "  - Part dim           : " + std::to_string(part_dim) + "\n"
+  //   "  - Field dims         : [" + ekat::join(m_layout.dims(),",") + "]\n"
+  //   "  - part dim alloc size: [" + std::to_string(part_dim_alloc_size) + "]\n");
 
   // If part_dim_alloc_size==-1, it means alloc_size = part_extent
   m_part_dim_alloc_size = part_dim_alloc_size;

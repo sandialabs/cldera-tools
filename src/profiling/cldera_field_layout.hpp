@@ -63,7 +63,9 @@ public:
   bool has_dim_name (const std::string& name) const;
 
   FieldLayout strip_dim (const std::string& name) const;
-
+  FieldLayout strip_dim (const int i) const {
+    return strip_dim(name(i));
+  }
 
   std::string to_string () const;
 

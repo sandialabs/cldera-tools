@@ -87,6 +87,7 @@ private:
 
 inline bool operator== (const FieldLayout& lhs, const FieldLayout& rhs) {
   return lhs.m_dims  == rhs.m_dims &&
+         lhs.m_kokkos_layout == rhs.m_kokkos_layout &&
          lhs.m_names == rhs.m_names;
 }
 

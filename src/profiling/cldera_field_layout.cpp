@@ -59,21 +59,6 @@ strip_dim (const std::string& name) const {
   return FieldLayout(d,n);
 }
 
-int FieldLayout::
-extent (const std::string& name) {
-  auto it = std::find(m_names.begin(),m_names.end(),name);
-  EKAT_REQUIRE_MSG (it!=m_names.end(),
-      "Error! Dimension name not found.\n"
-      " - stored names: " + ekat::join(m_names,",") + "\n"
-      " - input name  : " + name + "\n");
-
-  EKAT_REQUIRE_MSG (std::find(std::next(it),m_names.end(),name)==m_names.end(),
-      "Error! Muyltiple dimensions have the requested name.\n"
-      " - stored names: " + ekat::join(m_names,",") + "\n"
-      " - input name  : " + name + "\n");
-  return m_dims[std::distance(m_names.begin(),it)];
-}
-
 std::string FieldLayout::to_string () const {
   std::string names = "<" + ekat::join(m_names,",") + ">";
   std::string dims  = "(" + ekat::join(m_dims,",") + ")";

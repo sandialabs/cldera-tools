@@ -64,7 +64,6 @@ public:
 
   FieldLayout strip_dim (const std::string& name) const;
 
-  int extent (const std::string& name);
 
   std::string to_string () const;
 

@@ -32,11 +32,16 @@ add_library (cldera-profiling
     cldera_interface_f2c_mod.F90
     stats/cldera_register_stats.cpp
     stats/cldera_field_bounding_box.cpp
+    stats/cldera_field_global_max.cpp
+    stats/cldera_field_global_min.cpp
+    stats/cldera_field_global_sum.cpp
     stats/cldera_field_identity.cpp
     stats/cldera_field_stat.cpp
     stats/cldera_field_masked_integral.cpp
     stats/cldera_field_bounded_masked_integral.cpp
     stats/cldera_field_bounded.cpp
+    stats/cldera_field_max_along_columns.cpp
+    stats/cldera_field_min_along_columns.cpp
     stats/cldera_field_sum_along_columns.cpp
     stats/cldera_field_zonal_mean.cpp
 )

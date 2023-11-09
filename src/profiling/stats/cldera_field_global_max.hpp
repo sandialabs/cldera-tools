@@ -2,11 +2,9 @@
 #define CLDERA_FIELD_GLOBAL_MAX_HPP
 
 #include "profiling/stats/cldera_field_stat.hpp"
-#include "profiling/cldera_mpi_timing_wrappers.hpp"
 
 #include <ekat/mpi/ekat_comm.hpp>
 
-#include <limits>
 
 namespace cldera {
 
@@ -14,40 +12,15 @@ class FieldGlobalMax : public FieldScalarStat
 {
 public:
   FieldGlobalMax (const ekat::Comm& comm,
-                  const ekat::ParameterList& pl)
-   : FieldScalarStat (comm,pl)
-  { /* Nothing to do here */ }
+                  const ekat::ParameterList& pl);
 
   std::string type () const override { return "global_max"; }
 
 protected:
-  void compute_impl () override {
-    const auto dt = m_field.data_type();
-    if (dt==IntType) {
-      do_compute_impl<int>();
-    } else if (dt==RealType) {
-      do_compute_impl<Real>();
-    } else {
-      // WARNING: if you add support for stuff like unsigned int, the line
-      //          of do_compute_impl that uses numeric_limits has to be changed!
-      EKAT_ERROR_MSG ("[FieldGlobalMax] Unrecognized/unsupported data type (" + e2str(dt) + ")\n");
-    }
-  }
+  void compute_impl () override;
 
-  template<typename T>
-  void do_compute_impl () {
-    T max = -std::numeric_limits<T>::max();
-    for (int p=0; p<m_field.nparts(); ++p) {
-      const auto& pl = m_field.part_layout(p);
-      const auto& data = m_field.part_data<const T>(p);
-      for (int i=0; i<pl.size(); ++i) {
-        max = std::max(max,data[i]);
-      }
-    }
-
-    // Clock MPI ops
-    track_mpi_all_reduce(m_comm,&max,m_stat_field.data_nonconst<T>(),1,MPI_MAX,name());
-  }
+  template<typename T, int N>
+  void do_compute_impl ();
 };
 
 } // namespace cldera

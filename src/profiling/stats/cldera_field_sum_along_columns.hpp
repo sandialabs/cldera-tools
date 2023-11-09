@@ -12,17 +12,18 @@ class FieldSumAlongColumns : public FieldStatAlongAxis
 {
 public:
   FieldSumAlongColumns (const ekat::Comm& comm,
-                        const ekat::ParameterList& params)
-   : FieldStatAlongAxis(comm,params,"ncol")
-  { /* Nothing to do here */ }
+                        const ekat::ParameterList& params);
 
   std::string type () const override { return "sum_along_columns"; }
 
+  void create_stat_field () override;
 protected:
   void compute_impl () override;
 
   template<typename T, int N>
   void do_compute_impl ();
+
+  std::vector<char> m_scratch;
 };
 
 } // namespace cldera

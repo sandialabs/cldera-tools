@@ -62,7 +62,7 @@ do_compute_impl ()
   Kokkos::deep_copy(sview,0.0);
 
   view_1d_host<const Real> w_view;
-  if (m_use_weight) {
+  if (m_use_weight or m_average) {
     w_view = m_weight_field.view<const Real>();
   }
 
@@ -84,12 +84,12 @@ do_compute_impl ()
     for (int i=0; i<part_size; ++i) {
       int midx = m_mask_val_to_stat_entry.at(m(part_offset+i));
 
-      auto w = m_use_weight ? w_view(part_offset+i) : 1;
       if constexpr (N==1) {
         if (m_bounds.contains(fview(i))) {
+          auto w = m_use_weight or m_average ? w_view(part_offset+i) : 1;
           sview(midx) += fview(i) * w;
           if (m_average) {
-            w_int_view(midx) += w_view(i+part_offset);
+            w_int_view(midx) += w;
           }
         }
       } else {

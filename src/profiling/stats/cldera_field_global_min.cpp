@@ -44,18 +44,18 @@ do_compute_impl () {
     const auto& pl = m_field.part_layout(p);
     const auto& fview = m_field.part_nd_view<const T,N>(p);
     if constexpr (N==1) {
-      for (size_t i=0; i<fview.extent(0); ++i) {
+      for (int i=0; i<pl.dims()[0]; ++i) {
         min = std::min(min,fview[i]);
       }
     } else if constexpr (N==2) {
-      for (size_t i=0; i<fview.extent(0); ++i) {
-        for (size_t j=0; j<fview.extent(1); ++j) {
+      for (int i=0; i<pl.dims()[0]; ++i) {
+        for (int j=0; j<pl.dims()[1]; ++j) {
           min = std::min(min,fview(i,j));
       }}
     } else {
-      for (size_t i=0; i<fview.extent(0); ++i) {
-        for (size_t j=0; j<fview.extent(1); ++j) {
-          for (size_t k=0; k<fview.extent(0); ++k) {
+      for (int i=0; i<pl.dims()[0]; ++i) {
+        for (int j=0; j<pl.dims()[1]; ++j) {
+          for (int k=0; k<pl.dims()[2]; ++k) {
             min = std::min(min,fview(i,j,k));
       }}}
     }

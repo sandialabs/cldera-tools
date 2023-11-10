@@ -61,6 +61,10 @@ do_compute_impl () {
     sum = temp;
   };
 
+  // NOTE: stat_view extents are ok, since the stat is created without
+  //       padding. OTOH, the input field may be a subview of some other
+  //       array, so it may contain padding. Hence, you can use stat_view's
+  //       extents in your loop boundaries.
   int col_dim = m_field.layout().idim(m_axis_name);
   for (int p=0; p<m_field.nparts(); ++p) {
     const auto& pl = m_field.part_layout(p);

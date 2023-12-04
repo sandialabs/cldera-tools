@@ -33,7 +33,7 @@ TEST_CASE ("vertical_contraction") {
   // Create input field
   Field s3d("scalar3d", {nlevs,      ncols}, {"lev",        "ncol"}, nparts, 1,DataAccess::Copy);
   for (int i = 0; i < nparts; ++i) {
-    s3d.set_part_size(i, part_size);
+    s3d.set_part_extent(i, part_size);
   }
   s3d.commit();
 

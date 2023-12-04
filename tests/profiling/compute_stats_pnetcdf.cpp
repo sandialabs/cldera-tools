@@ -119,7 +119,7 @@ TEST_CASE ("stats - pnetcdf") {
   std::vector<std::vector<Real>> foo_data (nparts,std::vector<Real>(ntime*nlev*part_size));
   for (int i = 0; i < nparts; ++i) {
     std::iota(foo_data[i].begin(), foo_data[i].end(), i*ntime*nlev*part_size);
-    foo.set_part_size(i, part_size);
+    foo.set_part_extent(i, part_size);
     foo.set_part_data(i, foo_data[i].data());
   }
   foo.commit();
@@ -128,9 +128,9 @@ TEST_CASE ("stats - pnetcdf") {
   std::shared_ptr<Field> lat(new Field("lat", {ncol}, {"ncol"}, nparts, 0));
   std::shared_ptr<Field> lon(new Field("lon", {ncol}, {"ncol"}, nparts, 0));
   for (int i = 0; i < nparts; ++i) {
-    lat->set_part_size(i, part_size);
+    lat->set_part_extent(i, part_size);
     lat->set_part_data(i, latdata.data());
-    lon->set_part_size(i, part_size);
+    lon->set_part_extent(i, part_size);
     lon->set_part_data(i, londata.data());
   }
   lat->commit();
@@ -141,7 +141,7 @@ TEST_CASE ("stats - pnetcdf") {
   std::iota(colgiddata.begin(), colgiddata.end(), ncol);
   std::shared_ptr<Field> col_gids(new Field("col_gids", {ncol}, {"ncol"}, nparts, 0));
   for (int i = 0; i < nparts; ++i) {
-    col_gids->set_part_size(i, part_size);
+    col_gids->set_part_extent(i, part_size);
     col_gids->set_part_data(i, colgiddata.data());
   }
   col_gids->commit();

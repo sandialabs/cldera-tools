@@ -17,7 +17,7 @@ protected:
 
   void compute_impl () override;
 
-  template<typename T>
+  template<typename T, int N>
   void do_compute_impl ();
 
   // The bounds outside of which the field values must be discarded

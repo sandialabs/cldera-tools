@@ -21,7 +21,7 @@ namespace cldera
  * The partitioning is described by
  *  - nparts: number of partitions
  *  - part_dim: index of dimension along which field is partitioned
- *  - part_sizes: the size of each partition
+ *  - part_extent: the extent along part_dim of each partition
  *
  * Notice that each partition is stored contiguously in memory.
  * The method part_layout allows to get the layout of the partition,
@@ -43,13 +43,15 @@ public:
   Field (const std::string& n, const FieldLayout& fl,
          const int nparts, const int part_dim,
          const DataAccess cv = DataAccess::View,
-         const DataType dt = RealType);
+         const DataType dt = RealType,
+         const int part_dim_alloc_size = -1);
   Field (const std::string& n,
          const std::vector<int>& dims,
          const std::vector<std::string>& dimnames,
          const int nparts, const int part_dim,
          const DataAccess cv = DataAccess::View,
-         const DataType dt = RealType);
+         const DataType dt = RealType,
+         const int part_dim_alloc_size = -1);
 
   // Shortcuts for single-partition field
   Field (const std::string& n, const FieldLayout& fl,
@@ -79,7 +81,7 @@ public:
         FieldLayout part_layout (const int ipart) const;
 
   // Set part specs
-  void set_part_size  (const int ipart, const int part_size);
+  void set_part_extent  (const int ipart, const int part_extent);
   template<typename T>
   void set_part_data  (const int ipart, const T* data);
   template<typename T>
@@ -127,6 +129,7 @@ public:
   // Query status
   int nparts () const { return m_nparts; }
   int part_dim () const { return m_part_dim; }
+  int part_offset (const int ipart) const;
   bool committed () const { return m_committed; }
   DataAccess data_access () const { return m_data_access; }
   DataType data_type () const { return m_data_type; }
@@ -159,14 +162,16 @@ private:
   void check_committed (const bool expected, const std::string& context) const;
   void check_rank (const int N) const;
 
-  std::string             m_name;
-  FieldLayout             m_layout;
-  int                     m_nparts   = -1;  // Set to something invalid for default ctor
-  int                     m_part_dim = -1;
-  std::vector<long long>  m_part_sizes;
-  bool                    m_committed = false;
-  DataAccess              m_data_access;
-  DataType                m_data_type;
+  std::string       m_name;
+  FieldLayout       m_layout;
+  int               m_nparts   = -1;  // Set to something invalid for default ctor
+  int               m_part_dim = -1;
+  std::vector<int>  m_part_extents;
+  std::vector<int>  m_part_offsets;
+  int               m_part_dim_alloc_size;
+  bool              m_committed = false;
+  DataAccess        m_data_access;
+  DataType          m_data_type;
 
   // Store data as char
   std::vector<view_1d_host<const char>>   m_data;
@@ -227,7 +232,7 @@ set_part_data (const int ipart, const T* data)
       "    - Part index: " + std::to_string(ipart) + "\n");
   check_data_type<T>();
 
-  const auto alloc_size = size_of(m_data_type)*part_layout(ipart).size();
+  const auto alloc_size = size_of(m_data_type)*part_layout(ipart).alloc_size();
   m_data[ipart] = view_1d_host<const char> (ptr2char(data),alloc_size);
 }
 
@@ -257,7 +262,7 @@ copy_part_data (const int ipart, const T* data)
   check_data_type<T>();
   check_part_idx(ipart);
 
-  view_1d_host<const T,Kokkos::MemoryUnmanaged> v(data,part_layout(ipart).size());
+  view_1d_host<const T,Kokkos::MemoryUnmanaged> v(data,part_layout(ipart).alloc_size());
   Kokkos::deep_copy(part_view_nonconst<T>(ipart),v);
 }
 
@@ -294,7 +299,7 @@ Field::part_view (const int ipart) const
   check_part_idx(ipart);
 
   const auto data = char2ptr<const T>(m_data[ipart].data());
-  const auto size = part_layout(ipart).size();
+  const auto size = part_layout(ipart).alloc_size();
   return view_1d_host<const T>(data,size);
 }
 
@@ -307,7 +312,7 @@ Field::part_view_nonconst (const int ipart)
   check_part_idx(ipart);
 
   const auto data = char2ptr<T>(m_data_nonconst[ipart].data());
-  const auto size = part_layout(ipart).size();
+  const auto size = part_layout(ipart).alloc_size();
   return view_1d_host<T>(data,size);
 }
 
@@ -357,7 +362,7 @@ template<typename T, int N>
 view_Nd_host<const T,N>
 Field::nd_view () const
 {
-  check_single_part("view");
+  check_single_part("nd_view");
   return part_nd_view<const T,N>(0);
 }
 
@@ -365,7 +370,7 @@ template<typename T, int N>
 view_Nd_host<T,N>
 Field::nd_view_nonconst ()
 {
-  check_single_part("view_nonconst");
+  check_single_part("nd_view_nonconst");
   return part_nd_view_nonconst<T,N>(0);
 }
 

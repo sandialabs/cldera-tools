@@ -9,27 +9,7 @@ class FieldStatAlongAxis : public FieldStat
 {
 public:
   FieldLayout stat_layout (const FieldLayout& field_layout) const override {
-    // Find stat dims and names which are not on axis
-    std::vector<int> stat_dims;
-    std::vector<std::string> stat_names;
-    const auto& field_dims = field_layout.dims();
-    const auto& field_names = field_layout.names();
-    for (int axis = 0; axis < field_layout.rank(); ++axis) {
-      if (field_names[axis] != m_axis_name) {
-        stat_dims.push_back(field_dims[axis]);
-        stat_names.push_back(field_names[axis]);
-      }
-    }
-
-    // Check for valid stat layout
-    EKAT_REQUIRE_MSG (field_dims.size() != stat_dims.size(),
-        "Error! Field layout does not contain " + m_axis_name + "!\n");
-
-    // Scalar stat
-    if (stat_dims.empty())
-      return FieldLayout();
-
-    return FieldLayout(stat_dims, stat_names);
+    return field_layout.strip_dim(m_axis_name);
   }
 
 protected:

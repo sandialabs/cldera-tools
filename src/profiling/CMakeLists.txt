@@ -31,9 +31,19 @@ add_library (cldera-profiling
     cldera_interface_mod.F90
     cldera_interface_f2c_mod.F90
     stats/cldera_register_stats.cpp
+    stats/cldera_field_bounding_box.cpp
+    stats/cldera_field_global_max.cpp
+    stats/cldera_field_global_min.cpp
+    stats/cldera_field_global_sum.cpp
+    stats/cldera_field_identity.cpp
     stats/cldera_field_stat.cpp
     stats/cldera_field_masked_integral.cpp
     stats/cldera_field_bounded_masked_integral.cpp
+    stats/cldera_field_bounded.cpp
+    stats/cldera_field_max_along_columns.cpp
+    stats/cldera_field_min_along_columns.cpp
+    stats/cldera_field_sum_along_columns.cpp
+    stats/cldera_field_zonal_mean.cpp
 )
 set (MODULES_DIR ${CMAKE_CURRENT_BINARY_DIR}/profiling_modules)
 set_target_properties(cldera-profiling PROPERTIES
@@ -89,6 +99,7 @@ set (CLDERA_PROFILING_HEADERS
   stats/cldera_field_vertical_contraction.hpp
   stats/cldera_field_zonal_mean.hpp
   stats/cldera_register_stats.hpp
+  utils/cldera_subview_utils.hpp
 )
 set_target_properties (cldera-profiling PROPERTIES
   PUBLIC_HEADER "${CLDERA_PROFILING_HEADERS}")

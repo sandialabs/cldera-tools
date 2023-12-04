@@ -27,6 +27,10 @@ set_tests_properties(archive_check PROPERTIES
   FIXTURES_REQUIRED archive_output
 )
 
+# Test subview utils
+EkatCreateUnitTest (subview_utils subview_utils.cpp
+  LIBS cldera-profiling ekat)
+
 # Test Graph
 EkatCreateUnitTest (graph graph.cpp
   LIBS cldera-profiling ekat)

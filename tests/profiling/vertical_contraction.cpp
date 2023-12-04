@@ -47,13 +47,13 @@ TEST_CASE ("vertical_contraction") {
   Field w2d_bwd ("w2d",{ncols,nlevs},{"ncol","lev"},nparts,0,cp);
   Field w1d ("w1d",FieldLayout({nlevs},{"lev"}),cp);
   for (int i = 0; i < nparts; ++i) {
-    s2d.set_part_size(i, part_size);
-    s3d_fwd.set_part_size(i, part_size);
-    v3d_fwd.set_part_size(i, part_size);
-    w2d_fwd.set_part_size(i, part_size);
-    s3d_bwd.set_part_size(i, part_size);
-    v3d_bwd.set_part_size(i, part_size);
-    w2d_bwd.set_part_size(i, part_size);
+    s2d.set_part_extent(i, part_size);
+    s3d_fwd.set_part_extent(i, part_size);
+    v3d_fwd.set_part_extent(i, part_size);
+    w2d_fwd.set_part_extent(i, part_size);
+    s3d_bwd.set_part_extent(i, part_size);
+    v3d_bwd.set_part_extent(i, part_size);
+    w2d_bwd.set_part_extent(i, part_size);
   }
   s2d.commit();
   s3d_fwd.commit();

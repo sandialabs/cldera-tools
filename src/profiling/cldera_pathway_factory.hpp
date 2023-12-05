@@ -2,16 +2,16 @@
 #define CLDERA_PATHWAY_FACTORY_HPP
 
 #include "cldera_graph_factory.hpp"
+#include "cldera_profiling_archive.hpp"
 #include "cldera_field_test_factory.hpp"
 #include "cldera_pathway.hpp"
+#include "cldera_graph.hpp"
+
 #include <ekat/ekat_parameter_list.hpp>
-#include <ekat/io/ekat_yaml.hpp>
 
 #include <iostream>
-#include <fstream>
 #include <vector>
 #include <string>
-#include "cldera_graph.hpp"
 
 namespace cldera
 {
@@ -21,30 +21,25 @@ namespace cldera
  */
 class PathwayFactory {
 public:
-  PathwayFactory()
-  : m_filename("./cldera_profiling_config.yaml"),
-    m_verbose(false)
-  {}
+  PathwayFactory () = default;
 
-  PathwayFactory(const std::string& filename, const std::map<std::string, std::shared_ptr<const Field> > fields, const ekat::Comm& comm, const bool verbose = false)
-  : m_filename(filename),
-    m_fields(fields),
+  PathwayFactory (const ekat::ParameterList& params,
+                  const ekat::Comm& comm, const bool verbose = false)
+  : m_params(params),
     m_verbose(verbose),
     m_comm(comm)
   {}
 
   // Build the pathway based on the "Pathway" sublist of the input file
-  std::shared_ptr<Pathway> build_pathway(std::ostream& out = std::cout) const;
+  std::shared_ptr<Pathway> build_pathway(const ProfilingArchive& archive,
+                                         std::ostream& out = std::cout) const;
 
 private:
-  // The filename associated with the graph that is to be built
-  const std::string& m_filename;
+  // The parameter list containing params to build the graph
+  const ekat::ParameterList m_params;
 
   // The verbosity of the graph factory
-  const bool m_verbose;
-
-  // The fields
-  std::map<std::string, std::shared_ptr<const Field> > m_fields;
+  const bool m_verbose = false;
 
   const ekat::Comm m_comm;
 };

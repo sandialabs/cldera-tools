@@ -1,24 +1,24 @@
 #include "cldera_field_test_factory.hpp"
 
+#include "cldera_min_field_test.hpp"
+#include "cldera_max_field_test.hpp"
+#include "cldera_bounds_field_test.hpp"
+
 namespace cldera
 {
 
-std::map<std::string, std::shared_ptr<FieldTest> > FieldTestFactory::build_field_tests(std::ostream& out)
+std::map<std::string, std::shared_ptr<FieldTest> >
+FieldTestFactory::build_field_tests(const ProfilingArchive& archive,
+                                    std::ostream& out)
 {
   using vos_t = std::vector<std::string>;
 
   std::map<std::string, std::shared_ptr<FieldTest> > tests;
 
-  if(m_verbose)
-    out << "FieldTestFactory::buildFieldTest()\n" << "  Loading input file " << m_filename << "\n";
-
-  EKAT_REQUIRE_MSG (std::ifstream(m_filename).good(), "Error! FieldTestFactory: Filename of " + m_filename + " is invalid!\n");
-  ekat::ParameterList params(ekat::parse_yaml_file(m_filename));
-
   if(m_verbose) 
     out << "  Grabbing Test sublist...\n";
 
-  const auto& test_list = params.sublist("Tests");
+  const auto& test_list = m_params.sublist("Tests");
   for (auto nameptr = test_list.sublists_names_cbegin(); nameptr!=test_list.sublists_names_cend(); ++nameptr)
   {
     std::string name = *nameptr; // test name
@@ -30,7 +30,7 @@ std::map<std::string, std::shared_ptr<FieldTest> > FieldTestFactory::build_field
 
     std::string test_type = test_params.get<std::string>("Type");
     std::string field_name = test_params.get<std::string>("Field");
-    const auto& field = *m_fields[field_name];
+    const auto& field = archive.get_field(field_name);
 
     if(m_verbose)
       out << "  Processing test " << name << " of type " << test_type << " on field " << field_name << "...\n";

@@ -3,7 +3,9 @@
 namespace cldera
 {
 
-std::shared_ptr<Pathway> PathwayFactory::build_pathway(std::ostream& out) const
+std::shared_ptr<Pathway>
+PathwayFactory::build_pathway(const ProfilingArchive& archive,
+                              std::ostream& out) const
 {
   using vos_t = std::vector<std::string>;
   
@@ -14,13 +16,9 @@ std::shared_ptr<Pathway> PathwayFactory::build_pathway(std::ostream& out) const
   // 4. Call pathway(graph, tests)
 
   // Sanity checking and file parsing
-  if(m_verbose)
-    out << "PathwayFactory::buildPathway()\n" << "  Loading input file " << m_filename << "\n";
-  EKAT_REQUIRE_MSG (std::ifstream(m_filename).good(), "Error! PathwayFactory: Filename of " + m_filename + " is invalid!\n");
-  ekat::ParameterList params(ekat::parse_yaml_file(m_filename));
 
   // 1. Build the graph
-  ekat::ParameterList pathway_sublist = params.sublist("Pathway");
+  ekat::ParameterList pathway_sublist = m_params.sublist("Pathway");
   if(m_verbose)
     out << "PathwayFactory::build_pathway()\n" << "  Creating graph via GraphFactory\n";
   cldera::GraphFactory factory(pathway_sublist, m_verbose);
@@ -29,8 +27,8 @@ std::shared_ptr<Pathway> PathwayFactory::build_pathway(std::ostream& out) const
   // 2. Build the field tests
   if(m_verbose)
     out << "PathwayFactory::build_pathway()\n" << "  Creating field tests via FieldTestFactory\n";
-  FieldTestFactory field_test_factory(m_filename, m_fields, m_comm);
-  std::map<std::string, std::shared_ptr<FieldTest> > tests = field_test_factory.build_field_tests();
+  FieldTestFactory field_test_factory(m_params, m_comm);
+  auto tests = field_test_factory.build_field_tests(archive);
 
   // 3. Link field tests to DAG vertices (fill vertex_tests using entries in tests)
   if(m_verbose)

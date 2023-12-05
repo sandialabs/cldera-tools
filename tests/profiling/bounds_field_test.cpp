@@ -22,7 +22,7 @@ TEST_CASE ("bounds_field_test") {
   const std::vector<int> foo_sizes(1, foo_size);
   std::vector<Real> foo_data(foo_size);
   std::vector<std::string> dimnames = {"mydim"};
-  const auto foo = std::make_shared<const Field>("foo", foo_sizes, dimnames, foo_data.data());
+  Field foo("foo", foo_sizes, dimnames, foo_data.data());
 
   // Initialize bounds field test
   const std::string bounds_field_test_name = "Test bounds of foo";
@@ -56,13 +56,15 @@ TEST_CASE ("bounds_field_test") {
 
   // Test BoundsFieldTest, MinFieldTest, and MaxFieldTest via FieldTestFactory
   {
-    // Create a map of fields
-    std::map<std::string, std::shared_ptr<const Field> > fields;
-    fields.emplace("foo",foo);
+    // Create an archive
+    ProfilingArchive archive(comm,time,time,{});
+    archive.add_field(foo);
 
-    // Create a field test factory
-    FieldTestFactory field_test_factory("cldera_field_test_input.yaml", fields, comm, true);
-    std::map<std::string, std::shared_ptr<FieldTest> > tests = field_test_factory.build_field_tests(std::cout);
+    // Load params and create test factory
+    auto params = ekat::parse_yaml_file("cldera_field_test_input.yaml");
+    FieldTestFactory field_test_factory(params, comm, true);
+
+    auto tests = field_test_factory.build_field_tests(archive,std::cout);
     
     // Check that the name used to access the test is the same as its member
     REQUIRE(tests["foobounds"]->name() == "foobounds");

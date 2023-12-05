@@ -5,14 +5,14 @@
 namespace cldera {
 
 MaxFieldTest::MaxFieldTest(const std::string& name, 
-                           const std::shared_ptr<const Field>& field,
+                           const Field& field,
                            const Real& max,
                            const ekat::Comm& comm)
 : FieldTest(name, field)
 , m_max(max)
 {
   m_max_stat = StatFactory::instance().create("global_max",comm,ekat::ParameterList("global_max"));
-  m_max_stat->set_field(*m_field);
+  m_max_stat->set_field(m_field);
   m_max_stat->create_stat_field();
 }
 

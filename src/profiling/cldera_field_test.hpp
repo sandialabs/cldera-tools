@@ -5,7 +5,6 @@
 #include "cldera_field.hpp"
 
 #include <string>
-#include <memory>
 
 namespace cldera {
 
@@ -16,7 +15,7 @@ namespace cldera {
 class FieldTest
 {
 public:
-  FieldTest(const std::string& name, const std::shared_ptr<const Field> field) 
+  FieldTest(const std::string& name, const Field& field)
   : m_name(name),
     m_field(field),
     m_save_history_on_failure(false)
@@ -29,7 +28,7 @@ public:
 
   const std::string& name() const { return m_name; }
 
-  const std::shared_ptr<const Field> get_field() const { return m_field; }
+  const Field& get_field() const { return m_field; }
 
   // Set whether to save failures to history or not
   void set_save_history(const bool save_history) { m_save_history_on_failure = save_history; }
@@ -39,7 +38,7 @@ public:
 
 protected:
   const std::string m_name;
-  const std::shared_ptr<const Field> m_field;
+  const Field& m_field;
 
   // Information related to the history of the test
   bool m_save_history_on_failure;

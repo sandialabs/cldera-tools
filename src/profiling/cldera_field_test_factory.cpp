@@ -30,10 +30,12 @@ std::map<std::string, std::shared_ptr<FieldTest> > FieldTestFactory::build_field
 
     std::string test_type = test_params.get<std::string>("Type");
     std::string field_name = test_params.get<std::string>("Field");
-    std::shared_ptr<const Field> field = m_fields[field_name];
+    const auto& field = *m_fields[field_name];
 
     if(m_verbose)
       out << "  Processing test " << name << " of type " << test_type << " on field " << field_name << "...\n";
+
+    auto& test = tests[name];
 
     // when adding new FieldTest children, add an entry here as well so the profiling tools can find it
     if(test_type == "Bounds")
@@ -42,35 +44,28 @@ std::map<std::string, std::shared_ptr<FieldTest> > FieldTestFactory::build_field
       if(m_verbose)
         out << "    Min=" << params[0] << ", Max=" << params[1] << "\n";
       Bounds<Real> bounds(params);
-      BoundsFieldTest bounds_test(name,field,bounds,m_comm);
-      bounds_test.set_save_history(true);
-      std::shared_ptr<BoundsFieldTest> bounds_test_ptr = std::make_shared<BoundsFieldTest>(bounds_test);
-      tests[name] = bounds_test_ptr;
+      test = std::make_shared<BoundsFieldTest>(name,field,bounds,m_comm);
     }
     else if(test_type == "Min")
     {
       std::vector<Real> params = test_params.get<std::vector<Real> >("Params");
       if(m_verbose)
         out << "    Min=" << params[0] << "\n";
-      MinFieldTest min_test(name,field,params[0],m_comm);
-      min_test.set_save_history(true);
-      std::shared_ptr<MinFieldTest> min_test_ptr = std::make_shared<MinFieldTest>(min_test);
-      tests[name] = min_test_ptr;
+      test = std::make_shared<MinFieldTest>(name,field,params[0],m_comm);
     }
     else if(test_type == "Max")
     {
       std::vector<Real> params = test_params.get<std::vector<Real> >("Params");
       if(m_verbose)
         out << "    Max=" << params[0] << "\n";
-      MaxFieldTest max_test(name,field,params[0],m_comm);
-      max_test.set_save_history(true);
-      std::shared_ptr<MaxFieldTest> max_test_ptr = std::make_shared<MaxFieldTest>(max_test);
-      tests[name] = max_test_ptr;
+      test = std::make_shared<MaxFieldTest>(name,field,params[0],m_comm);
     }
     else
     {
-      EKAT_REQUIRE_MSG(false, "FieldTestFactory: Invalid test type " + test_type + " encountered!");
+      EKAT_ERROR_MSG("FieldTestFactory: Invalid test type " + test_type + " encountered!");
     }
+    // We save history for all tests
+    test->set_save_history(true);
   }
 
   return tests;

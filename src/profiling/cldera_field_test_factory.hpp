@@ -42,7 +42,6 @@ private:
 
   // The corresponding fields to run tests on
   std::map<std::string, std::shared_ptr<const Field> > m_fields;
-
   const ekat::Comm m_comm;
 };
 

@@ -17,7 +17,7 @@ class MaxFieldTest : public FieldTest
 {
 public:
   MaxFieldTest(const std::string& name,
-               const std::shared_ptr<const Field>& field, 
+               const Field& field,
                const Real& max,
                const ekat::Comm& comm);
 

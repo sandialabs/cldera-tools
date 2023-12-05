@@ -5,18 +5,18 @@
 namespace cldera {
 
 BoundsFieldTest::BoundsFieldTest(const std::string& name, 
-                                 const std::shared_ptr<const Field>& field,
+                                 const Field& field,
                                  const Bounds<Real>& bounds,
                                  const ekat::Comm& comm) 
  : FieldTest(name, field)
  , m_bounds(bounds)
 {
   m_max_stat = StatFactory::instance().create("global_max",comm,ekat::ParameterList("global_max"));
-  m_max_stat->set_field(*m_field);
+  m_max_stat->set_field(m_field);
   m_max_stat->create_stat_field();
 
   m_min_stat = StatFactory::instance().create("global_min",comm,ekat::ParameterList("global_max"));
-  m_min_stat->set_field(*m_field);
+  m_min_stat->set_field(m_field);
   m_min_stat->create_stat_field();
 }
 

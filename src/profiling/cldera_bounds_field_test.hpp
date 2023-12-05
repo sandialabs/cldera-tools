@@ -17,7 +17,7 @@ class BoundsFieldTest : public FieldTest
 {
 public:
   BoundsFieldTest(const std::string& name,
-                  const std::shared_ptr<const Field>& field,
+                  const Field& field,
                   const Bounds<Real>& bounds,
                   const ekat::Comm& comm);
 

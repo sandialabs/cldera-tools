@@ -91,7 +91,7 @@ def create_ipcc_masks(input_filename,mask_filename,overwrite,degrees):
     ds_out.createDimension(ncol_name,ncol)
     lat_out = ds_out.createVariable("lat","f8",lat.dimensions)
     lon_out = ds_out.createVariable("lon","f8",lon.dimensions)
-    mask_out = ds_out.createVariable("mask","i4",lon.dimensions)
+    mask_out = ds_out.createVariable("mask_ar6","i4",lon.dimensions)
 
     lat_out[:] = lat[:]
     lon_out[:] = lon[:]

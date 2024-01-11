@@ -1,5 +1,6 @@
 #include "cldera_profiling_interface.hpp"
 
+#include "cldera_profiling_context.hpp"
 #include "cldera_profiling_session.hpp"
 #include "cldera_profiling_archive.hpp"
 #include "cldera_pathway_factory.hpp"
@@ -20,120 +21,124 @@ extern "C" {
 
 namespace cldera {
 
-void cldera_init_c (const MPI_Fint fcomm,
+inline ProfilingSession& get_session () {
+  return ProfilingSession::instance();
+}
+
+void cldera_switch_context_c (const std::string& name) {
+  get_session().switch_context(name);
+}
+
+ProfilingContext& get_curr_context () {
+  return get_session().get_curr_context();
+}
+
+void cldera_init_c (const char*& context_name,
+                    const MPI_Fint fcomm,
                     const int case_t0_ymd, const int case_t0_tod,
                     const int run_t0_ymd, const int run_t0_tod,
                     const int stop_ymd, const int stop_tod)
 {
-  auto& ts = timing::TimingSession::instance();
-  ts.start_timer("profiling::init");
-
-  // Convert F90 comm to C comm, create ekat::Comm, and init session
+  // Convert F90 comm to C comm and create ekat::Comm
   MPI_Comm mpiComm = MPI_Comm_f2c(fcomm);
   EKAT_REQUIRE_MSG (mpiComm!=nullptr, "Error! Input fortran comm seems invalid.\n");
-
   ekat::Comm comm(mpiComm);
 
-  ekat::initialize_ekat_session (/* argc = */ 0,
-                                 /* argv = */ nullptr,
-                                 /* print config = */ comm.am_i_root());
+  if (comm.am_i_root()) {
+    printf(" [CLDERA] Initializing profiling context '%s' ...\n",context_name);
+  }
+
+  // Init session (if not already done)
+  auto& s = get_session();
+  s.init_session(comm);
+
+  // Add context right away, even before checking if an input file is present.
+  // This way, we can always check if this context is inited or not (we can't
+  // do that if we don't create a context)
+  s.add_context(context_name);
 
   //TODO: make the filename configurable
   std::string filename = "./cldera_profiling_config.yaml";
-
   if (not std::ifstream(filename).good()) {
     if (comm.am_i_root()) {
       printf(" [CLDERA] WARNING: could not open './cldera_profiling_config.yaml'.\n"
              "   -> Profiling will do nothing.\n");
     }
-    ts.stop_timer("profiling::init");
     return;
   }
-
-  if (comm.am_i_root()) {
-    printf(" [CLDERA] Initializing profiling session ...\n");
+  auto session_params = ekat::parse_yaml_file(filename);
+  const auto& context_params_filename = session_params.get<std::string>(context_name);
+  if (not std::ifstream(context_params_filename).good()) {
+    if (comm.am_i_root()) {
+      printf(" [CLDERA] WARNING: could not open '%s'.\n"
+             "   -> Profiling will do nothing for context '%s'.\n",
+             context_params_filename.c_str(),context_name);
+    }
+    return;
   }
+  auto params = ekat::parse_yaml_file(context_params_filename);
 
-  auto& s = ProfilingSession::instance();
-
-  s.init(comm);
+  auto& c = get_session().add_context(context_name);
+  c.init(comm,params);
+  std::string timer_name = context_name;
+  timer_name += "::init";
+  c.timing().start_timer(timer_name);
 
   using stat_ptr_t = std::shared_ptr<FieldStat>;
   using requests_t = std::map<std::string,std::vector<stat_ptr_t>>;
   using vos_t = std::vector<std::string>;
 
-  auto& params = s.get_params() = ekat::parse_yaml_file(filename);
   TimeStamp case_t0 (case_t0_ymd,case_t0_tod);
   TimeStamp run_t0 (run_t0_ymd,run_t0_tod);
   TimeStamp stop (stop_ymd,stop_tod);
-  s.create<TimeStamp>("run_t0",run_t0);
-  s.create<TimeStamp>("case_t0",case_t0);
-  s.create<TimeStamp>("stop_timestamp",stop);
+  c.create<TimeStamp>("run_t0",run_t0);
+  c.create<TimeStamp>("case_t0",case_t0);
+  c.create<TimeStamp>("stop_timestamp",stop);
 
   if(params.isSublist("Profiling Output")) {
-    s.create<ProfilingArchive>("archive",comm,case_t0,run_t0,params.sublist("Profiling Output"));
+    c.create<ProfilingArchive>("archive",comm,case_t0,run_t0,params.sublist("Profiling Output"));
   } else {
     ekat::ParameterList profiling_output_list("Profiling Output");
-    s.create<ProfilingArchive>("archive",comm,case_t0,run_t0,profiling_output_list);
+    c.create<ProfilingArchive>("archive",comm,case_t0,run_t0,profiling_output_list);
   }
-
-  s.create<bool>("doPathway",params.isSublist("Pathway"));
 
   if (comm.am_i_root()) {
-    printf(" [CLDERA] Initializing profiling session ... done!\n");
+    printf(" [CLDERA] Initializing profiling context '%s' ... done!\n",context_name);
   }
-  ts.stop_timer("profiling::init");
+  c.timing().stop_timer(timer_name);
 }
 
 void cldera_clean_up_c ()
 {
-  auto& s = ProfilingSession::instance();
+  auto& c = get_curr_context();
 
   // If input file was not provided, cldera does nothing
-  if (not s.inited()) { return; }
+  if (not c.inited()) { return; }
 
-  auto& ts = timing::TimingSession::instance();
-  ts.start_timer("profiling::clean_up");
+  // Need a copy for the last print statement, when the context won't be available anymore
+  const auto cname = c.name();
 
-  // Store this, since cleaning up the ProfileSession will reset
+  // Store this, since cleaning up the ProfileContext will reset
   // the comm to MPI_COMM_SELF.
-  auto am_i_root = s.get_comm().am_i_root();
+  auto am_i_root = c.get_comm().am_i_root();
   if (am_i_root) {
-    printf(" [CLDERA] Shutting down profiling session ...\n");
+    printf(" [CLDERA] Shutting down profiling context '%s' ...\n", cname.c_str());
   }
 
-  if(s.get<bool>("doPathway")) {
-    std::string history_filename = "cldera_pathway_history.yaml";
-    auto& pathway = s.get<std::shared_ptr<cldera::Pathway>>("pathway");
+  auto& params = c.get_params();
+  if(params.isSublist("Pathway")) {
+    const auto& history_filename = params.get<std::string>("pathway_history_file","cldera_pathway_history.yaml");
+    auto& pathway = c.get<std::shared_ptr<cldera::Pathway>>("pathway");
     pathway->dump_test_history_to_yaml(history_filename);
   }
 
-  // Get a copy of timing filename and comm *before* cleaning up the
-  // session, since we need them to dump the timing stats
-  auto& params = s.get_params();
-  const auto timings_fname = params.get<std::string>("Timing Filename","");
-  const auto comm = s.get_comm();
-  s.clean_up();
-  ts.stop_timer("profiling::clean_up");
-
-  if (timings_fname!="") {
-    const auto& timings = timing::TimingSession::instance();
-    std::ofstream timings_file;
-    std::stringstream blackhole;
-    if (am_i_root) {
-      timings_file.open(timings_fname);
-    }
-    std::ostream& ofile = timings_file;
-    std::ostream& onull = blackhole;
-
-    std::ostream& out = am_i_root ? ofile : onull;
-    timings.dump(out,comm);
-  }
+  // Clean up and remove context from the session
+  // If this was the last stored context, this call will also clean up the session
+  get_session().clean_up_current_context();
 
   if (am_i_root) {
-    printf(" [CLDERA] Shutting down profiling session ... done!\n");
+    printf(" [CLDERA] Shutting down profiling context '%s'... done!\n",cname.c_str());
   }
-  ekat::finalize_ekat_session ();
 }
 
 void cldera_add_field_c (const char*& name,
@@ -157,13 +162,13 @@ void cldera_add_partitioned_field_c (
     const bool    is_view,
     const char*&  dtype)
 {
-  auto& s = ProfilingSession::instance();
+  auto& c = get_curr_context();
 
   // If input file was not provided, cldera does nothing
-  if (not s.inited()) { return; }
+  if (not c.inited()) { return; }
 
-  auto& ts = timing::TimingSession::instance();
-  ts.start_timer("profiling::add_field");
+  auto& ts = c.timing();
+  ts.start_timer(c.name() + "::add_field");
 
   EKAT_REQUIRE_MSG (rank>=0 && rank<=4,
       "Error! Unsupported field rank (" + std::to_string(rank) + "\n");
@@ -186,11 +191,11 @@ void cldera_add_partitioned_field_c (
   FieldLayout fl(d,dn);
 
   // Set data in the archive structure
-  auto& archive = s.get<ProfilingArchive>("archive");
+  auto& archive = c.get<ProfilingArchive>("archive");
   const auto access = is_view ? DataAccess::View : DataAccess::Copy;
   Field f(name,fl,num_parts,part_dim,access,str2data_type(dtype),part_dim_alloc_size);
   archive.add_field(f);
-  ts.stop_timer("profiling::add_field");
+  ts.stop_timer(c.name() + "::add_field");
 }
 
 void cldera_set_field_part_extent_c (
@@ -198,18 +203,18 @@ void cldera_set_field_part_extent_c (
     const int   part,
     const int   part_extent)
 {
-  auto& s = ProfilingSession::instance();
+  auto& c = get_curr_context();
 
   // If input file was not provided, cldera does nothing
-  if (not s.inited()) { return; }
+  if (not c.inited()) { return; }
 
-  auto& ts = timing::TimingSession::instance();
-  ts.start_timer("profiling::set_field_size");
+  auto& ts = c.timing();
+  ts.start_timer(c.name() + "::set_field_size");
 
-  auto& archive = s.get<ProfilingArchive>("archive");
+  auto& archive = c.get<ProfilingArchive>("archive");
 
   archive.get_field(name).set_part_extent (part,part_extent);
-  ts.stop_timer("profiling::set_field_size");
+  ts.stop_timer(c.name() + "::set_field_size");
 }
 
 void cldera_set_field_part_data_c (
@@ -218,15 +223,15 @@ void cldera_set_field_part_data_c (
     const void*& data_in,
     const char*& dtype_in)
 {
-  auto& s = ProfilingSession::instance();
+  auto& c = get_curr_context();
 
   // If input file was not provided, cldera does nothing
-  if (not s.inited()) { return; }
+  if (not c.inited()) { return; }
 
-  auto& ts = timing::TimingSession::instance();
-  ts.start_timer("profiling::set_field_data");
+  auto& ts = c.timing();
+  ts.start_timer(c.name() + "::set_field_data");
 
-  auto& archive = s.get<ProfilingArchive>("archive");
+  auto& archive = c.get<ProfilingArchive>("archive");
 
   auto& f = archive.get_field(name);
   std::string dtype = dtype_in;
@@ -247,48 +252,48 @@ void cldera_set_field_part_data_c (
   } else {
     EKAT_ERROR_MSG ("Invalid/unsupported data type: " + dtype + "\n");
   }
-  ts.stop_timer("profiling::set_field_data");
+  ts.stop_timer(c.name() + "::set_field_data");
 }
 
 void cldera_commit_field_c (const char*& name)
 {
-  auto& s = ProfilingSession::instance();
+  auto& c = get_curr_context();
 
   // If input file was not provided, cldera does nothing
-  if (not s.inited()) { return; }
+  if (not c.inited()) { return; }
 
-  auto& ts = timing::TimingSession::instance();
-  ts.start_timer("profiling::commit_fields");
+  auto& ts = c.timing();
+  ts.start_timer(c.name() + "::commit_fields");
 
-  auto& archive = s.get<ProfilingArchive>("archive");
+  auto& archive = c.get<ProfilingArchive>("archive");
 
   archive.get_field(name).commit();
-  ts.stop_timer("profiling::commit_fields");
+  ts.stop_timer(c.name() + "::commit_fields");
 }
 
 void cldera_commit_all_fields_c ()
 {
-  auto& s = ProfilingSession::instance();
+  auto& c = get_curr_context();
 
   // If input file was not provided, cldera does nothing
-  if (not s.inited()) { return; }
+  if (not c.inited()) { return; }
 
-  auto& ts = timing::TimingSession::instance();
-  auto& archive = s.get<ProfilingArchive>("archive");
+  auto& ts = c.timing();
+  auto& archive = c.get<ProfilingArchive>("archive");
 
-  ts.start_timer("profiling::commit_fields");
+  ts.start_timer(c.name() + "::commit_fields");
   archive.commit_all_fields();
-  ts.stop_timer("profiling::commit_fields");
+  ts.stop_timer(c.name() + "::commit_fields");
 
-  ts.start_timer("profiling::create_stats");
-  auto& params = s.get_params();
+  ts.start_timer(c.name() + "::create_stats");
+  auto& params = c.get_params();
   using stat_ptr_t = std::shared_ptr<FieldStat>;
   using requests_t = std::map<std::string,std::vector<stat_ptr_t>>;
   using vos_t = std::vector<std::string>;
 
   auto& factory = StatFactory::instance();
   register_stats();
-  auto& requests = s.create<requests_t>("requests");
+  auto& requests = c.create<requests_t>("requests");
   const auto& fnames = params.get<vos_t>("Fields To Track");
   for (const auto& fname : fnames) {
     auto& req_pl = params.sublist(fname);
@@ -297,12 +302,12 @@ void cldera_commit_all_fields_c ()
     for (auto stat_name : req_pl.get<vos_t>("Compute Stats")) {
       auto& stat_pl = req_pl.sublist(stat_name);
       const auto& stat_type = stat_pl.get<std::string>("type",stat_name);
-      auto stat = factory.create(stat_type,s.get_comm(),stat_pl);
+      auto stat = factory.create(stat_type,c.get_comm(),stat_pl);
       stat->set_field(f);
       std::map<std::string,Field> aux_fields;
       for (const auto& fn : stat->get_aux_fields_names()) {
         // It may seem that we should let archive error out here,
-        // if fn is not found. However, there's a good case for not doing it.
+        // if fn is not found. However, there'c a good case for not doing it.
         // Namely, all masked integral stats need a mask field. When the first
         // instance is created, we have no mask in the archive, so the stat
         // will load from nc file. After that, we'll put the stat in the archive
@@ -326,26 +331,27 @@ void cldera_commit_all_fields_c ()
       }
     }
   }
-  ts.stop_timer("profiling::create_stats");
+  ts.stop_timer(c.name() + "::create_stats");
 }
 
 void cldera_compute_stats_c (const int ymd, const int tod)
 {
-  auto& s = ProfilingSession::instance();
+  auto& c = get_curr_context();
   // If input file was not provided, cldera does nothing
-  if (not s.inited()) { return; }
+  if (not c.inited()) { return; }
 
   cldera::TimeStamp time = {ymd, tod};
-  if (time==s.get<TimeStamp>("run_t0")) {
+  if (time==c.get<TimeStamp>("run_t0")) {
     // E3SM runs a bit of its timestep during init, to bootstrap
     // some surface fluxes. We are not interested in the stats at
     // that time.
     return;
   }
-  static int num_calls = 0;
+  static std::map<std::string,int> num_calls_map;
+  auto& num_calls = num_calls_map[c.name()];
 
-  const auto& comm = s.get_comm();
-  auto& params = s.get_params();
+  const auto& comm = c.get_comm();
+  auto& params = c.get_params();
 
   // There is some rank that enters this call after the others,
   // making the relative timing of internal cldera funcs harder.
@@ -356,17 +362,18 @@ void cldera_compute_stats_c (const int ymd, const int tod)
   }
 
   if (comm.am_i_root()) {
-    printf(" [CLDERA] Computing stats at time %s...\n",time.to_string().c_str());
+    printf(" [CLDERA] Computing stats for session '%c'...\n",c.name().c_str());
+    printf(" [CLDERA]   time: %c...\n",time.to_string().c_str());
   }
 
-  auto& ts = timing::TimingSession::instance();
-  ts.start_timer("profiling::compute_stats");
+  auto& ts = c.timing();
+  ts.start_timer(c.name() + "::compute_stats");
 
   using stat_ptr_t = std::shared_ptr<FieldStat>;
   using requests_t = std::map<std::string,std::vector<stat_ptr_t>>;
-  auto& requests = s.get<requests_t>("requests");
+  auto& requests = c.get<requests_t>("requests");
 
-  auto& archive = s.get<ProfilingArchive>("archive");
+  auto& archive = c.get<ProfilingArchive>("archive");
 
   std::map<std::string, std::shared_ptr<const cldera::Field> > fields;
   for (const auto& it : requests) {
@@ -375,7 +382,7 @@ void cldera_compute_stats_c (const int ymd, const int tod)
     const auto& f = archive.get_field(fname);
 
     // Store field map, so we can create the pathway object later
-    if(!s.has_data("pathway")) {
+    if(!c.has_data("pathway")) {
       ts.start_timer("profiling:create_stat_field");
       fields[fname] = std::make_shared<const cldera::Field>(f);
       ts.stop_timer("profiling:create_stat_field");
@@ -386,33 +393,31 @@ void cldera_compute_stats_c (const int ymd, const int tod)
   }
 
   archive.update_time(time);
-  ts.stop_timer("profiling::compute_stats");
+  ts.stop_timer(c.name() + "::compute_stats");
 
   if (comm.am_i_root()) {
-    printf(" [CLDERA] Computing stats ... done!\n");
+    printf(" [CLDERA] Computing stats for session '%c'...done!\n",c.name().c_str());
   }
 
-  if(s.get<bool>("doPathway")) {
-    ts.start_timer("profiling::run_pathway_tests");
+  // If pathway is enabled, do it
+  if (params.isSublist("Pathway")) {
+    c.timing().start_timer(c.name() + "::run_pathway_tests");
     // this solves the issue of fields not being initialized
-    if(!s.has_data("pathway")) {
-      // create the pathway then throw it in the ProfilingSession
-      std::string filename = "./cldera_profiling_config.yaml";
-      cldera::PathwayFactory pathway_factory(filename, fields, comm, false); // TODO: make pathway verbosity a yaml option
-      auto& pathway = s.create_or_get<std::shared_ptr<cldera::Pathway>>("pathway",pathway_factory.build_pathway());
-      pathway->run_pathway_tests(comm, time);
-    } else {
-      // otherwise, grab it
-      auto& pathway = s.get<std::shared_ptr<cldera::Pathway>>("pathway");
-      pathway->run_pathway_tests(comm, time);
+    if(not c.has_data("pathway")) {
+      auto& archive = c.get<ProfilingArchive>("archive");
+      // It's the first time this is called, so create the pathway
+      cldera::PathwayFactory pathway_factory(params, comm, false); // TODO: make pathway verbosity a yaml option
+      c.create<std::shared_ptr<Pathway>>("pathway",pathway_factory.build_pathway(archive));
     }
-    ts.stop_timer("profiling::run_pathway_tests");
+    auto pathway = c.get<std::shared_ptr<cldera::Pathway>>("pathway");
+    pathway->run_pathway_tests(comm, time);
+    c.timing().stop_timer(c.name() + "::run_pathway_tests");
   }
 
-  const auto timings_fname = params.get<std::string>("Timing Filename","");
   const int timings_flush_freq = params.get("Timings Flush Freq",0);
-  if (timings_fname!="" && timings_flush_freq>0 && num_calls%timings_flush_freq==0) {
-    const auto& timings = timing::TimingSession::instance();
+  if (ts.is_active() and timings_flush_freq>0 and num_calls%timings_flush_freq==0) {
+    const auto timings_fname = params.get<std::string>("Timing Filename","");
+    const auto& timing = c.timing();
     std::ofstream timings_file;
     std::stringstream blackhole;
     if (comm.am_i_root()) {
@@ -422,7 +427,7 @@ void cldera_compute_stats_c (const int ymd, const int tod)
     std::ostream& onull = blackhole;
 
     std::ostream& out = comm.am_i_root() ? ofile : onull;
-    timings.dump(out,comm);
+    timing.dump(out,comm);
   }
   ++num_calls;
 }

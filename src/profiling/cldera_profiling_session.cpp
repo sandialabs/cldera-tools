@@ -37,7 +37,7 @@ add_context (const std::string& name)
 ProfilingContext&
 ProfilingSession::get_curr_context ()
 {
-  EKAT_REQUIRE_MSG (m_contexts.count(m_curr_context_name)==0,
+  EKAT_REQUIRE_MSG (m_contexts.count(m_curr_context_name)==1,
       "Error! No ProfilingContext currently active.\n");
   return m_contexts.at(m_curr_context_name);
 }
@@ -45,7 +45,7 @@ ProfilingSession::get_curr_context ()
 void ProfilingSession::
 switch_context (const std::string& name)
 {
-  EKAT_REQUIRE_MSG (m_contexts.count(name)==0,
+  EKAT_REQUIRE_MSG (m_contexts.count(name)==1,
       "Error! ProfilingContext was never create.\n"
       "  name: " + name + "\n");
   m_curr_context_name = name;
@@ -54,11 +54,12 @@ switch_context (const std::string& name)
 void ProfilingSession::
 clean_up_current_context ()
 {
-  // Clean up current context
+  // Clean up and erase current context
   get_curr_context().clean_up();
-
-  // Erase session
   m_contexts.erase(m_curr_context_name);
+
+  // No "current" context anymore
+  m_curr_context_name = "";
 
   // If this was the last context, shut down ekat
   if (m_contexts.size()==0) {

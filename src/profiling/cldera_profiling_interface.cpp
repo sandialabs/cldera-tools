@@ -55,7 +55,7 @@ void cldera_init_c (const char*& context_name,
   // Add context right away, even before checking if an input file is present.
   // This way, we can always check if this context is inited or not (we can't
   // do that if we don't create a context)
-  s.add_context(context_name);
+  auto& c = s.add_context(context_name);
 
   //TODO: make the filename configurable
   std::string filename = "./cldera_profiling_config.yaml";
@@ -78,7 +78,6 @@ void cldera_init_c (const char*& context_name,
   }
   auto params = ekat::parse_yaml_file(context_params_filename);
 
-  auto& c = get_session().add_context(context_name);
   c.init(comm,params);
   std::string timer_name = context_name;
   timer_name += "::init";
@@ -362,8 +361,8 @@ void cldera_compute_stats_c (const int ymd, const int tod)
   }
 
   if (comm.am_i_root()) {
-    printf(" [CLDERA] Computing stats for session '%c'...\n",c.name().c_str());
-    printf(" [CLDERA]   time: %c...\n",time.to_string().c_str());
+    printf(" [CLDERA] Computing stats for context '%s'...\n",c.name().c_str());
+    printf(" [CLDERA]   time: %s...\n",time.to_string().c_str());
   }
 
   auto& ts = c.timing();
@@ -396,7 +395,7 @@ void cldera_compute_stats_c (const int ymd, const int tod)
   ts.stop_timer(c.name() + "::compute_stats");
 
   if (comm.am_i_root()) {
-    printf(" [CLDERA] Computing stats for session '%c'...done!\n",c.name().c_str());
+    printf(" [CLDERA] Computing stats for context '%s'...done!\n",c.name().c_str());
   }
 
   // If pathway is enabled, do it

@@ -25,7 +25,7 @@ inline ProfilingSession& get_session () {
   return ProfilingSession::instance();
 }
 
-void cldera_switch_context_c (const std::string& name) {
+void cldera_switch_context_c (const char*& name) {
   get_session().switch_context(name);
 }
 

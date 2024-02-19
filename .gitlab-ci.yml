@@ -4,9 +4,18 @@ variables:
 configure-build-test:
   stage: build
   before_script:
+    - |-
+      if [ $CI_RUNNER_ID == 121 ]; then
+        MACH_NAME=s1007989
+      elif [ $CI_RUNNER_ID == 48 ]; then
+        MACH_NAME=s1007989
+      else
+        exit 1
+      fi
+    - env | grep MACH_NAME
     - git submodule update --init --recursive
+    - source scripts/env/load-modules-${MACH_NAME}.sh
   script:
-    - source scripts/env/load-modules-vaporwave.sh
     - mkdir build
     - cd build
     - ../scripts/configure/configure-cldera-tools-runner.sh ../ | tee ../runner_log.txt

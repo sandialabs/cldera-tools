@@ -306,7 +306,7 @@ void cldera_commit_all_fields_c ()
       std::map<std::string,Field> aux_fields;
       for (const auto& fn : stat->get_aux_fields_names()) {
         // It may seem that we should let archive error out here,
-        // if fn is not found. However, there'c a good case for not doing it.
+        // if fn is not found. However, there's a good case for not doing it.
         // Namely, all masked integral stats need a mask field. When the first
         // instance is created, we have no mask in the archive, so the stat
         // will load from nc file. After that, we'll put the stat in the archive

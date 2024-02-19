@@ -13,7 +13,7 @@ TEST_CASE ("archive") {
   TimeStamp ts(ymd,tod);
 
   ekat::ParameterList params;
-  params.set<std::string>("Filename","archive_tests.nc");
+  params.set<std::string>("filename_prefix","archive_tests");
   params.set("Flush Frequency",5);
 
   ProfilingArchive archive(comm,ts,ts,params);

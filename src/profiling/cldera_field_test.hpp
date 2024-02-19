@@ -19,7 +19,12 @@ public:
   : m_name(name),
     m_field(field),
     m_save_history_on_failure(false)
-  {}
+  {
+    EKAT_REQUIRE_MSG (field.committed(),
+        "Error! Input field for this test is not yet committed.\n"
+        "  - test  name: " + m_name + "\n"
+        "  - field name: " + field.name() + "\n");
+  }
 
   virtual ~FieldTest() = default;
 

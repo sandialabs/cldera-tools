@@ -8,13 +8,13 @@ configure-build-test:
       if [ $CI_RUNNER_ID == 121 ]; then
         MACH_NAME=s1007989
       elif [ $CI_RUNNER_ID == 48 ]; then
-        MACH_NAME=s1007989
+        MACH_NAME=vaporwave
       else
-        exit 1
+        echo CI runner not supported
+        exit 42
       fi
-    - env | grep MACH_NAME
-    - git submodule update --init --recursive
     - source scripts/env/load-modules-${MACH_NAME}.sh
+    - git submodule update --init --recursive
   script:
     - mkdir build
     - cd build

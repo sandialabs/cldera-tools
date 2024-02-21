@@ -23,6 +23,10 @@ public:
   template<typename T>
   using strmap_t = std::map<std::string,T>;
 
+  // Create a separate, individual instance
+  TimingSession () = default;
+
+  // A unique global session
   static TimingSession& instance () {
     static TimingSession ts;
     return ts;
@@ -39,11 +43,11 @@ public:
   // Toggle on/off actual timing
   void toggle_session (const bool on);
 
+  bool is_active () const { return session_active; }
+
   // Clean up the class
   void clean_up ();
 private:
-
-  TimingSession () = default;
 
   // map[timer_name] = timer_history
   strmap_t<Timer>   timers;

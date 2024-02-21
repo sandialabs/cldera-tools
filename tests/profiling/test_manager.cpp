@@ -24,7 +24,7 @@ TEST_CASE ("test_manager") {
   const std::vector<int> foo_sizes(1, foo_size);
   std::vector<Real> foo_data(foo_size);
   std::vector<std::string> dimnames = {"mydim"};
-  const auto foo = std::make_shared<const Field>("foo", foo_sizes, dimnames, foo_data.data());
+  Field foo("foo", foo_sizes, dimnames, foo_data.data());
 
   // Initialize simple field test
   const std::string field_test_name = "Test bounds of foo";

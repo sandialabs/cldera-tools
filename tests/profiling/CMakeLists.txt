@@ -1,7 +1,7 @@
 include (EkatCreateUnitTest)
 
-# Test ProfilingSession
-EkatCreateUnitTest (session session.cpp
+# Test ProfilingContext
+EkatCreateUnitTest (context context.cpp
   LIBS cldera-profiling ekat
   MPI_RANKS 1 ${CLDERA_TESTS_MAX_RANKS}
   MPI_EXEC_NAME ${CLDERA_TESTS_MPI_EXEC_NAME}
@@ -21,7 +21,7 @@ EkatCreateUnitTest (archive archive.cpp
   PROPERTIES FIXTURES_SETUP archive_output)
 
 add_test (NAME archive_check
-          COMMAND ncdump -v foo_global_max archive_tests-2022-09-15-43000)
+          COMMAND ncdump -v foo_global_max archive_tests-2022-09-15-43000.nc)
 set_tests_properties(archive_check PROPERTIES
   PASS_REGULAR_EXPRESSION "foo_global_max = 3"
   FIXTURES_REQUIRED archive_output

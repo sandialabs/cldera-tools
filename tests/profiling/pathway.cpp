@@ -17,6 +17,7 @@
 TEST_CASE ("pathway") {
 
   ekat::Comm comm(MPI_COMM_WORLD);
+  cldera::TimeStamp time = {19910701, 3600};
 
   cldera::register_stats();
 
@@ -27,21 +28,21 @@ TEST_CASE ("pathway") {
     const std::vector<int> foo_sizes(1, foo_size);
     std::vector<cldera::Real> foo_data(foo_size);
     std::vector<std::string> dimnames = {"mydim"};
-    const auto foo = std::make_shared<const cldera::Field>("foo", foo_sizes, dimnames, foo_data.data());
+    cldera::Field foo("foo", foo_sizes, dimnames, foo_data.data());
 
     // initialize another simple field, the same size as foo
     std::vector<cldera::Real> bar_data(foo_size);
-    const auto bar = std::make_shared<const cldera::Field>("bar", foo_sizes, dimnames, bar_data.data());
+    cldera::Field bar("bar", foo_sizes, dimnames, bar_data.data());
 
-    std::map<std::string, std::shared_ptr<const cldera::Field> > fields;
-    fields["foo"] = foo;
-    fields["bar"] = bar;
+    // Create an archive
+    cldera::ProfilingArchive archive (comm,time,time,{});
+    archive.add_field(foo);
+    archive.add_field(bar);
 
     // load the input deck and construct the pathway
-    std::string filename = "./cldera_pathway_input.yaml";
-    cldera::PathwayFactory pathway_factory(filename, fields, comm, true);
-    std::shared_ptr<cldera::Pathway> pathway = pathway_factory.build_pathway(std::cout);
-    cldera::TimeStamp time = {19910701, 3600};
+    auto params = ekat::parse_yaml_file("./cldera_pathway_input.yaml");
+    cldera::PathwayFactory pathway_factory(params, comm, true);
+    auto pathway = pathway_factory.build_pathway(archive, std::cout);
 
     // check that all pathway tests pass
     std::iota(foo_data.begin(), foo_data.end(), 1.0);

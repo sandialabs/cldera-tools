@@ -26,13 +26,32 @@ module cldera_interface_mod
   end interface cldera_set_field_part_data
 contains
 
-  ! Initialize cldera session and main structures
-  subroutine cldera_init (comm, case_t0_ymd, case_t0_tod, run_t0_ymd, run_t0_tod, stop_ymd, stop_tod)
+  ! Initialize cldera context and main structures
+  subroutine cldera_init (context_name, comm, case_t0_ymd, case_t0_tod, run_t0_ymd, run_t0_tod, stop_ymd, stop_tod)
+    use iso_c_binding, only: c_char, c_loc
     use cldera_interface_f2c_mod, only: cldera_init_c
     integer, intent(in) :: comm, case_t0_ymd, case_t0_tod, run_t0_ymd, run_t0_tod, stop_ymd, stop_tod
+    character (len=*), intent(in) :: context_name
 
-    call cldera_init_c(f2c(comm),case_t0_ymd,case_t0_tod,run_t0_ymd,run_t0_tod,stop_ymd,stop_tod)
+    character (kind=c_char, len=max_str_len), target :: context_name_c
+
+    context_name_c = f2c(context_name)
+
+    call cldera_init_c(c_loc(context_name_c),f2c(comm),case_t0_ymd,case_t0_tod,run_t0_ymd,run_t0_tod,stop_ymd,stop_tod)
   end subroutine cldera_init
+
+  ! Switches which cldera context is active
+  subroutine cldera_switch_context (context_name)
+    use iso_c_binding, only: c_char, c_loc
+    use cldera_interface_f2c_mod, only: cldera_switch_context_c
+    character (len=*), intent(in) :: context_name
+
+    character (kind=c_char, len=max_str_len), target :: context_name_c
+
+    context_name_c = f2c(context_name)
+
+    call cldera_switch_context_c(c_loc(context_name_c))
+  end subroutine cldera_switch_context
 
   subroutine cldera_set_log_unit (log_unit)
     integer, intent(in) :: log_unit

@@ -17,7 +17,7 @@ class MinFieldTest : public FieldTest
 {
 public:
   MinFieldTest(const std::string& name, 
-               const std::shared_ptr<const Field>& field, 
+               const Field& field,
                const Real& min,
                const ekat::Comm& comm);
 

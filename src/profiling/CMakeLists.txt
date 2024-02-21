@@ -24,6 +24,7 @@ add_library (cldera-profiling
     cldera_graph_factory.cpp
     cldera_pathway.cpp
     cldera_pathway_factory.cpp
+    cldera_profiling_context.cpp
     cldera_profiling_session.cpp
     cldera_profiling_archive.cpp
     cldera_profiling_interface.cpp

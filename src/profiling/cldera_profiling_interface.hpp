@@ -7,7 +7,8 @@ extern "C" {
 
 namespace cldera {
 
-void cldera_init_c (const MPI_Fint fcomm,
+void cldera_init_c (const char*& session_name,
+                    const MPI_Fint fcomm,
                     const int case_t0_ymd, const int case_t0_tod,
                     const int run_t0_ymd, const int run_t0_tod,
                     const int stop_ymd, const int stop_tod);

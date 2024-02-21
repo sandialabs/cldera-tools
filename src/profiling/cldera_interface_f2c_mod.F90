@@ -2,13 +2,20 @@ module cldera_interface_f2c_mod
 
   interface
 
-    ! Initialize cldera session and main structures
-    subroutine cldera_init_c (fcomm,case_t0_ymd,case_t0_tod,run_t0_ymd,run_t0_tod,stop_ymd,stop_tod) bind(C)
-      use iso_c_binding, only: c_int
+    ! Initialize cldera context and main structures
+    subroutine cldera_init_c (context_name,fcomm,case_t0_ymd,case_t0_tod,run_t0_ymd,run_t0_tod,stop_ymd,stop_tod) bind(C)
+      use iso_c_binding, only: c_int, c_ptr
       integer (kind=c_int), value, intent(in) :: fcomm,case_t0_ymd,case_t0_tod,&
                                                  run_t0_ymd,run_t0_tod,&
                                                  stop_ymd,stop_tod
+      type(c_ptr), intent(in) :: context_name
     end subroutine cldera_init_c
+
+    ! Switches which cldera context is active
+    subroutine cldera_switch_context_c (context_name) bind(C)
+      use iso_c_binding, only: c_int, c_ptr
+      type(c_ptr), intent(in) :: context_name
+    end subroutine cldera_switch_context_c
 
     ! Add a partitioned field to cldera data base
     subroutine cldera_add_partitioned_field_c (fname, rank, dims, dimnames, nparts, &

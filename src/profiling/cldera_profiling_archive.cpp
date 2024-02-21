@@ -38,7 +38,7 @@ ProfilingArchive(const ekat::Comm& comm,
         mode = io::pnetcdf::IOMode::Write;
       }
     }
-    m_output_file = open_file (filename, m_comm, mode);
+    m_output_file = open_file (filename+".nc", m_comm, mode);
   }
   m_flush_freq = m_params.get("Flush Frequency",10);
   m_time_stamps.resize(m_flush_freq);

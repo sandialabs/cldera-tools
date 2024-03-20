@@ -4,7 +4,9 @@ include (EkatCreateUnitTest)
 EkatCreateUnitTest (pnetcdf-tests cldera_pnetcdf_tests.cpp
   LIBS cldera-pnetcdf
   MPI_RANKS 1 ${CLDERA_TESTS_MAX_RANKS}
-  FIXTURES_SETUP setup_nc_files)
+  MPI_EXEC_NAME ${CLDERA_TESTS_MPI_EXEC_NAME}
+  MPI_NP_FLAG ${CLDERA_TESTS_MPI_NP_FLAG}
+  PROPERTIES FIXTURES_SETUP setup_nc_files)
 
 set (compare_script ${CMAKE_CURRENT_SOURCE_DIR}/compare_nc.cmake)
 

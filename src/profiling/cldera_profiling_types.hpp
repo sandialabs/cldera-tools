@@ -10,6 +10,15 @@
 #include <vector>
 #include <iostream>
 
+namespace ekat {
+// EKAT's DataND recursion has N=1 as base case, causing infinite recursion if N=0
+// TODO: fix in EKAT
+template<typename T>
+struct DataND<T,0> {
+  using type = T;
+};
+} // namespace ekat
+
 namespace cldera {
 
 using Real = double;

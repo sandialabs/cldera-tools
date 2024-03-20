@@ -4,7 +4,8 @@ include (EkatCreateUnitTest)
 EkatCreateUnitTest (context context.cpp
   LIBS cldera-profiling ekat
   MPI_RANKS 1 ${CLDERA_TESTS_MAX_RANKS}
-)
+  MPI_EXEC_NAME ${CLDERA_TESTS_MPI_EXEC_NAME}
+  MPI_NP_FLAG ${CLDERA_TESTS_MPI_NP_FLAG})
 
 # Test Field
 EkatCreateUnitTest (time_stamp time_stamp.cpp
@@ -17,7 +18,7 @@ EkatCreateUnitTest (field field.cpp
 # Test ProfilingArchive
 EkatCreateUnitTest (archive archive.cpp
   LIBS cldera-profiling ekat
-  FIXTURES_SETUP archive_output)
+  PROPERTIES FIXTURES_SETUP archive_output)
 
 add_test (NAME archive_check
           COMMAND ncdump -v foo_global_max archive_tests-2022-09-15-43000.nc)
@@ -55,7 +56,8 @@ EkatCreateUnitTest (piped_stats piped_stats.cpp
 EkatCreateUnitTest (masked_integral masked_integral.cpp
   LIBS cldera-profiling ekat
   MPI_RANKS 1 ${CLDERA_TESTS_MAX_RANKS}
-)
+  MPI_EXEC_NAME ${CLDERA_TESTS_MPI_EXEC_NAME}
+  MPI_NP_FLAG ${CLDERA_TESTS_MPI_NP_FLAG})
 
 # Test Pathway
 EkatCreateUnitTest (pathway pathway.cpp

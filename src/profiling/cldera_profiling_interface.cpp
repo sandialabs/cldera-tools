@@ -374,18 +374,11 @@ void cldera_compute_stats_c (const int ymd, const int tod)
 
   auto& archive = c.get<ProfilingArchive>("archive");
 
-  std::map<std::string, std::shared_ptr<const cldera::Field> > fields;
   for (const auto& it : requests) {
     const auto& fname = it.first;
     const auto& stats = it.second;
     const auto& f = archive.get_field(fname);
 
-    // Store field map, so we can create the pathway object later
-    if(!c.has_data("pathway")) {
-      ts.start_timer("profiling:create_stat_field");
-      fields[fname] = std::make_shared<const cldera::Field>(f);
-      ts.stop_timer("profiling:create_stat_field");
-    }
     for (auto stat : stats) {
       archive.append_stat(fname,stat->name(),stat->compute(time));
     }

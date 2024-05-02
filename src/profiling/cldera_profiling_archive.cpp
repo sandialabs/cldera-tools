@@ -251,9 +251,11 @@ append_stat (const std::string& fname, const std::string& stat_name,
   }
 }
 
-void ProfilingArchive::update_time (const TimeStamp& ts) {
+void ProfilingArchive::begin_timestep (const TimeStamp& ts) {
   m_time_stamps[m_curr_time_slot] = ts;
+}
 
+void ProfilingArchive::end_timestep () {
   ++m_curr_time_slot;
   if (m_curr_time_slot==m_flush_freq) {
     flush_to_file();

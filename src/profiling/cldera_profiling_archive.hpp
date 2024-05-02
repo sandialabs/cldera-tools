@@ -57,7 +57,8 @@ public:
   void append_stat (const std::string& fname, const std::string& stat_name,
                     const Field& stat);
 
-  void update_time (const TimeStamp& ts);
+  void begin_timestep (const TimeStamp& ts);
+  void end_timestep ();
 private:
   void setup_output_file ();
 

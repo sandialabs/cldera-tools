@@ -57,8 +57,7 @@ public:
   void append_stat (const std::string& fname, const std::string& stat_name,
                     const Field& stat);
 
-  void begin_timestep (const TimeStamp& ts);
-  void end_timestep ();
+  void end_timestep (const TimeStamp& ts);
 private:
   void setup_output_file ();
 
@@ -74,7 +73,8 @@ private:
   strmap_t<strmap_t<std::vector<Field>>>  m_fields_stats;
 
   TimeStamp                               m_case_t0;
-  std::vector<TimeStamp>                  m_time_stamps;
+  std::vector<TimeStamp>                  m_time_stamps_beg;
+  std::vector<TimeStamp>                  m_time_stamps_end;
 
   std::shared_ptr<io::pnetcdf::NCFile>    m_output_file;
 
@@ -82,6 +82,10 @@ private:
   // so we need to know which slot we need to use
   int m_curr_time_slot = 0;
   int m_flush_freq = 1;
+
+  // For time-averaged output
+  int m_time_avg_window_size = 1;
+  int m_time_avg_curr_count = 0;
 };
 
 } // namespace cldera

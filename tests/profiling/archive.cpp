@@ -29,7 +29,6 @@ TEST_CASE ("archive") {
   FieldGlobalMax foo_max(comm,ekat::ParameterList("foo_global_max"));
   foo_max.set_field(foo);
   foo_max.create_stat_field();
-  archive.begin_timestep(ts+=86400);
   archive.append_stat("foo",foo_max.name(),foo_max.compute(ts));
-  archive.end_timestep();
+  archive.end_timestep(ts+=86400);
 }

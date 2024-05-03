@@ -373,7 +373,6 @@ void cldera_compute_stats_c (const int ymd, const int tod)
   auto& requests = c.get<requests_t>("requests");
 
   auto& archive = c.get<ProfilingArchive>("archive");
-  archive.begin_timestep(time);
 
   for (const auto& it : requests) {
     const auto& fname = it.first;
@@ -385,7 +384,7 @@ void cldera_compute_stats_c (const int ymd, const int tod)
     }
   }
 
-  archive.end_timestep();
+  archive.end_timestep(time);
   ts.stop_timer(c.name() + "::compute_stats");
 
   if (comm.am_i_root()) {

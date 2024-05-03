@@ -41,7 +41,12 @@ ProfilingArchive(const ekat::Comm& comm,
     m_output_file = open_file (filename+".nc", m_comm, mode);
   }
   m_flush_freq = m_params.get("Flush Frequency",10);
-  m_time_stamps.resize(m_flush_freq);
+
+  // Init the beg/end vector for time averaging
+  m_time_stamps_beg.resize(m_flush_freq,run_t0);
+  m_time_stamps_end.resize(m_flush_freq);
+
+  m_time_avg_window_size = m_params.get("Time Averaging Window Size",1);
 }
 
 ProfilingArchive::
@@ -68,6 +73,18 @@ setup_output_file ()
   // Add time dimension
   io::pnetcdf::add_time (*m_output_file,"double");
 
+  if (m_time_avg_window_size>1) {
+    io::pnetcdf::add_dim(*m_output_file, "dim2", 2);
+    // We save the start/end of each averaging window
+    io::pnetcdf::add_var (*m_output_file,
+                           "time_bounds",
+                           io::pnetcdf::get_io_dtype_name<Real>(),
+                           {"dim2"},
+                           true);
+
+    io::pnetcdf::set_att(*m_output_file,"averaging_window_size","NC_GLOBAL",m_time_avg_window_size);
+  }
+
   io::pnetcdf::set_att(*m_output_file,"start_date","NC_GLOBAL",m_case_t0.ymd());
   io::pnetcdf::set_att(*m_output_file,"start_time","NC_GLOBAL",m_case_t0.tod());
 
@@ -83,7 +100,7 @@ setup_output_file ()
         //       over MPI.
         const bool decomposed = stat_names[axis]=="ncol";
         int dim = stat_dims[axis];
-        add_dim(*m_output_file, stat_names[axis], dim, decomposed);
+        io::pnetcdf::add_dim(*m_output_file, stat_names[axis], dim, decomposed);
       }
 
       std::string io_dtype;
@@ -96,11 +113,11 @@ setup_output_file ()
                         "  - stat name: " + stat.name() + "\n"
                         "  - data type: " + e2str(stat.data_type()) + "\n");
       }
-      add_var (*m_output_file,
-               stat.name(),
-               io_dtype,
-               stat.layout().names(),
-               true);
+      io::pnetcdf::add_var (*m_output_file,
+                             stat.name(),
+                             io_dtype,
+                             stat.layout().names(),
+                             true);
     }
   }
 
@@ -236,29 +253,34 @@ append_stat (const std::string& fname, const std::string& stat_name,
       "[ProfilingArchive::get_field] Error! Field '" + fname + "' not found.\n"
       "  List of current fields: " + ekat::join(m_fields_names,", "));
 
+  auto update_stat = [&](Field& curr_f, const Field& new_f) {
+    if (m_time_avg_curr_count==0) {
+      curr_f = new_f.clone();
+    } else {
+      curr_f.update(new_f,1,1);
+    }
+  };
   auto& vec = m_fields_stats[fname][stat_name];
-  if (vec.size()==0) {
-    // It's the first time we append to this stat. Create the vector
-    vec.resize(m_flush_freq);
-    for (auto& f : vec)
-      f = stat.clone();
-  } else {
-    EKAT_REQUIRE_MSG (m_curr_time_slot<vec.size(),
-        "Error! We ran out of slots for this stat. Looks like you missed a call to flush_to_file?\n"
-        " - Field name: " + fname + "\n"
-        " - Stat name : " + stat_name + "\n");
-    vec[m_curr_time_slot].deep_copy(stat);
-  }
+
+  // Only done the first time
+  vec.reserve(m_flush_freq);
+
+  vec.resize(m_curr_time_slot);
+  update_stat(vec.back(),stat);
 }
 
-void ProfilingArchive::begin_timestep (const TimeStamp& ts) {
-  m_time_stamps[m_curr_time_slot] = ts;
-}
-
-void ProfilingArchive::end_timestep () {
-  ++m_curr_time_slot;
-  if (m_curr_time_slot==m_flush_freq) {
-    flush_to_file();
+void ProfilingArchive::end_timestep (const TimeStamp& ts) {
+  ++m_time_avg_curr_count;
+  if (m_time_avg_curr_count==m_time_avg_window_size) {
+    // We completed averaging (or window size is 1, meaning no averagin),
+    // so store end timestamp for this window, and set beg for next window
+    m_time_stamps_end[m_curr_time_slot] = ts;
+    ++m_curr_time_slot;
+    if (m_curr_time_slot==m_flush_freq) {
+      flush_to_file();
+    }
+    m_time_stamps_beg[m_curr_time_slot] = ts;
+    m_time_avg_curr_count = 0;
   }
 }
 
@@ -282,7 +304,8 @@ void ProfilingArchive::flush_to_file ()
 
     // Loop over number of time records
     for (int i=0; i<m_curr_time_slot; ++i) {
-      const auto& ts = m_time_stamps[i];
+      const double beg = m_time_stamps_beg[i] - m_case_t0;
+      const double end = m_time_stamps_end[i] - m_case_t0;
 
       for (const auto& it1 : m_fields_stats) {
         const auto& fname = it1.first;
@@ -293,9 +316,9 @@ void ProfilingArchive::flush_to_file ()
           const auto var_name = stat.name();
 
           if (stat.data_type()==DataType::RealType) {
-            write_var (*m_output_file,var_name,stat.data<Real>());
+            io::pnetcdf::write_var (*m_output_file,var_name,stat.data<Real>());
           } else if (stat.data_type()==DataType::IntType) {
-            write_var (*m_output_file,var_name,stat.data<int>());
+            io::pnetcdf::write_var (*m_output_file,var_name,stat.data<int>());
           } else {
             EKAT_ERROR_MSG ("[ProfilingArchive::flush_to_file] Unsupported data type for IO.\n"
                             "  - stat name: " + stat.name() + "\n"
@@ -303,7 +326,16 @@ void ProfilingArchive::flush_to_file ()
           }
         }
       }
-      io::pnetcdf::update_time(*m_output_file,ts-m_case_t0);
+      if (m_time_avg_window_size>1) {
+        double bnds[2] = {beg,end};
+        io::pnetcdf::write_var (*m_output_file,"time_bounds",bnds);
+
+        // We store beg as time, since that's when the avg window starts
+        io::pnetcdf::update_time(*m_output_file,beg);
+      } else {
+        io::pnetcdf::update_time(*m_output_file,end);
+      }
+
     }
 
     if (m_comm.am_i_root()) {

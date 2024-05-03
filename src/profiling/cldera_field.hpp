@@ -137,6 +137,10 @@ public:
   Field clone () const;
   Field read_only () const;
 
+  // Perform this = beta*this + alpha*x
+  template<typename T>
+  void update (const Field& x, const T alpha, const T beta);
+
   template<typename T>
   void deep_copy (const T val);
 
@@ -153,6 +157,9 @@ private:
   T* char2ptr (char* p) const { return reinterpret_cast<T*>(p); }
   template<typename T>
   const T* char2ptr (const char* p) const { return reinterpret_cast<const T*>(p); }
+
+  template<typename T>
+  void update_impl (const Field& x, const T alpha, const T beta);
 
   // Check methods are called with the right inputs for this field
   template<typename T>
@@ -375,12 +382,76 @@ Field::nd_view_nonconst ()
 }
 
 template<typename T>
+void Field::update (const Field& x, const T alpha, const T beta)
+{
+  check_committed(true,"Field::update");
+  x.check_committed(true,"Field::update");
+  EKAT_REQUIRE_MSG (layout()==x.layout(),
+      "Error! Field::update called with fields of different layout."
+      "  - tgt field name: " + name() + "\n"
+      "  - src field name: " + x.name() + "\n"
+      "  - tgt field layout: " + layout().to_string() + "\n"
+      "  - src field layout: " + x.layout().to_string() + "\n");
+  EKAT_REQUIRE_MSG (m_data_type==DataType::RealType or get_data_type<T>()==DataType::IntType,
+      "Error! Field::update called with bad coefficients type.\n"
+      "  - field name: " + name() + "\n"
+      "  - field data type: " + e2str(m_data_type) + "\n"
+      "  - coeff data type: " + e2str(get_data_type<T>()) + "\n");
+
+  EKAT_REQUIRE_MSG (x.nparts()==nparts(),
+      "Error! Field::update called with fields of different number of parts."
+      "  - tgt field name: " + name() + "\n"
+      "  - src field name: " + x.name() + "\n"
+      "  - tgt field nparts: " + std::to_string(nparts()) + "\n"
+      "  - src field nparts: " + std::to_string(x.nparts()) + "\n");
+
+  if (m_data_type==DataType::IntType) {
+    update_impl<int>(x,static_cast<int>(alpha),static_cast<int>(beta));
+  } else if (m_data_type==DataType::RealType) {
+    update_impl<Real>(x,static_cast<Real>(alpha),static_cast<Real>(beta));
+  } else {
+    EKAT_ERROR_MSG (
+        "[Field::update] Error! Invalid/unsupported data type.\n"
+        "  - field name: " + name() + "\n"
+        "  - field data type: " + e2str(m_data_type) + "\n");
+  }
+
+}
+
+template<typename T>
 void Field::
 deep_copy (const T val)
 {
+  auto run = [&](const auto value) {
+    using value_t = typename std::remove_cv<decltype(value)>::type;
+    for (int p=0; p<m_nparts; ++p) {
+      auto pv = part_view_nonconst<value_t>(p);
+      Kokkos::deep_copy(pv,value);
+    }
+  };
+
+  if (m_data_type==DataType::IntType) {
+    run(static_cast<int>(val));
+  } else if (m_data_type==DataType::RealType) {
+    run(static_cast<Real>(val));
+  } else {
+    EKAT_ERROR_MSG (
+        "[Field::update] Error! Invalid/unsupported data type.\n"
+        "  - field name: " + name() + "\n"
+        "  - field data type: " + e2str(m_data_type) + "\n");
+  }
+}
+
+template<typename T>
+void Field::update_impl (const Field& x, const T alpha, const T beta)
+{
   for (int p=0; p<m_nparts; ++p) {
-    auto pv = part_view_nonconst<T>(p);
-    Kokkos::deep_copy(pv,val);
+    auto yv = part_view_nonconst<T>(p);
+    auto xv = x.part_view<T>(p);
+    auto pl = part_layout(p);
+    for (int i=0; i<pl.size(); ++i) {
+      yv(i) = beta*yv(i) + alpha*xv(i);
+    }
   }
 }
 

@@ -54,14 +54,16 @@ public:
         Field& get_field (const std::string& name);
 
   // Stats
-  void append_stat (const std::string& fname, const std::string& stat_name,
+  void update_stat (const std::string& fname, const std::string& stat_name,
                     const Field& stat);
 
   void end_timestep (const TimeStamp& ts);
 private:
-  void setup_output_file ();
+  void setup_output_file (const int istream);
 
-  void flush_to_file ();
+  void write_stream (const int istream);
+
+  using ncfile_ptr = std::shared_ptr<io::pnetcdf::NCFile>;
 
   ekat::Comm                              m_comm;
   ekat::ParameterList                     m_params;
@@ -70,22 +72,17 @@ private:
 
   strmap_t<Field>                         m_fields;
 
-  strmap_t<strmap_t<std::vector<Field>>>  m_fields_stats;
-
   TimeStamp                               m_case_t0;
-  std::vector<TimeStamp>                  m_time_stamps_beg;
-  std::vector<TimeStamp>                  m_time_stamps_end;
 
-  std::shared_ptr<io::pnetcdf::NCFile>    m_output_file;
+  // Vector over all requested time-averaging sizes
+  std::vector<ncfile_ptr>                 m_output_files;
+  std::vector<int>                        m_time_avg_window_size;
+  std::vector<int>                        m_time_avg_curr_count;
+  std::vector<TimeStamp>                  m_time_avg_beg;
+  std::vector<TimeStamp>                  m_time_avg_end;
+  std::vector<strmap_t<strmap_t<Field>>>  m_fields_stats;
 
-  // We create each field vector above just once (to save on alloc times),
-  // so we need to know which slot we need to use
-  int m_curr_time_slot = 0;
-  int m_flush_freq = 1;
-
-  // For time-averaged output
-  int m_time_avg_window_size = 1;
-  int m_time_avg_curr_count = 0;
+  int                                     m_num_streams;
 };
 
 } // namespace cldera

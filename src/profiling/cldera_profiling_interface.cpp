@@ -83,10 +83,6 @@ void cldera_init_c (const char*& context_name,
   timer_name += "::init";
   c.timing().start_timer(timer_name);
 
-  using stat_ptr_t = std::shared_ptr<FieldStat>;
-  using requests_t = std::map<std::string,std::vector<stat_ptr_t>>;
-  using vos_t = std::vector<std::string>;
-
   TimeStamp case_t0 (case_t0_ymd,case_t0_tod);
   TimeStamp run_t0 (run_t0_ymd,run_t0_tod);
   TimeStamp stop (stop_ymd,stop_tod);
@@ -379,8 +375,8 @@ void cldera_compute_stats_c (const int ymd, const int tod)
     const auto& stats = it.second;
     const auto& f = archive.get_field(fname);
 
-    for (auto stat : stats) {
-      archive.append_stat(fname,stat->name(),stat->compute(time));
+    for (auto& stat : stats) {
+      archive.update_stat(fname,stat->name(),stat->compute(time));
     }
   }
 

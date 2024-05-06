@@ -142,6 +142,9 @@ public:
   void update (const Field& x, const T alpha, const T beta);
 
   template<typename T>
+  void scale (const T alpha);
+
+  template<typename T>
   void deep_copy (const T val);
 
   void deep_copy (const Field& src);
@@ -160,6 +163,8 @@ private:
 
   template<typename T>
   void update_impl (const Field& x, const T alpha, const T beta);
+  template<typename T>
+  void scale_impl (const T alpha);
 
   // Check methods are called with the right inputs for this field
   template<typename T>
@@ -415,7 +420,29 @@ void Field::update (const Field& x, const T alpha, const T beta)
         "  - field name: " + name() + "\n"
         "  - field data type: " + e2str(m_data_type) + "\n");
   }
+}
 
+template<typename T>
+void Field::scale (const T alpha)
+{
+  check_committed(true,"Field::scale");
+
+  EKAT_REQUIRE_MSG (m_data_type==DataType::RealType or get_data_type<T>()==DataType::IntType,
+      "Error! Field::scale called with bad coefficient type.\n"
+      "  - field name: " + name() + "\n"
+      "  - field data type: " + e2str(m_data_type) + "\n"
+      "  - coeff data type: " + e2str(get_data_type<T>()) + "\n");
+
+  if (m_data_type==DataType::IntType) {
+    scale_impl<int>(static_cast<int>(alpha));
+  } else if (m_data_type==DataType::RealType) {
+    scale_impl<Real>(static_cast<Real>(alpha));
+  } else {
+    EKAT_ERROR_MSG (
+        "[Field::scale] Error! Invalid/unsupported data type.\n"
+        "  - field name: " + name() + "\n"
+        "  - field data type: " + e2str(m_data_type) + "\n");
+  }
 }
 
 template<typename T>
@@ -451,6 +478,18 @@ void Field::update_impl (const Field& x, const T alpha, const T beta)
     auto pl = part_layout(p);
     for (int i=0; i<pl.size(); ++i) {
       yv(i) = beta*yv(i) + alpha*xv(i);
+    }
+  }
+}
+
+template<typename T>
+void Field::scale_impl (const T alpha)
+{
+  for (int p=0; p<m_nparts; ++p) {
+    auto yv = part_view_nonconst<T>(p);
+    auto pl = part_layout(p);
+    for (int i=0; i<pl.size(); ++i) {
+      yv(i) *= alpha;
     }
   }
 }

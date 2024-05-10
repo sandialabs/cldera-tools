@@ -34,13 +34,13 @@ ProfilingArchive(const ekat::Comm& comm,
 
       auto suffix = s==1 ? std::string(".INSTANT") : ".AVERAGE.nsteps_x" + std::to_string(s);
       if (m_case_t0==run_t0) {
-        filename = prefix + "-" + m_case_t0.to_string();
+        filename = prefix + suffix + "." + m_case_t0.to_string();
         mode = io::pnetcdf::IOMode::Write;
       } else {
-        filename = prefix + "-" + m_case_t0.to_string();
+        filename = prefix + suffix + "." + m_case_t0.to_string();
         mode = io::pnetcdf::IOMode::Append;
         if (not std::ifstream(filename).good() or m_params.get("force_new_file",true)) {
-          filename = prefix + "-" + run_t0.to_string();
+          filename = prefix + suffix + "." + run_t0.to_string();
           mode = io::pnetcdf::IOMode::Write;
         }
       }

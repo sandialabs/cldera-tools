@@ -83,10 +83,6 @@ void cldera_init_c (const char*& context_name,
   timer_name += "::init";
   c.timing().start_timer(timer_name);
 
-  using stat_ptr_t = std::shared_ptr<FieldStat>;
-  using requests_t = std::map<std::string,std::vector<stat_ptr_t>>;
-  using vos_t = std::vector<std::string>;
-
   TimeStamp case_t0 (case_t0_ymd,case_t0_tod);
   TimeStamp run_t0 (run_t0_ymd,run_t0_tod);
   TimeStamp stop (stop_ymd,stop_tod);
@@ -374,24 +370,17 @@ void cldera_compute_stats_c (const int ymd, const int tod)
 
   auto& archive = c.get<ProfilingArchive>("archive");
 
-  std::map<std::string, std::shared_ptr<const cldera::Field> > fields;
   for (const auto& it : requests) {
     const auto& fname = it.first;
     const auto& stats = it.second;
     const auto& f = archive.get_field(fname);
 
-    // Store field map, so we can create the pathway object later
-    if(!c.has_data("pathway")) {
-      ts.start_timer("profiling:create_stat_field");
-      fields[fname] = std::make_shared<const cldera::Field>(f);
-      ts.stop_timer("profiling:create_stat_field");
-    }
-    for (auto stat : stats) {
-      archive.append_stat(fname,stat->name(),stat->compute(time));
+    for (auto& stat : stats) {
+      archive.update_stat(fname,stat->name(),stat->compute(time));
     }
   }
 
-  archive.update_time(time);
+  archive.end_timestep(time);
   ts.stop_timer(c.name() + "::compute_stats");
 
   if (comm.am_i_root()) {

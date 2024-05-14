@@ -171,4 +171,74 @@ TEST_CASE ("field") {
       }
     }
   }
+
+  SECTION ("update") {
+    constexpr int ncols = 3;
+    constexpr int nlevs = 4;
+    constexpr int nparts = 2;
+
+    FieldLayout fl ({nlevs,ncols},{"nlevs","ncols"});
+    FieldLayout fl_bad ({nlevs+1,ncols},{"nlevs","ncols"});
+    Field yr("yr",fl,nparts,1,  DataAccess::Copy,DataType::RealType);
+    Field yi("yi",fl,nparts,1,  DataAccess::Copy,DataType::IntType);
+    Field xr("xr",fl,nparts,1,  DataAccess::Copy,DataType::RealType);
+    Field b1("bad1",fl_bad,nparts,1,DataAccess::Copy,DataType::RealType);
+    Field b2("bad1",fl,DataAccess::Copy,DataType::RealType);
+
+    yr.set_part_extent(0,1);
+    yi.set_part_extent(0,1);
+    xr.set_part_extent(0,1);
+    b1.set_part_extent(0,1);
+
+    yr.set_part_extent(1,2);
+    yi.set_part_extent(1,2);
+    xr.set_part_extent(1,2);
+    b1.set_part_extent(1,2);
+
+    yr.commit();
+    yi.commit();
+    xr.commit();
+    b1.commit();
+    b2.commit();
+
+    REQUIRE_THROWS(yr.update(b1,1,1)); // layout mismatch
+    REQUIRE_THROWS(yr.update(b2,1,1)); // partitioning mismatch
+    REQUIRE_THROWS(yi.update(xr,1,1)); // incompatible X-Y data types
+    REQUIRE_THROWS(yi.update(yi,1.0,1.0)); // incompatible X-coeffs data types
+
+    for (int p=0, k=0; p<nparts; ++p) {
+      auto xpv = xr.part_view_nonconst<Real>(p);
+      auto s = xr.part_layout(p).size();
+      std::iota(xpv.data(),xpv.data()+s,Real(k));
+      k += s;
+    }
+    yr.deep_copy(0);
+
+    // Check that f1==scale*f2
+    auto check = [](const Field& f1, const Field& f2, const int scale) {
+      for (int p=0; p<nparts; ++p) {
+        auto pv1 = f1.part_view<Real>(p);
+        auto pv2 = f2.part_view<Real>(p);
+        auto s = f1.part_layout(p).size();
+        for (int i=0; i<s; ++i) {
+          if ( pv1(i)!= pv2(i)*scale ) {
+            return false;
+          }
+        }
+      }
+      return true;
+    };
+
+    // y = 0 + x;
+    yr.update(xr,1,1);
+    REQUIRE (check(yr,xr,1));
+
+    // y = 0 + 2*x
+    yr.update(xr,2,0);
+    REQUIRE (check(yr,xr,2));
+
+    // y = y + 1*x
+    yr.update(xr,1,1);
+    REQUIRE (check(yr,xr,3));
+  }
 }

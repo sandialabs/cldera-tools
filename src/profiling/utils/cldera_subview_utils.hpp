@@ -13,7 +13,7 @@ namespace cldera {
 template<typename VT>
 struct SVHelper
 {
-  static constexpr int N = VT::Rank;
+  static constexpr int N = VT::rank;
   static_assert (N>0 && N<=3, "Only rank 1, 2, and 3 implemented so far.\n");
 
   using value_t = typename VT::traits::value_type;

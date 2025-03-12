@@ -260,7 +260,7 @@ update_stat (const std::string& fname, const std::string& stat_name,
              const Field& stat)
 {
   EKAT_REQUIRE_MSG (has_field(fname),
-      "[ProfilingArchive::get_field] Error! Field '" + fname + "' not found.\n"
+      "[ProfilingArchive::update_stat] Error! Field '" + fname + "' not found.\n"
       "  List of current fields: " + ekat::join(m_fields_names,", "));
 
   for (int i=0; i<m_num_streams; ++i) {

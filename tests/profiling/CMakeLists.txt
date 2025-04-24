@@ -73,3 +73,7 @@ set (CLDERA_TEST_YAMLS
 
 # Copy the yaml files to the destination
 FILE(COPY ${CLDERA_TEST_YAMLS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
+if (CLDERA_ENABLE_CONTROL_TOOL)
+  add_subdirectory(control)
+endif()

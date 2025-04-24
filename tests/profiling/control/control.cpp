@@ -1,4 +1,4 @@
-#include "control/cldera_control.hpp"
+#include "profiling/control/cldera_control.hpp"
 
 #include <catch2/catch.hpp>
 

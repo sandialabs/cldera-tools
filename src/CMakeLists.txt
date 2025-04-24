@@ -20,9 +20,6 @@ configure_file (${CMAKE_CURRENT_SOURCE_DIR}/cldera_version.h.in
 # Enable sub-packages
 
 option (CLDERA_ENABLE_PROFILING_TOOL "Enable profiling source code" ON)
-option (CLDERA_ENABLE_CONTROL_TOOL "Enable control algorithms" ON) # should depend on the former option
-# TODO: the following requires CMake 3.22, but we're on CMake 3.18, so we'll avoid updating until we're certain it's fine
-# cmake_dependent_option (CLDERA_ENABLE_CONTROL_TOOL "Enable control algorithms (requires profiling enabled)" ON "CLDERA_ENABLE_PROFILING_TOOL")
 set (CLDERA_PNETCDF_PATH "" CACHE PATH "Path to pnetcdf installation")
 
 add_subdirectory(timing)
@@ -32,10 +29,6 @@ endif()
 
 if (CLDERA_ENABLE_PROFILING_TOOL)
   add_subdirectory(profiling)
-endif()
-
-if (CLDERA_ENABLE_CONTROL_TOOL)
-  add_subdirectory(control)
 endif()
 
 include(GNUInstallDirs)

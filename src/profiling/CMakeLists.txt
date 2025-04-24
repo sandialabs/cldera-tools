@@ -113,3 +113,12 @@ install (TARGETS cldera-profiling
 
 install (DIRECTORY ${MODULES_DIR}/
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+
+option (CLDERA_ENABLE_CONTROL_TOOL "Enable control algorithms" ON) # should depend on the former option
+# TODO: the following requires CMake 3.22, but we're on CMake 3.18, so we'll avoid updating until we're certain it's fine
+# cmake_dependent_option (CLDERA_ENABLE_CONTROL_TOOL "Enable control algorithms (requires profiling enabled)" ON "CLDERA_ENABLE_PROFILING_TOOL")
+
+if (CLDERA_ENABLE_CONTROL_TOOL)
+  add_subdirectory(control)
+endif()

@@ -420,7 +420,7 @@ void cldera_compute_stats_c (const int ymd, const int tod)
   ++num_calls;
 }
 
-void cldera_write_fields_c (const int ymd, const int tod)
+void cldera_compute_controls_c (const int ymd, const int tod)
 {
   auto& c = get_curr_context();
   // If input file was not provided, cldera does nothing
@@ -453,7 +453,7 @@ void cldera_write_fields_c (const int ymd, const int tod)
   }
 
   auto& ts = c.timing();
-  ts.start_timer(c.name() + "::write_fields");
+  ts.start_timer(c.name() + "::compute_controls");
 
   using stat_ptr_t = std::shared_ptr<FieldStat>;
   using requests_t = std::map<std::string,std::vector<stat_ptr_t>>;
@@ -472,7 +472,7 @@ void cldera_write_fields_c (const int ymd, const int tod)
   // }
 
   // archive.end_timestep(time);
-  ts.stop_timer(c.name() + "::write_fields");
+  ts.stop_timer(c.name() + "::compute_controls");
 
   if (comm.am_i_root()) {
     printf(" [CLDERA] Writing fields for context '%s'...done!\n",c.name().c_str());

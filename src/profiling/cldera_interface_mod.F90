@@ -243,12 +243,12 @@ contains
 
 
   ! Write data to the requested fields
-  subroutine cldera_write_fields (ymd, tod)
-    use cldera_interface_f2c_mod, only: cldera_write_fields_c
+  subroutine cldera_compute_controls (ymd, tod)
+    use cldera_interface_f2c_mod, only: cldera_compute_controls_c
     integer, intent(in) :: ymd, tod
 
-    call cldera_write_fields_c(f2c(ymd),f2c(tod))
-  end subroutine cldera_write_fields
+    call cldera_compute_controls_c(f2c(ymd),f2c(tod))
+  end subroutine cldera_compute_controls
 
 
 

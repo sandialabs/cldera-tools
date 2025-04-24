@@ -50,7 +50,7 @@ void cldera_commit_all_fields_c ();
 
 void cldera_compute_stats_c (const int ymd, const int tod);
 
-void cldera_write_fields_c (const int ymd, const int tod);
+void cldera_compute_controls_c (const int ymd, const int tod);
 
 } // namespace cldera
 

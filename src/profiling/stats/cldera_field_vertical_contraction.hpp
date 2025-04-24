@@ -46,6 +46,7 @@ public:
     } else {
       EKAT_ERROR_MSG (
           "Error! Input field layout does not appear to have vertical dimension.\n"
+	  " - stat name:    " + m_name + "\n"
           " - input layout: " + ekat::join(fl.names(),",") + "\n");
     }
   }

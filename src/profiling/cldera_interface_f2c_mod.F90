@@ -58,6 +58,12 @@ module cldera_interface_f2c_mod
       integer(kind=c_int), intent(in), value :: ymd, tod
     end subroutine cldera_compute_stats_c
 
+    ! Write to the requested fields
+    subroutine cldera_write_fields_c (ymd,tod) bind(c)
+      use iso_c_binding, only: c_int
+      integer(kind=c_int), intent(in), value :: ymd, tod
+    end subroutine cldera_write_fields_c
+
     ! Finalize any pending op (e.g., I/O) and clean up the cldera session
     subroutine cldera_clean_up_c () bind(c)
     end subroutine cldera_clean_up_c

@@ -1,0 +1,133 @@
+#ifndef CLDERA_CONTROL_HPP
+#define CLDERA_CONTROL_HPP
+
+#include "profiling/cldera_field.hpp"
+
+#include "timing/cldera_timing_session.hpp"
+
+#include <ekat/util/ekat_factory.hpp>
+#include <ekat/ekat_parameter_list.hpp>
+#include <ekat/mpi/ekat_comm.hpp>
+
+namespace cldera {
+
+class Control
+{
+public:
+  Control (const ekat::Comm& comm,
+             const ekat::ParameterList& pl)
+   : m_params (pl)
+   , m_comm (comm)
+  {
+    m_name = m_params.get("name",pl.name());
+  }
+
+  virtual ~Control () = default;
+
+  // The name of this control
+  std::string name () const { return m_name; }
+
+  // Unlike the previous, this should be the same for all instances of the same type
+  virtual std::string type () const = 0;
+
+  // Given a field, return the layout that the computed stat will have
+  virtual FieldLayout stat_layout (const FieldLayout& field_layout) const = 0;
+
+  // If derived stats need auxiliary fields, they need to override this
+  virtual std::vector<std::string> get_aux_fields_names () const { return {}; }
+
+  void set_aux_fields (const std::map<std::string,Field>& fields);
+
+  template<typename... Fs>
+  void set_aux_fields (const Fs&... fields);
+
+  void set_field (const Field& f);
+
+  // Compute the stat field
+  Field compute (const TimeStamp& timestamp);
+
+  // NOTE: For most stats, the stat data type matches the field one, but it might not be.
+  //       E.g., a stat that stores max location would have stat data type IntType,
+  //       regardless of the field data type. So make method virtual, to allow flexibility.
+  virtual DataType stat_data_type() const;
+
+  const Field& get_stat_field () const { return m_stat_field; }
+
+  const std::map<std::string,Field>& get_aux_fields () const { return m_aux_fields; }
+
+  // Virtual, in case derived classes need to add more stuff
+  virtual void create_stat_field ();
+
+protected:
+  // Some stats REQUIRE all aux fields to be present, while others can compute
+  // an aux field if missing. Hence, we cannot check that all names in
+  // get_aux_fields_names() are present in the map passed to set_aux_fields(),
+  // since we don't know what the derived class can do. So instead, we offer
+  // this method, which derived class can call passing the names of the
+  // aux fields that were *absolutely* needed.
+  void check_aux_fields (const std::vector<std::string>& names) const;
+
+  // If derived classes need to perform some additional setup steps when setting the field,
+  // they can override this method
+
+  virtual void set_field_impl (const Field& /* f */) {}
+  virtual void set_aux_fields_impl () {}
+  virtual void compute_impl () = 0;
+
+  ekat::ParameterList   m_params;
+  ekat::Comm            m_comm;
+
+  std::string           m_name;
+  TimeStamp             m_timestamp;
+
+  bool   m_aux_fields_set = false;
+  Field  m_field;
+  Field  m_stat_field;
+
+  std::map<std::string,Field> m_aux_fields;
+};
+
+template<typename... Fs>
+void Control::set_aux_fields (const Fs&... fields) {
+  EKAT_REQUIRE_MSG ((ekat::SameType<Field,Fs...>::value),
+      "Error! Controls::set_aux_fields needs a variadic list of of fields as input.\n");
+
+  std::vector<Field> v { {fields...} };
+  std::map<std::string,Field> aux_fs;
+  for (const auto& f : v) {
+    aux_fs[f.name()] = f;
+  }
+  set_aux_fields(aux_fs);
+}
+
+// ================= FACTORY for control creation ================== //
+using ControlFactory =
+  ekat::Factory<Control,
+                std::string,
+                std::shared_ptr<Control>,
+                const ekat::Comm&,
+                const ekat::ParameterList&>;
+
+template<typename StatType>
+inline std::shared_ptr<Control>
+create_stat (const ekat::Comm& comm, const ekat::ParameterList& params) {
+  return std::make_shared<StatType>(comm,params);
+}
+
+// Special case of control, returning a scalar
+class ScalarControl : public Control
+{
+public:
+  ScalarControl (const ekat::Comm& comm,
+                 const ekat::ParameterList& pl)
+   : Control(comm,pl)
+  { /* Nothing to do here */ }
+
+  FieldLayout stat_layout (const FieldLayout& /*field_layout*/) const override {
+    return FieldLayout();
+  }
+};
+
+} // namespace cldera
+
+#endif // CLDERA_CONTROL

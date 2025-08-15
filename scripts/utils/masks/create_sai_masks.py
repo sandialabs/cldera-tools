@@ -3,6 +3,8 @@
 import argparse, sys, pathlib
 import numpy as np
 from netCDF4 import Dataset
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
 
 ###############################################################################
 def parse_command_line(args, description):
@@ -29,7 +31,7 @@ def parse_command_line(args, description):
     return parser.parse_args(args[1:])
 
 ###############################################################################
-def create_zonal_masks(input_filename,mask_filename,overwrite,degrees):
+def create_sai_masks(input_filename,mask_filename,overwrite,degrees):
 ###############################################################################
 
     f_in = pathlib.Path(input_filename).resolve().absolute()
@@ -54,8 +56,8 @@ def create_zonal_masks(input_filename,mask_filename,overwrite,degrees):
     rad2deg = 180.0 / np.pi
     for i in range(n):
         def get_mask_id (latv,lonv):
-            tol_lat = 2.0 # any column within 2 degrees lat of target site
-            tol_lon = 2.0 # any column within 2 degrees lon of target site
+            tol_lat = 5.0 # any column within 2 degrees lat of target site
+            tol_lon = 5.0 # any column within 2 degrees lon of target site
             if abs(latv + 30.0) < tol_lat and (abs(lonv) < tol_lon or abs(lonv-360) < tol_lon):
                 return 1 # 30S OW injection
             elif abs(latv + 15.0) < tol_lat and (abs(lonv) < tol_lon or abs(lonv-360) < tol_lon):
@@ -92,18 +94,37 @@ def create_zonal_masks(input_filename,mask_filename,overwrite,degrees):
     mask_out = ds_out.createVariable("mask_sai","i4",lon.dimensions)
 
     lat_out[:] = lat[:]
+    lat_out.units = 'degrees_north'
     lon_out[:] = lon[:]
+    lon_out.units = 'degrees_west'
     mask_out[:] = mask[:]
+    mask_out.units = "0 for no injection, positive for injection site"
+    mask_out.description = "Native grid masking of injection sites"
+
+    # plot the mask we created
+    fig = plt.figure(figsize=(10, 6))
+    ax = plt.axes(projection=ccrs.EckertIII())
+    ax.coastlines()
+    ax.set_global()
+    ax.gridlines(xlocs=range(-180,180,60), ylocs=range(-90,90,30),draw_labels=True)
+
+    contour = ax.tricontourf(lon[:], lat[:], mask, s=5, transform=ccrs.PlateCarree())
+    cbar = plt.colorbar(contour, ax=ax, orientation='vertical', pad=0.05)
+    cbar.set_label('Mask id')
+
+    plt.title('SAI Injection Site Map')
+    plt.show()
 
     ds_out.sync()
     ds_out.close()
     ds_in.close()
+
     return True
 
 ###############################################################################
 def _main_func(description):
 ###############################################################################
-    success = create_zonal_masks(**vars(parse_command_line(sys.argv, description)))
+    success = create_sai_masks(**vars(parse_command_line(sys.argv, description)))
 
     print("OVERALL STATUS: {}".format("PASS" if success else "FAIL"))
 

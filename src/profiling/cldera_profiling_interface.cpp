@@ -422,6 +422,7 @@ void cldera_compute_stats_c (const int ymd, const int tod)
 
 void cldera_compute_controls_c (const int ymd, const int tod)
 {
+#if defined(CLDERA_ENABLE_CONTROL_TOOL)
   auto& c = get_curr_context();
   // If input file was not provided, cldera does nothing
   if (not c.inited()) { return; }
@@ -493,6 +494,7 @@ void cldera_compute_controls_c (const int ymd, const int tod)
     std::ostream& out = comm.am_i_root() ? ofile : onull;
     timing.dump(out,comm);
   }
+#endif
 }
 
 } // namespace cldera

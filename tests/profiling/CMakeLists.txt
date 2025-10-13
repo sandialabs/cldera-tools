@@ -57,6 +57,11 @@ EkatCreateUnitTest (masked_integral masked_integral.cpp
   MPI_RANKS 1 ${CLDERA_TESTS_MAX_RANKS}
 )
 
+EkatCreateUnitTest (masked_write masked_write.cpp
+  LIBS cldera-profiling ekat
+  MPI_RANKS 1 ${CLDERA_TESTS_MAX_RANKS}
+)
+
 # Test Pathway
 EkatCreateUnitTest (pathway pathway.cpp
   LIBS cldera-profiling ekat)

@@ -24,7 +24,7 @@ TEST_CASE ("masked_write") {
   ekat::Comm comm(MPI_COMM_WORLD);
 
   // Get ncol from file
-  std::string mask_filename = "../../data/sai_mask_ne4pg2.nc";
+  std::string mask_filename = "../../data/ipcc_mask_ne4pg2.nc";
   auto mask_file = io::pnetcdf::open_file(mask_filename,comm,io::pnetcdf::IOMode::Read);
 
   // Grab ncol from file

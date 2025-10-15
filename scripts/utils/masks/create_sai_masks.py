@@ -54,20 +54,18 @@ def create_sai_masks(input_filename,mask_filename,overwrite,degrees):
     n = len(lat)
     mask = -1*np.ones((n),dtype=np.int32)
     rad2deg = 180.0 / np.pi
+
+    # define a mask id function
+    def get_mask_id (latv,lonv):
+        tol_lat = 1.5 # any column within X degrees lat of target site (rectangle)
+        tol_lon = 1.5 # any column within X degrees lon of target site (rectangle)
+        target_lats = [-50.0, -30.0, -15.0, 15.0, 30.0, 50.0] # we want 6 potential sites
+        for ilat,target_lat in enumerate(target_lats):
+            if abs(latv - target_lat) < tol_lat and abs(lonv-180.0) < tol_lon:
+                return ilat+1
+        return 0 # non injection sites
+        
     for i in range(n):
-        def get_mask_id (latv,lonv):
-            tol_lat = 5.0 # any column within 2 degrees lat of target site
-            tol_lon = 5.0 # any column within 2 degrees lon of target site
-            if abs(latv + 30.0) < tol_lat and (abs(lonv) < tol_lon or abs(lonv-360) < tol_lon):
-                return 1 # 30S OW injection
-            elif abs(latv + 15.0) < tol_lat and (abs(lonv) < tol_lon or abs(lonv-360) < tol_lon):
-                return 2 # 15S 0W injection
-            elif abs(latv - 15.0) < tol_lat and (abs(lonv) < tol_lon or abs(lonv-360) < tol_lon):
-                return 3 # 15N 0W injection
-            elif abs(latv - 30.0) < tol_lat and (abs(lonv) < tol_lon or abs(lonv-360) < tol_lon):
-                return 4 # 30N 0W injection
-            else:
-                return 0 # non injection sites
         latv = np.array([lat[i]])
         lonv = np.array([lon[i]])
         if not degrees:
@@ -78,8 +76,8 @@ def create_sai_masks(input_filename,mask_filename,overwrite,degrees):
             raise SystemExit("Error: zone not found in lat = " + str(latv))
 
     # double-check how many grid cells are assigned to each zone (sanity check)
-    counts = np.zeros((5))
-    for j in range(5):
+    counts = np.zeros((7))
+    for j in range(7):
         for i in range(n):
             if mask[i] == j:
                 counts[j] = counts[j] + 1
@@ -91,7 +89,7 @@ def create_sai_masks(input_filename,mask_filename,overwrite,degrees):
     ds_out.createDimension(ncol_name,ncol)
     lat_out = ds_out.createVariable("lat","f8",lat.dimensions)
     lon_out = ds_out.createVariable("lon","f8",lon.dimensions)
-    mask_out = ds_out.createVariable("mask_sai","i4",lon.dimensions)
+    mask_out = ds_out.createVariable("mask","i4",lon.dimensions)
 
     lat_out[:] = lat[:]
     lat_out.units = 'degrees_north'

@@ -11,7 +11,7 @@ public:
   FieldMaskedWrite (const ekat::Comm& comm,
                     const ekat::ParameterList& pl);
 
-  std::string type () const override { return "masked_integral"; }
+  std::string type () const override { return "masked_write"; }
 
   std::vector<std::string> get_aux_fields_names () const override;
 
@@ -36,11 +36,28 @@ protected:
   // Map every mask value to an index in [0,N), with N=number_of_mask_values
   std::map<int,int>   m_mask_val_to_stat_entry;
   
+  // An array of scalars to write at each of the nonzero-indexed injection sites
+  std::vector<Real> m_write_values;
+
+  // An array of scalars defining the height to write to (in km)
+  std::vector<Real> m_write_heights;
+
+  // The default value to write at all zero-indexed injection sites
+  Real m_default_write;
+
+  // The name of the mask field in the mask file
+  std::string m_mask_field_name;
+
+
   // Optionally, we weigh the integrand by a weight field
   bool          m_use_weight;
   bool          m_average;
   Field         m_weight_field;
   Field         m_weight_integral;
+
+  // Bounds for the injection level
+  //const Bounds<Real> m_lev_bounds;
+
 
   // Allows to have a stat that saves the mask field
   bool          m_output_mask_field;

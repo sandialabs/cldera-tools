@@ -33,7 +33,7 @@ public:
   // Given a field, return the layout that the computed stat will have
   virtual FieldLayout stat_layout (const FieldLayout& field_layout) const = 0;
 
-  // If derived stats need auxiliary fields, they need to override this
+  // Return a list of strings describing fields that are required by this stat
   virtual std::vector<std::string> get_aux_fields_names () const { return {}; }
 
   void set_aux_fields (const std::map<std::string,Field>& fields);

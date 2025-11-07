@@ -10,13 +10,14 @@ namespace cldera {
 
 FieldMaskedWrite::
 FieldMaskedWrite (const ekat::Comm& comm,
-                    const ekat::ParameterList& pl)
+                  const ekat::ParameterList& pl)
  : FieldStat(comm,pl)
+ , m_write_values(m_params.get<std::vector<Real>>("write_values"))
+ , m_write_heights(m_params.get<std::vector<Real>>("write_heights"))
+ , m_default_write(m_params.get<Real>("default_write"))
+ , m_mask_field_name(m_params.get<std::string>("mask_field"))
 {
   m_output_mask_field = m_params.get("output_mask_field",false);
-  if (not m_params.isParameter("mask_field")) {
-    m_params.set<std::string>("mask_field","mask");
-  }
   if (not m_output_mask_field) {
     m_use_weight = m_params.isParameter("weight_field");
     m_average = m_params.get<bool>("average",true);
@@ -28,17 +29,12 @@ FieldMaskedWrite::
 get_aux_fields_names () const
 {
   std::vector<std::string> aux_fnames;
+  // we need column GIDs to process data on the native grid compared to the mask file
   aux_fnames.push_back("col_gids");
-  aux_fnames.push_back(m_params.get<std::string>("mask_field"));
-  if (not m_output_mask_field) {
-    if (m_use_weight) {
-      std::string wname = m_params.get<std::string>("weight_field");
-      aux_fnames.push_back(wname);
-      if (m_average) {
-        aux_fnames.push_back(wname + "_integral");
-      }
-    }
-  }
+  // we need the name of the mask field in the corresponding .nc file
+  aux_fnames.push_back(m_mask_field_name);
+  // we need the heights of each pressure level in order to compute the height to write at
+  aux_fnames.push_back("zi");
   return aux_fnames;
 }
 

@@ -36,17 +36,26 @@ protected:
   // The mask field
   Field         m_mask_field;
 
-  // The height field
+  // The height field - zi
   Field         m_height_field;
+
+  // The area field - area
+  Field         m_area_field;
 
   // Map every mask value to an index in [0,N), with N=number_of_mask_values
   std::map<int,int>   m_mask_val_to_stat_entry;
   
   // mask_cols[imask][icol] gives the local column ids to write at the requested mask
-  std::vector<std::vector<int>> mask_cols;
+  std::vector<std::vector<int>> m_mask_cols;
 
   // ilev[imask][icol] gives the correct ilev to write at the requested height
-  std::vector<std::vector<int>> ilev;
+  std::vector<std::vector<int>> m_ilev;
+
+  // mask_area[imask][icol] gives the area (not volume) of the mask column
+  std::vector<Real> m_mask_area;
+
+  //
+  std::vector<Real> m_mask_height;
 
   /// Values obtained from the input deck
   // An array of scalars to write (in Tg/yr) at each of the nonzero-indexed write locations

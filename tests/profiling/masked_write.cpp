@@ -67,6 +67,12 @@ TEST_CASE ("masked_write") {
   auto zi = my_zi.data_nonconst<Real>();
   std::iota(zi,zi+nlevs*my_ncols,0); // zi is a pointer so we have to calculate the offset manually
 
+  // Define the area field area as well
+  Field my_area("area",FieldLayout({my_ncols},{"ncols"}),DataAccess::Copy,DataType::RealType);
+  my_area.commit();
+  auto area = my_area.data_nonconst<Real>();
+  std::iota(area,area+my_ncols,0); // area is a pointer so we have to calculate the offset manually
+
   // Load mask, so we can count how many cols are in each region
   Field mask("mask",FieldLayout({my_ncols},{"ncol"}),DataAccess::Copy,DataType::IntType);
   mask.commit();
@@ -123,6 +129,7 @@ TEST_CASE ("masked_write") {
     std::map<std::string,Field> aux_fields;
     aux_fields["col_gids"] = my_gids;
     aux_fields["zi"] = my_zi;
+    aux_fields["area"] = my_area;
 
     // if (w!=nullptr) {
     //   pl.set<std::string>("weight_field",w->name());

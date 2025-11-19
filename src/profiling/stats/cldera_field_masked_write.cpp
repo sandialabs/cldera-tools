@@ -37,6 +37,8 @@ get_aux_fields_names () const
   aux_fnames.push_back(m_mask_field_name);
   // we need to read the heights of each pressure level in order to compute the height to write at
   aux_fnames.push_back("zi");
+  // we need to read the areas of each column in order to compute the volume to write over
+  aux_fnames.push_back("area");
 
   return aux_fnames;
 }
@@ -64,6 +66,7 @@ set_aux_fields_impl ()
 {
   const auto& gids = m_aux_fields.at("col_gids");
   m_height_field = m_aux_fields.at("zi");
+  m_area_field = m_aux_fields.at("area");
 
   if (m_aux_fields.count(m_mask_field_name)>0) {
     m_mask_field = m_aux_fields.at(m_mask_field_name);
@@ -71,6 +74,7 @@ set_aux_fields_impl ()
     load_mask_field(gids);
   }
 
+  // Setup 0: mask preprocessing
   // First, gather all the mask values we have
   auto data = m_mask_field.data<int>();
   auto size = m_mask_field.layout().size();
@@ -100,10 +104,19 @@ set_aux_fields_impl ()
     }
   }
 
+  // GH: for write, we assume mask values should already be 0,...,n in order
   // Then, map each mask value to an index in 0,...,num_mask_values-1
   for (auto v : mask_vals) {
     m_mask_val_to_stat_entry[v] = m_mask_val_to_stat_entry.size();
   }
+
+  // Setup 1: identify mask columns
+
+
+  // Setup 2: identify write heights (separate function)
+
+
+  // Setup 3: compute write volumes (separate function)
 }
 
 void FieldMaskedWrite::
@@ -123,7 +136,8 @@ compute_impl () {
 
   const auto dt   = m_field.data_type();
   const int  rank = m_field.layout().rank();
-  std::cout << "[masked_write] rank = " << rank << std::endl;
+  std::cout << "[masked_write] field rank = " << rank << std::endl;
+  std::cout << "[masked_write] zi rank = " << m_height_field.layout().rank() << std::endl;
   if (dt==DataType::RealType) {
     switch (rank) {
       case 1: return do_compute_impl<Real,1>();
@@ -144,25 +158,68 @@ compute_impl () {
   }
 }
 
+
+/*
+Set aux fields. This means we have "zi" and "mask" and "col_gids" fields available now.
+Using mask, loop over all the cells and determine the IDs of the columns for the injection sites. For each injection site, save a list of those local ids.
+Wipe the field and replace it with the default write value
+Using those local ids, loop over the mask injection height array. For each entry in the array, loop over all of the corresponding local columns.
+
+for ipart in parts:
+  for index in mask:
+    
+
+for iheight,height in enumerate(heights):
+  num_cols = len(mask_cols[iheight])
+  for icol,col in enumerate(mask_cols[iheight]):
+    for iz,z in enumerate(zi[col]):
+      if z > height:
+        injection_level[iheight][icol] = iz
+        break
+
+    so2[col][iz] = convert(values[iheight])
+*/
+
 template<typename T, int N>
 void FieldMaskedWrite::
 do_compute_impl ()
 {
+  std::cout << "[masked_write] called do_compute_impl with N = " << N << std::endl;
   auto sview = m_stat_field.nd_view_nonconst<Real,N>();
   auto mview = m_mask_field.view<int>();
 
   // Init stat to 0
   Kokkos::deep_copy(sview,0.0);
 
-  const auto& mask_dim_name = m_mask_field.layout().names()[0];
-  const int mask_dim = m_field.layout().dim_idx(mask_dim_name);
+  const auto& mask_dim_name = m_mask_field.layout().names()[0]; // should be columns
+  const int mask_dim = m_field.layout().dim_idx(mask_dim_name); // grab the index for columns
   const int part_dim = m_field.part_dim();
 
-  // PART 1: construct mask_cols
-  for (int p=0; p<m_field.nparts(); ++p) {
-    
-  }
+  std::cout << "[masked_write] mask_dim_name = " << mask_dim_name << std::endl;
 
+  // PART 1: construct m_mask_cols
+  // Get the columns corresponding to each mask index: e.g. m_mask_cols[i] = [11,12,13] means columns 11,12,13 correspond to write location i
+  for (int p=0; p<m_field.nparts(); ++p) {
+    auto fpl = m_field.part_layout(p);
+    auto fview = m_field.part_nd_view<T,N>(p);
+
+    const int part_offset = m_field.part_offset(p);
+
+    const int mask_dim_offset = mask_dim==part_dim ? part_offset : 0;
+    const int mask_dim_ext = fpl.extent(mask_dim_name);
+    for (int i=0; i<mask_dim_ext; ++i) {
+      auto mval = mview(i+mask_dim_offset);
+      auto midx = m_mask_val_to_stat_entry.at(mval);
+      std::cout << mval << " ";
+    }
+    for (int i=0; i<mask_dim_ext; ++i) {
+      auto mval = mview(i+mask_dim_offset);
+      auto midx = m_mask_val_to_stat_entry.at(mval);
+      std::cout << midx << " ";
+    }
+    std::cout << std::endl;
+  }
+  std::cout << std::endl;
 
 
   // NOTE: we operate under the assumption that either

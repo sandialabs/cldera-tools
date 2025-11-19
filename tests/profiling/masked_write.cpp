@@ -204,7 +204,7 @@ TEST_CASE ("masked_write") {
   }
   io::pnetcdf::write_var(*ofile,"mask_ids",mask_ids.data());
 
-  SECTION ("integrate_mask") {
+  SECTION ("write_mask") {
     // Integrate mask field itself
     auto stat = create_stat(mask);
     auto out = stat->compute(time);

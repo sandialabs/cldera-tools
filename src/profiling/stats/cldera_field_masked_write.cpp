@@ -17,19 +17,13 @@ FieldMaskedWrite (const ekat::Comm& comm,
  , m_default_write(m_params.get<Real>("default_write"))
  , m_mask_field_name(m_params.get<std::string>("mask_field"))
 {
-  m_output_mask_field = m_params.get("output_mask_field",false);
-  if (not m_output_mask_field) {
-    m_use_weight = m_params.isParameter("weight_field");
-    m_average = m_params.get<bool>("average",false); // GH: remove later
-  }
+  m_output_mask_field = m_params.get("output_mask_field",false); // GH: is this needed?
 
-  std::cout << "Masked write stat variables:\n"
+  std::cout << "[masked_write] variables:\n"
             << "  m_mask_field_name = " << m_mask_field_name << "\n"
             << "  m_default_write   = " << m_default_write << "\n"
-            << "  m_write_values    = " << m_write_values[0] << "\n"
-            << "  m_write_heights   = " << m_write_heights[0] << "\n"
-            << "  m_average         = " << m_average << "\n"
-            << "  m_use_weight      = " << m_use_weight << "\n";
+            << "  m_write_values    = [" << m_write_values << "]\n"
+            << "  m_write_heights   = [" << m_write_heights << "]\n";
 }
 
 std::vector<std::string>
@@ -75,67 +69,6 @@ set_aux_fields_impl ()
     m_mask_field = m_aux_fields.at(m_mask_field_name);
   } else {
     load_mask_field(gids);
-  }
-
-  std::string wname = m_use_weight
-                    ? m_params.get<std::string>("weight_field")
-                    : name() + "_unit_weight";
-
-  if (m_use_weight) {
-    // We assume the same weight for all the field components on each of the
-    // integration points.
-    auto& w = m_aux_fields.at(wname);
-    EKAT_REQUIRE_MSG (w.layout()==m_mask_field.layout(),
-        "Error! Weight field layout incompatible with mask layout.\n"
-        " - stat name: " + name() + "\n"
-        " - weight field layout: " + ekat::join(w.layout().names(),",") + "\n"
-        " - mask field layout  : " + ekat::join(m_mask_field.layout().names(),",") + "\n");
-    EKAT_REQUIRE_MSG (w.data_type()==DataType::RealType,
-        "Error! The weight field should have Real data type.\n"
-        " - stat name: " + name() + "\n"
-        " - weight data type: " + e2str(w.data_type()) + "\n");
-
-    if (w.nparts()>1) {
-      // For simplicity, replace w with a single-part version of itself
-      auto& s = StatFactory::instance();
-      ekat::ParameterList pl;
-      pl.set("name",w.name()+"_single_part");
-      auto id = s.create("identity",m_comm,pl);
-      id->set_field(w);
-      id->create_stat_field();
-      
-      // Overwrite stored field with one that is read-only, to avoid accidental data corruption
-      w = id->compute(m_timestamp).read_only();
-    }
-    m_weight_field = w;
-  }
-
-  if (m_average) {
-    ekat::ParameterList pl("w_int");
-    pl.set("mask_field",m_mask_field.name());
-    pl.set("average",false);
-    pl.set("mask_file_name",m_params.get<std::string>("mask_file_name"));
-
-    FieldMaskedWrite w_int_stat(m_comm,pl);
-    std::map<std::string,Field> aux_fields;
-    aux_fields["mask"] = m_mask_field;
-    aux_fields["col_gids"] = gids;
-    if (not m_use_weight) {
-      Field w(wname,m_mask_field.layout(),DataAccess::Copy);
-      w.commit();
-      Kokkos::deep_copy(w.view_nonconst<Real>(),1);
-      w.commit();
-
-      m_weight_field = w.read_only();
-    }
-    w_int_stat.set_field(m_weight_field);
-    w_int_stat.set_aux_fields (aux_fields);
-    w_int_stat.create_stat_field();
-    m_weight_integral = w_int_stat.compute(m_timestamp).read_only();
-    if (m_use_weight) {
-      // Store in aux fields, so it gets exposed and other stats can use it
-      m_aux_fields[m_weight_integral.name()] = m_weight_integral;
-    }
   }
 
   // First, gather all the mask values we have
@@ -190,6 +123,7 @@ compute_impl () {
 
   const auto dt   = m_field.data_type();
   const int  rank = m_field.layout().rank();
+  std::cout << "[masked_write] rank = " << rank << std::endl;
   if (dt==DataType::RealType) {
     switch (rank) {
       case 1: return do_compute_impl<Real,1>();
@@ -219,11 +153,6 @@ do_compute_impl ()
 
   // Init stat to 0
   Kokkos::deep_copy(sview,0.0);
-
-  view_1d_host<const Real> w_view;
-  if (m_use_weight) {
-    w_view = m_weight_field.view<const Real>();
-  }
 
   const auto& mask_dim_name = m_mask_field.layout().names()[0];
   const int mask_dim = m_field.layout().dim_idx(mask_dim_name);
@@ -255,7 +184,7 @@ do_compute_impl ()
     for (int i=0; i<mask_dim_ext; ++i) {
       auto mval = mview(i+mask_dim_offset);
       auto midx = m_mask_val_to_stat_entry.at(mval);
-      auto w = m_use_weight ? w_view(i+mask_dim_offset) : 1;
+      auto w = 1;
       if constexpr (N==1) {
         sview(midx) += fview(i) * w;
       } else {
@@ -274,28 +203,6 @@ do_compute_impl ()
     }
   }
   track_mpi_all_reduce(m_comm,sview.data(),sview.size(),MPI_SUM,name());
-
-  if (m_average) {
-    auto wint_v = m_weight_integral.view<Real>();
-    auto num_mask_ids = sview.extent(mask_dim);
-    for (int i=0; i<num_mask_ids; ++i) {
-      auto w = wint_v(i);
-      if constexpr (N==1) {
-        sview(i) /= w;
-      } else {
-        auto s_slice = slice(sview,mask_dim,i);
-        for (int j=0; j<s_slice.extent_int(0); ++j) {
-          if constexpr (N==2) {
-            s_slice(j) /= w;
-          } else {
-            for (int k=0; k<s_slice.extent_int(1); ++k) {
-              s_slice(j,k) /= w;
-            }
-          }
-        }
-      }
-    }
-  }
 }
 
 void FieldMaskedWrite::

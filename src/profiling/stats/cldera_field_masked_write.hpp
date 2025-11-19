@@ -61,13 +61,7 @@ protected:
   // The name of the mask field in the mask file
   std::string m_mask_field_name;
 
-
-  // Optionally, we weigh the integrand by a weight field
-  bool          m_use_weight;
-  bool          m_average;
-  Field         m_weight_field;
-  Field         m_weight_integral;
-
+  // Constants for conversions
   const Real m_avogadro_number = 6.02214076e23; 
   const Real m_molecular_weight = 64 * 1e-3; // technically 64.066 - not sure this matters, but it's more sig figs
 

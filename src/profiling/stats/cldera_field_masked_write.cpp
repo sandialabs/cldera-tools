@@ -20,8 +20,16 @@ FieldMaskedWrite (const ekat::Comm& comm,
   m_output_mask_field = m_params.get("output_mask_field",false);
   if (not m_output_mask_field) {
     m_use_weight = m_params.isParameter("weight_field");
-    m_average = m_params.get<bool>("average",true);
+    m_average = m_params.get<bool>("average",false); // GH: remove later
   }
+
+  std::cout << "Masked write stat variables:\n"
+            << "  m_mask_field_name = " << m_mask_field_name << "\n"
+            << "  m_default_write   = " << m_default_write << "\n"
+            << "  m_write_values    = " << m_write_values[0] << "\n"
+            << "  m_write_heights   = " << m_write_heights[0] << "\n"
+            << "  m_average         = " << m_average << "\n"
+            << "  m_use_weight      = " << m_use_weight << "\n";
 }
 
 std::vector<std::string>
@@ -33,8 +41,9 @@ get_aux_fields_names () const
   aux_fnames.push_back("col_gids");
   // we need the name of the mask field in the corresponding .nc file
   aux_fnames.push_back(m_mask_field_name);
-  // we need the heights of each pressure level in order to compute the height to write at
+  // we need to read the heights of each pressure level in order to compute the height to write at
   aux_fnames.push_back("zi");
+
   return aux_fnames;
 }
 
@@ -42,6 +51,7 @@ FieldLayout
 FieldMaskedWrite::
 stat_layout (const FieldLayout& fl) const
 {
+  // TODO: this should be a (cols,levs) field
   if (m_output_mask_field) {
     return m_mask_field.layout();
   }
@@ -59,9 +69,10 @@ void FieldMaskedWrite::
 set_aux_fields_impl ()
 {
   const auto& gids = m_aux_fields.at("col_gids");
-  const auto& mask_name = m_params.get<std::string>("mask_field");
-  if (m_aux_fields.count(mask_name)>0) {
-    m_mask_field = m_aux_fields.at(mask_name);
+  m_height_field = m_aux_fields.at("zi");
+
+  if (m_aux_fields.count(m_mask_field_name)>0) {
+    m_mask_field = m_aux_fields.at(m_mask_field_name);
   } else {
     load_mask_field(gids);
   }
@@ -217,6 +228,13 @@ do_compute_impl ()
   const auto& mask_dim_name = m_mask_field.layout().names()[0];
   const int mask_dim = m_field.layout().dim_idx(mask_dim_name);
   const int part_dim = m_field.part_dim();
+
+  // PART 1: construct mask_cols
+  for (int p=0; p<m_field.nparts(); ++p) {
+    
+  }
+
+
 
   // NOTE: we operate under the assumption that either
   //  - mask_dim==part_dim: we're integrating over the partitioned dim

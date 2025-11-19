@@ -23,8 +23,11 @@ TEST_CASE ("masked_write") {
 
   ekat::Comm comm(MPI_COMM_WORLD);
 
-  // Get ncol from file
+  // define the mask filename and other stat parameters
   std::string mask_filename = "../../data/ipcc_mask_ne4pg2.nc";
+  std::vector<Real> write_values = {1.0, 2.0, 3.0}; // amount in Tg/yr
+  std::vector<Real> write_heights = {4.0, 5.0, 6.0}; // height in km
+
   auto mask_file = io::pnetcdf::open_file(mask_filename,comm,io::pnetcdf::IOMode::Read);
 
   // Grab ncol from file
@@ -57,6 +60,12 @@ TEST_CASE ("masked_write") {
     gids_offsets.push_back(gids[i]-1);
   }
   io::pnetcdf::add_decomp(*mask_file,"ncol",gids_offsets);
+
+  // Define the heights field zi as well
+  Field my_zi("zi",FieldLayout({nlevs,my_ncols},{"nlevs","ncols"}),DataAccess::Copy,DataType::RealType);
+  my_zi.commit();
+  auto zi = my_zi.data_nonconst<Real>();
+  std::iota(zi,zi+nlevs*my_ncols,0); // zi is a pointer so we have to calculate the offset manually
 
   // Load mask, so we can count how many cols are in each region
   Field mask("mask",FieldLayout({my_ncols},{"ncol"}),DataAccess::Copy,DataType::IntType);
@@ -107,15 +116,18 @@ TEST_CASE ("masked_write") {
     pl.set<std::string>("type","masked_write");
     pl.set<std::string>("mask_field","mask");
     pl.set<std::string>("mask_file_name",mask_filename);
-    pl.set("average",false);
+    pl.set<Real>("default_write",0.0);
+    pl.set<std::vector<Real>>("write_values",write_values);
+    pl.set<std::vector<Real>>("write_heights",write_heights);
 
     std::map<std::string,Field> aux_fields;
     aux_fields["col_gids"] = my_gids;
+    aux_fields["zi"] = my_zi;
 
-    if (w!=nullptr) {
-      pl.set<std::string>("weight_field",w->name());
-      aux_fields[w->name()] = *w;
-    }
+    // if (w!=nullptr) {
+    //   pl.set<std::string>("weight_field",w->name());
+    //   aux_fields[w->name()] = *w;
+    // }
 
     auto stat = StatFactory::instance().create("masked_write",comm,pl);
 
@@ -137,7 +149,7 @@ TEST_CASE ("masked_write") {
   };
   auto mask_real = int2real(mask,"w");
 
-  auto extrude_mask = [&](const std::string& name, const int nlevs, const bool lev_dim_first) {
+  /*auto extrude_mask = [&](const std::string& name, const int nlevs, const bool lev_dim_first) {
     const auto& ml = mask.layout();
     auto names = ml.names();
     auto dims  = ml.dims();
@@ -165,7 +177,7 @@ TEST_CASE ("masked_write") {
       }
     }
     return f;
-  };
+  };*/
 
   // Also write results to file, so we can use it for downstream unit tests
   auto ofile = io::pnetcdf::open_file("results.nc",comm,io::pnetcdf::IOMode::Write);
@@ -214,7 +226,7 @@ TEST_CASE ("masked_write") {
     io::pnetcdf::write_var(*ofile,"s2d_no_w",out_data.data());
   }
 
-  SECTION ("integrate_mask_with_mask_as_weight") {
+  /*SECTION ("integrate_mask_with_mask_as_weight") {
     // Integrate mask field itself, using mask itself as a weight
     auto stat = create_stat(mask,&mask_real);
     auto out = stat->compute(time);
@@ -314,7 +326,7 @@ TEST_CASE ("masked_write") {
           io::pnetcdf::write_var(*ofile,"s3d_w",out_data.data());
       }
     }
-  }
+  }*/
   io::pnetcdf::update_time(*ofile,1.0);
   io::pnetcdf::close_file(*ofile);
 }

@@ -67,6 +67,11 @@ set_aux_fields_impl ()
   const auto& gids = m_aux_fields.at("col_gids");
   m_height_field = m_aux_fields.at("zi");
   m_area_field = m_aux_fields.at("area");
+  auto area_data = m_area_field.data<Real>();
+  auto area_size = m_area_field.layout().size();
+  auto height_data = m_height_field.data<Real>();
+  auto height_size = m_height_field.layout().size();
+  std::cout << "Checkpoint 1" << std::endl;
 
   if (m_aux_fields.count(m_mask_field_name)>0) {
     m_mask_field = m_aux_fields.at(m_mask_field_name);
@@ -76,6 +81,7 @@ set_aux_fields_impl ()
 
   // Setup 0: mask preprocessing
   // First, gather all the mask values we have
+  std::cout << "Checkpoint 2" << std::endl;
   auto data = m_mask_field.data<int>();
   auto size = m_mask_field.layout().size();
   std::set<int> my_mask_vals;
@@ -103,21 +109,55 @@ set_aux_fields_impl ()
       mask_vals.insert(v);
     }
   }
+  int num_mask_values = mask_vals.size();
 
   // GH: for write, we assume mask values should already be 0,...,n in order
   // Then, map each mask value to an index in 0,...,num_mask_values-1
   for (auto v : mask_vals) {
     m_mask_val_to_stat_entry[v] = m_mask_val_to_stat_entry.size();
   }
+  // for (auto const [key, val] : m_mask_val_to_stat_entry) {
+  //   std::cout << "[" << key << "," << val << "]" << std::endl;
+  // }
 
-  // Setup 1: identify mask columns
+  // Setup 1: identify and count mask columns, grab corresponding static areas for each
+  std::cout << "Checkpoint 3" << std::endl;
+  std::vector<int> mask_num_cols(num_mask_values, 0); // mask_num_cols[i] is the number of columns in mask index i
+  m_mask_area.resize(num_mask_values);
+  m_mask_cols.resize(num_mask_values);
+  for (int i=0; i<size; ++i) {
+    int imask = m_mask_val_to_stat_entry[data[i]]; // get mask index for column i
+    mask_num_cols[imask]++;
+    m_mask_area[imask].push_back(area_data[i]);
+    m_mask_cols[imask].push_back(i);
+  }
+  std::cout << "Checkpoint 4" << std::endl;
 
+  for (int i=0; i<num_mask_values; ++i) {
+    std::cout << "Num entries in mask index " << i << " is " << mask_num_cols[i] << std::endl;
+    for (int j=0; j<m_mask_area[i].size(); ++j) {
+      std::cout << "Area in mask col index " << j << " is " << m_mask_area[i][j] << std::endl;
+    }
+  }
 
-  // Setup 2: identify write heights (separate function)
+  // Setup 2: identify write heights (this must be done the first time)
+  compute_write_heights();
 
+  // Setup 3: compute write volumes (this must be done the first time)
+  compute_write_volumes();
 
-  // Setup 3: compute write volumes (separate function)
 }
+
+
+void FieldMaskedWrite::compute_write_heights() {
+  
+
+}
+
+void FieldMaskedWrite::compute_write_volumes() {
+
+}
+
 
 void FieldMaskedWrite::
 compute_impl () {

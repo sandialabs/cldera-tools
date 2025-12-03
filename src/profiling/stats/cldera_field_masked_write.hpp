@@ -26,6 +26,10 @@ protected:
 
   void set_aux_fields_impl () override;
 
+  void compute_write_heights ();
+
+  void compute_write_volumes ();
+
   void compute_impl () override;
 
   template<typename T, int N>
@@ -45,16 +49,16 @@ protected:
   // Map every mask value to an index in [0,N), with N=number_of_mask_values
   std::map<int,int>   m_mask_val_to_stat_entry;
   
-  // mask_cols[imask][icol] gives the local column ids to write at the requested mask
+  // m_mask_cols[imask][icol] gives the local column ids to write at the requested mask
   std::vector<std::vector<int>> m_mask_cols;
 
-  // ilev[imask][icol] gives the correct ilev to write at the requested height
+  // m_ilev[imask][icol] gives the correct ilev to write at the requested height
   std::vector<std::vector<int>> m_ilev;
 
-  // mask_area[imask][icol] gives the area (not volume) of the mask column
-  std::vector<Real> m_mask_area;
+  // m_mask_area[imask][icol] gives the area (not volume) of the mask column
+  std::vector<std::vector<Real>> m_mask_area;
 
-  //
+  // m_mask_height[imask] gives the height of the write
   std::vector<Real> m_mask_height;
 
   /// Values obtained from the input deck

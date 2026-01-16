@@ -3,6 +3,7 @@
 #include "cldera_field_global_sum.hpp"
 #include "cldera_field_global_avg.hpp"
 #include "cldera_field_identity.hpp"
+#include "cldera_field_single_rank.hpp"
 #include "cldera_field_max_along_columns.hpp"
 #include "cldera_field_min_along_columns.hpp"
 #include "cldera_field_sum_along_columns.hpp"
@@ -32,6 +33,7 @@ void register_stats ()
   factory.register_product("avg_along_columns",&create_stat<FieldAvgAlongColumns>);
 
   factory.register_product("identity",&create_stat<FieldIdentity>);
+  factory.register_product("singlerank",&create_stat<FieldSingleRank>);
 
   factory.register_product("bounded",&create_stat<FieldBounded>);
   factory.register_product("bounding_box",&create_stat<FieldBoundingBox>);

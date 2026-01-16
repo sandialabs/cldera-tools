@@ -97,7 +97,7 @@ public:
   template<typename T>
   void copy_data (const T* data);
 
-  // Get data as view
+  // Get part data as view
   template<typename T>
   view_1d_host<const T> part_view (const int ipart) const;
   template<typename T>
@@ -126,7 +126,7 @@ public:
   template<typename T>
         T* data_nonconst ();
 
-  // Query status
+  // Query information for number of parts and dims (E3SM chunks == cldera-tools parts)
   int nparts () const { return m_nparts; }
   int part_dim () const { return m_part_dim; }
   int part_offset (const int ipart) const;
@@ -176,16 +176,19 @@ private:
 
   std::string       m_name;
   FieldLayout       m_layout;
+  // Keep track of number of parts and dims (E3SM chunks == cldera-tools parts)
   int               m_nparts   = -1;  // Set to something invalid for default ctor
   int               m_part_dim = -1;
   std::vector<int>  m_part_extents;
   std::vector<int>  m_part_offsets;
   int               m_part_dim_alloc_size;
   bool              m_committed = false;
+  // DataAccess tells if the data is a raw pointer to E3SM data or copied over (View or Copy)
   DataAccess        m_data_access;
+  // DataType tells how to recast the E3SM data (int or Real)
   DataType          m_data_type;
 
-  // Store data as char
+  // Store data as a vector of char pointers for each part
   std::vector<view_1d_host<const char>>   m_data;
   std::vector<view_1d_host<      char>>   m_data_nonconst;
 };

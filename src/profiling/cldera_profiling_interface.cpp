@@ -369,6 +369,11 @@ void cldera_compute_stats_c (const int ymd, const int tod)
   auto& requests = c.get<requests_t>("requests");
 
   auto& archive = c.get<ProfilingArchive>("archive");
+  bool do_print_archive_fields_names = params.get<bool>("Print Archive Fields Names",false);
+  if (do_print_archive_fields_names) {
+    const auto archive_fields_names = archive.get_fields_names();
+    std::cout << "  List of current fields: " + ekat::join(archive_fields_names,", ");
+  }
 
   for (const auto& it : requests) {
     const auto& fname = it.first;

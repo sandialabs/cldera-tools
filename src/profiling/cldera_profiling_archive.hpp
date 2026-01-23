@@ -43,6 +43,8 @@ public:
   ~ProfilingArchive ();
 
   // Fields
+  const std::list<std::string> get_fields_names() const { return m_fields_names; }
+
   void add_field (const Field& field);
 
   void commit_all_fields ();

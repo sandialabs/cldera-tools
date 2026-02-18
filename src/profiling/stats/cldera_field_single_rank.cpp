@@ -1,8 +1,44 @@
 #include "cldera_field_single_rank.hpp"
 #include "profiling/utils/cldera_subview_utils.hpp"
+#include "profiling/cldera_mpi_timing_wrappers.hpp"
 
 namespace cldera
 {
+
+void FieldSingleRank::
+create_stat_field () {
+
+  // initialize to zero
+  m_local_size = 0;
+  m_global_size = 0;
+  m_part_sizes = std::vector<int>();
+
+  // first, find out how many columns we need in total
+  const int nparts = m_field.nparts();
+  const int part_dim = m_field.part_dim();
+  auto non_part_layout = m_field.layout().strip_dim(part_dim);
+
+  // loop over parts and grab part dims
+  for (int p=0; p<nparts; ++p) {
+    const auto& part_layout = m_field.part_layout(p);
+    const int part_size = part_layout.dims()[part_dim];
+    m_part_sizes.push_back(part_size);
+    m_local_size += part_size;
+  }
+
+  // count up global columns
+  track_mpi_all_reduce(m_comm,&m_local_size,&m_global_size,1,MPI_SUM, name());
+
+  // create a new layout which is size m_global_size on rank 0 and size 0 on all other ranks
+  auto m_stat_layout = m_field.layout();
+  // if (m_comm.am_i_root()) {
+  //   m_stat_layout[m_stat_layout.dim_idx("ncol")] = m_global_size;
+  // } else {
+  //   m_stat_layout[m_stat_layout.dim_idx("ncol")] = 0;
+  // }
+
+  m_stat_field = Field(name(), m_stat_layout, DataAccess::Copy, stat_data_type());
+}
 
 void FieldSingleRank::
 compute_impl () {
@@ -37,9 +73,10 @@ do_compute_impl ()
 {
   auto stat_view = m_stat_field.nd_view_nonconst<T,N>();
 
+  // second, fill a buffer with our local data to send to the root rank
+  T* local_data;
+
   // first, find out how many columns we need in total
-  int local_cols = 0;
-  int global_cols = 0;
   const int nparts = m_field.nparts();
   const int part_dim = m_field.part_dim();
   auto non_part_layout = m_field.layout().strip_dim(part_dim);
@@ -48,21 +85,10 @@ do_compute_impl ()
   for (int p=0; p<nparts; ++p) {
     const auto& part_layout = m_field.part_layout(p);
     const int part_size = part_layout.dims()[part_dim];
-    local_cols += part_size;
-  }
-  // count up global columns
-  track_mpi_all_reduce(m_comm,&local_cols,&global_cols,1,MPI_SUM, name());
-
-  // second, fill a buffer with our local data to send to the root rank
-  T* local_data;
-  // TODO: allocate local_data
-
-  // loop over parts and grab part dims
-  for (int p=0; p<nparts; ++p) {
-    const auto& part_layout = m_field.part_layout(p);
-    const int part_size = part_layout.dims()[part_dim];
     const int part_offset = m_field.part_offset(p);
     auto fpart_view = m_field.part_nd_view<const T,N>(p);
+    
+    
     // TODO: copy to local_data
   }
 
@@ -70,30 +96,29 @@ do_compute_impl ()
   // TODO: do this
 
   // TODO: delete this
-  for (int p=0; p<nparts; ++p) {
-    const auto& part_layout = m_field.part_layout(p);
-    const int part_size = part_layout.dims()[part_dim];
-    const int part_offset = m_field.part_offset(p);
-    auto fpart_view = m_field.part_nd_view<const T,N>(p);
-
-    for (int i=0; i<part_size; ++i) {
-      if constexpr (N==1) {
-        stat_view(i+part_offset) = fpart_view(i);
-      } else {
-        auto stat_slice = slice(stat_view,part_dim,i);
-        auto f_slice    = slice(fpart_view,part_dim,i);
-        for (int j=0; j<non_part_layout.extent(0); ++j) {
-          if constexpr (N==2) {
-            stat_slice(j) = f_slice(j);
-          } else {
-            for (int k=0; k<non_part_layout.extent(0); ++k) {
-              stat_slice(j,k) = f_slice(j,k);
-            }
-          }
-        }
-      }
-    }
-  }
+  // for (int p=0; p<nparts; ++p) {
+  //   const auto& part_layout = m_field.part_layout(p);
+  //   const int part_size = part_layout.dims()[part_dim];
+  //   const int part_offset = m_field.part_offset(p);
+  //   auto fpart_view = m_field.part_nd_view<const T,N>(p);
+  //   for (int i=0; i<part_size; ++i) {
+  //     if constexpr (N==1) {
+  //       stat_view(i+part_offset) = fpart_view(i);
+  //     } else {
+  //       auto stat_slice = slice(stat_view,part_dim,i);
+  //       auto f_slice    = slice(fpart_view,part_dim,i);
+  //       for (int j=0; j<non_part_layout.extent(0); ++j) {
+  //         if constexpr (N==2) {
+  //           stat_slice(j) = f_slice(j);
+  //         } else {
+  //           for (int k=0; k<non_part_layout.extent(0); ++k) {
+  //             stat_slice(j,k) = f_slice(j,k);
+  //           }
+  //         }
+  //       }
+  //     }
+  //   }
+  // }
 }
 
 } // namespace cldera

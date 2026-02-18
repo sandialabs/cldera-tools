@@ -27,6 +27,17 @@ cmake_policy(SET CMP0077 NEW)
 add_subdirectory(${EKAT_SRC_DIR} ${EKAT_BLD_DIR})
 
 ##############################
+#        Controller          #
+##############################
+
+if (CLDERA_ENABLE_CONTROLLER)
+  message (STATUS "Feedback controller is enabled")
+  find_package(Python3 REQUIRED COMPONENTS Development Interpreter)
+  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/externals/pybind11)
+  # find_package(pybind11 CONFIG REQUIRED)
+endif ()
+
+##############################
 #       Build CLDERA         #
 ##############################
 

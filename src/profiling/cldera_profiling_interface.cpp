@@ -8,6 +8,12 @@
 
 #include "timing/cldera_timing_session.hpp"
 
+#ifdef CLDERA_CONTROLLER
+  #include "cldera_controller.hpp"
+  #include <pybind11/embed.h>
+  namespace py = pybind11;
+#endif
+
 #include <ekat/ekat_parameter_list.hpp>
 #include <ekat/io/ekat_yaml.hpp>
 #include <ekat/util/ekat_string_utils.hpp>
@@ -96,6 +102,12 @@ void cldera_init_c (const char*& context_name,
     ekat::ParameterList profiling_output_list("Profiling Output");
     c.create<ProfilingArchive>("archive",comm,case_t0,run_t0,profiling_output_list);
   }
+
+#ifdef CLDERA_CONTROLLER
+  if (params.isParameter("Controller")) {
+    c.create<Controller>("controller", params);
+  }
+#endif
 
   if (comm.am_i_root()) {
     printf(" [CLDERA] Initializing profiling context '%s' ... done!\n",context_name);
@@ -419,6 +431,46 @@ void cldera_compute_stats_c (const int ymd, const int tod)
   }
   ++num_calls;
 }
+
+
+#ifdef CLDERA_CONTROLLER
+void cldera_compute_controller_c (const int ymd, const int tod)
+{
+  // TODO: handle starting controller at run init
+  //    Could just do it on the Python side?
+
+  auto& c = get_curr_context();
+  // If input file was not provided, cldera does nothing
+  if (not c.inited()) { return; }
+
+  const auto& comm = c.get_comm();
+  auto& params = c.get_params();
+
+  // Case is not controlled
+  if (!params.isParameter("Controller")) { return; }
+
+  auto& ctrl = c.get<Controller>("controller");
+
+  // Not time to trigger controller
+  if (!ctrl.is_ctrl_time(ymd, tod)) { return; }
+
+  cldera::TimeStamp time = {ymd, tod};
+  if (comm.am_i_root()) {
+    printf(" [CLDERA] Computing controller for context '%s'...\n",c.name().c_str());
+    printf(" [CLDERA]   time: %s...\n",time.to_string().c_str());
+  }
+
+  auto& ts = c.timing();
+  ts.start_timer(c.name() + "::compute_controller");
+
+  // Call controller
+  ctrl(ymd);
+
+
+  ts.stop_timer(c.name() + "::compute_controller");
+
+}
+#endif
 
 } // namespace cldera
 

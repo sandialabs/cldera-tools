@@ -94,6 +94,9 @@ struct TimeStamp {
   friend double operator-(const TimeStamp&, const TimeStamp&);
   friend bool operator==(const TimeStamp&, const TimeStamp&);
   friend bool operator<(const TimeStamp&, const TimeStamp&);
+  friend bool operator<=(const TimeStamp&, const TimeStamp&);
+  friend bool operator>(const TimeStamp&, const TimeStamp&);
+  friend bool operator>=(const TimeStamp&, const TimeStamp&);
   friend std::ostream& operator<<(std::ostream&, const TimeStamp&);
 
 private:
@@ -159,6 +162,18 @@ inline double operator- (const TimeStamp& lhs, const TimeStamp& rhs) {
 
 inline bool operator< (const TimeStamp& lhs, const TimeStamp& rhs) {
   return lhs.m_ymd<rhs.m_ymd || (lhs.m_ymd==rhs.m_ymd && lhs.m_tod<rhs.m_tod);
+}
+
+inline bool operator<= (const TimeStamp& lhs, const TimeStamp& rhs) {
+  return lhs.m_ymd<rhs.m_ymd || (lhs.m_ymd==rhs.m_ymd && lhs.m_tod<=rhs.m_tod);
+}
+
+inline bool operator> (const TimeStamp& lhs, const TimeStamp& rhs) {
+  return lhs.m_ymd>rhs.m_ymd || (lhs.m_ymd==rhs.m_ymd && lhs.m_tod>rhs.m_tod);
+}
+
+inline bool operator>= (const TimeStamp& lhs, const TimeStamp& rhs) {
+  return lhs.m_ymd>rhs.m_ymd || (lhs.m_ymd==rhs.m_ymd && lhs.m_tod>=rhs.m_tod);
 }
 
 inline bool operator== (const TimeStamp& lhs, const TimeStamp& rhs) {

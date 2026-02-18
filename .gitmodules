@@ -1,3 +1,6 @@
 [submodule "externals/ekat"]
 	path = externals/ekat
 	url = git@github.com:E3SM-Project/EKAT
+[submodule "externals/pybind11"]
+	path = externals/pybind11
+	url = https://github.com/pybind/pybind11

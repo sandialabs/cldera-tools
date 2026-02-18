@@ -2,6 +2,8 @@
 #include "profiling/utils/cldera_subview_utils.hpp"
 #include "profiling/cldera_mpi_timing_wrappers.hpp"
 
+#include <mpi.h>
+
 namespace cldera
 {
 
@@ -73,8 +75,14 @@ do_compute_impl ()
 {
   auto stat_view = m_stat_field.nd_view_nonconst<T,N>();
 
-  // second, fill a buffer with our local data to send to the root rank
-  T* local_data;
+  // fill a buffer with all part data combined to send to the root rank
+  T* local_data; // TODO: there is likely a smarter way to do this with hijacking pointers to view data
+  local_data = (T*)malloc(m_local_size*sizeof(T));
+
+  T* root_data;
+  if (m_comm.am_i_root()) {
+    root_data = (T*)malloc(m_global_size*sizeof(T));
+  }
 
   // first, find out how many columns we need in total
   const int nparts = m_field.nparts();
@@ -88,37 +96,38 @@ do_compute_impl ()
     const int part_offset = m_field.part_offset(p);
     auto fpart_view = m_field.part_nd_view<const T,N>(p);
     
-    
-    // TODO: copy to local_data
+    // TODO: copy each part to local_view
   }
 
-  // finally, send the buffer to the root rank and store it in stat_field
-  // TODO: do this
+  // very standard MPI setup for the gatherv since ekat doesn't have a wrapper for it
+  // send all sizes to the root rank, compute offsets on the root rank based on the sizes
+  int* recvcounts;
+  int* displs;
+  if (m_comm.am_i_root()) {
+    recvcounts = (int*)malloc(m_comm.size() * sizeof(int));
+    displs = (int*)malloc(m_comm.size() * sizeof(int));
+  }
+  MPI_Gather(&m_local_size, 1, MPI_INT, recvcounts, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  if (m_comm.am_i_root()) {
+    displs[0] = 0;
+    for (int i=1; i<m_comm.size(); i++) {
+      displs[i] = displs[i-1] + recvcounts[i-1];
+    }
+  }
 
-  // TODO: delete this
-  // for (int p=0; p<nparts; ++p) {
-  //   const auto& part_layout = m_field.part_layout(p);
-  //   const int part_size = part_layout.dims()[part_dim];
-  //   const int part_offset = m_field.part_offset(p);
-  //   auto fpart_view = m_field.part_nd_view<const T,N>(p);
-  //   for (int i=0; i<part_size; ++i) {
-  //     if constexpr (N==1) {
-  //       stat_view(i+part_offset) = fpart_view(i);
-  //     } else {
-  //       auto stat_slice = slice(stat_view,part_dim,i);
-  //       auto f_slice    = slice(fpart_view,part_dim,i);
-  //       for (int j=0; j<non_part_layout.extent(0); ++j) {
-  //         if constexpr (N==2) {
-  //           stat_slice(j) = f_slice(j);
-  //         } else {
-  //           for (int k=0; k<non_part_layout.extent(0); ++k) {
-  //             stat_slice(j,k) = f_slice(j,k);
-  //           }
-  //         }
-  //       }
-  //     }
-  //   }
-  // }
+  // send the buffer to the root rank and store it in stat_field
+  MPI_Datatype mpi_type = MPI_DOUBLE; // TODO: allow any type
+  MPI_Gatherv(local_data, m_local_size, mpi_type, root_data, recvcounts, displs, mpi_type, 0, MPI_COMM_WORLD);
+
+  // finally, copy that information in the stat field
+
+
+  // TODO: fix memory leaks
+  if (m_comm.am_i_root()) {
+    free(recvcounts);
+    free(displs);
+    free(local_data);
+  }
 }
 
 } // namespace cldera

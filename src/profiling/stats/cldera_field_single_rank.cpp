@@ -9,7 +9,7 @@ namespace cldera
 
 void FieldSingleRank::
 create_stat_field () {
-  
+
   EKAT_REQUIRE_MSG (m_field.committed(),
       "Error! Cannot create stat field until input field is set.\n"
       " - stat name: " + name() + "\n");
@@ -47,6 +47,11 @@ create_stat_field () {
 
   // commit the data, which allocates everything and finishes setup
   m_stat_field.commit();
+
+  // make sure this is only one part at most when we're done
+  EKAT_REQUIRE_MSG (m_stat_field.nparts() <= 1,
+      "[FieldSingleRank] SingleRankStat has too many parts.\n"
+      " - field name: " + m_field.name() + "\n");
 
 }
 
@@ -109,7 +114,7 @@ do_compute_impl ()
     const int part_offset = m_field.part_offset(p);
     auto fpart_view = m_field.part_nd_view<const T,N>(p);
     
-    // TODO: copy each part to local_view
+    // copy each part to local_view
     for (int i=0; i<fpart_view.extent(0); ++i) {
       local_data[offset+i] = fpart_view(part_offset+i);
     }
@@ -117,7 +122,7 @@ do_compute_impl ()
   }
 
   // very standard MPI setup for the gatherv since ekat doesn't have a wrapper for it
-  // send all sizes to the root rank, compute offsets on the root rank based on the sizes
+  // send all local sizes to the root rank, compute offsets on the root rank based on the sizes
   int* recvcounts;
   int* displs;
   if (m_comm.am_i_root()) {
@@ -136,14 +141,27 @@ do_compute_impl ()
   MPI_Datatype mpi_type = MPI_DOUBLE; // TODO: allow any type like ekat does
   MPI_Gatherv(local_data, m_local_size, mpi_type, root_data, recvcounts, displs, mpi_type, 0, MPI_COMM_WORLD);
 
-  // finally, copy that information in the stat field
-
-
-  // TODO: fix memory leaks
+  // cleanup after MPI
   if (m_comm.am_i_root()) {
     free(recvcounts);
     free(displs);
     free(local_data);
+  }
+
+  // finally, copy that information in the stat field if on root rank
+  if (m_comm.am_i_root()) {
+    // assume there is only one part for this stat since we checked earlier
+    auto fpart_view = m_stat_field.part_nd_view_nonconst<T, N>(0);
+
+    // copy data into the stat field
+    for (int i=0; i<fpart_view.extent(0); ++i) {
+      fpart_view(i) = root_data[i];
+    }
+  }
+
+  // clean up any last memory leaks
+  if (m_comm.am_i_root()) {
+    free(root_data);
   }
 }
 

@@ -20,7 +20,7 @@ create_stat_field () {
   const int part_dim = m_field.part_dim();
   auto non_part_layout = m_field.layout().strip_dim(part_dim);
 
-  // loop over parts and grab part dims
+  // loop over parts and grab part dims, counting the local size
   for (int p=0; p<nparts; ++p) {
     const auto& part_layout = m_field.part_layout(p);
     const int part_size = part_layout.dims()[part_dim];
@@ -28,18 +28,22 @@ create_stat_field () {
     m_local_size += part_size;
   }
 
-  // count up global columns
+  // sum up local columns for global columns
   track_mpi_all_reduce(m_comm,&m_local_size,&m_global_size,1,MPI_SUM, name());
 
-  // create a new layout which is size m_global_size on rank 0 and size 0 on all other ranks
-  auto m_stat_layout = m_field.layout();
-  // if (m_comm.am_i_root()) {
-  //   m_stat_layout[m_stat_layout.dim_idx("ncol")] = m_global_size;
-  // } else {
-  //   m_stat_layout[m_stat_layout.dim_idx("ncol")] = 0;
-  // }
+  // if we're root, we have a m_global_size columns, otherwise there's no data
+  // TODO: if the data has other dimensions (e.g. lev, cmp) we need to make sure we allocate the right size
+  if (m_comm.am_i_root()) {
+    auto m_stat_layout = m_field.layout();
+    //m_stat_layout[m_stat_layout.dim_idx("ncol")] = m_global_size; // TODO: resize this layout correctly
+    m_stat_field = Field(name(),m_stat_layout,DataAccess::Copy,stat_data_type());
+  } else {
+    m_stat_field = Field(name(),{},{},DataAccess::Copy);
+  }
 
-  m_stat_field = Field(name(), m_stat_layout, DataAccess::Copy, stat_data_type());
+  // commit the data, which allocates everything and finishes setup
+  m_stat_field.commit();
+
 }
 
 void FieldSingleRank::
@@ -47,7 +51,7 @@ compute_impl () {
   const auto dt = m_field.data_type();
   const int rank = m_field.layout().rank();
 
-  // assert we're a single rank because otherwise we'll have to think harder
+  // TODO: check this for the rank>=2 case
   EKAT_REQUIRE_MSG (rank<=1,
       "[FieldSingleRank] Unsupported field rank.\n"
       " - field name: " + m_field.name() + "\n"
@@ -89,6 +93,8 @@ do_compute_impl ()
   const int part_dim = m_field.part_dim();
   auto non_part_layout = m_field.layout().strip_dim(part_dim);
 
+  int offset = 0;
+
   // loop over parts and grab part dims
   for (int p=0; p<nparts; ++p) {
     const auto& part_layout = m_field.part_layout(p);
@@ -97,6 +103,10 @@ do_compute_impl ()
     auto fpart_view = m_field.part_nd_view<const T,N>(p);
     
     // TODO: copy each part to local_view
+    for (int i=0; i<fpart_view.extent(0); ++i) {
+      local_data[offset+i] = fpart_view(part_offset+i);
+    }
+    offset += part_size;
   }
 
   // very standard MPI setup for the gatherv since ekat doesn't have a wrapper for it

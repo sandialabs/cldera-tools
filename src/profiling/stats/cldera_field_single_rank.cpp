@@ -9,6 +9,10 @@ namespace cldera
 
 void FieldSingleRank::
 create_stat_field () {
+  
+  EKAT_REQUIRE_MSG (m_field.committed(),
+      "Error! Cannot create stat field until input field is set.\n"
+      " - stat name: " + name() + "\n");
 
   // initialize to zero
   m_local_size = 0;
@@ -35,8 +39,8 @@ create_stat_field () {
   // TODO: if the data has other dimensions (e.g. lev, cmp) we need to make sure we allocate the right size
   if (m_comm.am_i_root()) {
     auto m_stat_layout = m_field.layout();
-    //m_stat_layout[m_stat_layout.dim_idx("ncol")] = m_global_size; // TODO: resize this layout correctly
-    m_stat_field = Field(name(),m_stat_layout,DataAccess::Copy,stat_data_type());
+    // TODO: tweak this for the rank >=2 case
+    m_stat_field = Field(name(),{m_global_size},{"ncol"},DataAccess::Copy,stat_data_type());
   } else {
     m_stat_field = Field(name(),{},{},DataAccess::Copy);
   }
@@ -77,6 +81,9 @@ template<typename T, int N>
 void FieldSingleRank::
 do_compute_impl ()
 {
+  if (!m_stat_field.committed()) {
+    this->create_stat_field();
+  }
   auto stat_view = m_stat_field.nd_view_nonconst<T,N>();
 
   // fill a buffer with all part data combined to send to the root rank
@@ -126,7 +133,7 @@ do_compute_impl ()
   }
 
   // send the buffer to the root rank and store it in stat_field
-  MPI_Datatype mpi_type = MPI_DOUBLE; // TODO: allow any type
+  MPI_Datatype mpi_type = MPI_DOUBLE; // TODO: allow any type like ekat does
   MPI_Gatherv(local_data, m_local_size, mpi_type, root_data, recvcounts, displs, mpi_type, 0, MPI_COMM_WORLD);
 
   // finally, copy that information in the stat field

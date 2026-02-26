@@ -37,6 +37,7 @@ add_library (cldera-profiling
     stats/cldera_field_global_min.cpp
     stats/cldera_field_global_sum.cpp
     stats/cldera_field_identity.cpp
+    stats/cldera_field_single_rank.cpp
     stats/cldera_field_stat.cpp
     stats/cldera_field_masked_integral.cpp
     stats/cldera_field_bounded_masked_integral.cpp
@@ -87,6 +88,7 @@ set (CLDERA_PROFILING_HEADERS
   stats/cldera_field_global_min.hpp
   stats/cldera_field_global_sum.hpp
   stats/cldera_field_identity.hpp
+  stats/cldera_field_single_rank.hpp
   stats/cldera_field_bounded_masked_integral.hpp
   stats/cldera_field_masked_integral.hpp
   stats/cldera_field_max_along_columns.hpp

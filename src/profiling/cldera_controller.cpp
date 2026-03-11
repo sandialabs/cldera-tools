@@ -2,6 +2,7 @@
 #include <iostream>
 
 #include "cldera_controller.hpp"
+#include "cldera_controller_python.hpp"
 
 namespace cldera {
 
@@ -176,8 +177,8 @@ is_ctrl_time(const int ymd, const int tod) {
 
 }
 
-void Controller::
-operator()(const int ymd) {
+std::vector<double> Controller::
+operator()(const int ymd, const int tod) {
 
   // check that controller hasn't already been calculated for this
   EKAT_REQUIRE_MSG(
@@ -185,12 +186,15 @@ operator()(const int ymd) {
     "Controller already computed for date: " + std::to_string(ymd)
   );
 
-  // calculate controller
-  std::vector<double> mass_inj = {1.0, 2.0};
+  std::vector<double> mass_inj;
+  if (m_context) {
+    call_python_controller_hook(*m_context, *this, ymd, tod, mass_inj);
+  }
 
   // record controller history
   m_ctrl_hist[ymd] = mass_inj;
 
+  return mass_inj;
 }
 
 std::vector<double> Controller::

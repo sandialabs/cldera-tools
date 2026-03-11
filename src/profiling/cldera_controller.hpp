@@ -14,6 +14,8 @@
 
 namespace cldera {
 
+class ProfilingContext;
+
 class Controller
 {
 
@@ -31,7 +33,9 @@ public:
   std::vector<double> get_ctrl_hist_at(const int ymd);
 
   // calculating controller
-  void operator()(const int ymd);
+  std::vector<double> operator()(const int ymd, const int tod);
+
+  void set_context(ProfilingContext* ctx) { m_context = ctx; }
 
 private:
 
@@ -59,6 +63,7 @@ private:
   // controller history
   std::map<int, std::vector<double>> m_ctrl_hist;
 
+  ProfilingContext* m_context = nullptr;
 
 };
 

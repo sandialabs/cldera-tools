@@ -3,6 +3,7 @@
 #include "profiling/cldera_mpi_timing_wrappers.hpp"
 
 #include <mpi.h>
+#include <type_traits>
 
 namespace cldera
 {
@@ -42,7 +43,9 @@ create_stat_field () {
     // TODO: tweak this for the rank >=2 case
     m_stat_field = Field(name(),{m_global_size},{"ncol"},DataAccess::Copy,stat_data_type());
   } else {
-    m_stat_field = Field(name(),{},{},DataAccess::Copy);
+    // Keep a consistent rank on non-root to avoid rank-check failures.
+    // Size zero Fields are also not allowed
+    m_stat_field = Field(name(),{1},{"ncol"},DataAccess::Copy,stat_data_type());
   }
 
   // commit the data, which allocates everything and finishes setup
@@ -138,7 +141,14 @@ do_compute_impl ()
   }
 
   // send the buffer to the root rank and store it in stat_field
-  MPI_Datatype mpi_type = MPI_DOUBLE; // TODO: allow any type like ekat does
+  MPI_Datatype mpi_type;
+  if constexpr (std::is_same<T,int>::value) {
+    mpi_type = MPI_INT;
+  } else if constexpr (std::is_same<T,double>::value) {
+    mpi_type = MPI_DOUBLE;
+  } else {
+    EKAT_ERROR_MSG ("[FieldSingleRank] mpi_type must be int or double");
+  }
   MPI_Gatherv(local_data, m_local_size, mpi_type, root_data, recvcounts, displs, mpi_type, 0, MPI_COMM_WORLD);
 
   // cleanup after MPI

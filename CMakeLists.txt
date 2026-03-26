@@ -35,8 +35,7 @@ set (CLDERA_ENABLE_CONTROLLER "@CLDERA_ENABLE_CONTROLLER@" CACHE INTERNAL "")
 if (CLDERA_ENABLE_CONTROLLER)
   message (STATUS "Feedback controller is enabled")
   find_package(Python3 REQUIRED COMPONENTS Development Interpreter)
-  set(PYBIND11_INSTALL ON CACHE BOOL "Install pybind11" FORCE)
-  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/externals/pybind11)
+  find_package(pybind11 CONFIG REQUIRED)
 endif ()
 
 ##############################

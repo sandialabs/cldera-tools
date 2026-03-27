@@ -16,11 +16,38 @@ namespace cldera {
 
 class ProfilingContext;
 
+struct IntervalDef {
+  std::string name;
+  int start_mmdd;
+  int end_mmdd;
+  int span_days;
+};
+
+struct ControllerDef {
+  std::string name;      // controller name (e.g., T0)
+  std::string interval;  // interval name (e.g., DJF)
+  std::string type;
+
+  // constant controller
+  double const_val = std::numeric_limits<double>::quiet_NaN();
+
+  // non-constant controller
+  std::vector<double> gains;
+  std::string field;
+  std::string stat;
+  double refval = std::numeric_limits<double>::quiet_NaN();
+  std::string proj;
+  std::string ff_type;
+  double ff_val = std::numeric_limits<double>::quiet_NaN();
+  std::vector<std::string> cnstr_defs;
+};
+
 class Controller
 {
 
   using vos_t = std::vector<std::string>;
   using vod_t = std::vector<double>;
+  using voi_t = std::vector<int>;
 
 public:
 
@@ -30,10 +57,23 @@ public:
 
   // recording controller history
   // void hist_init();
-  std::vector<double> get_ctrl_hist_at(const int ymd);
+  vod_t get_ctrl_hist_at(const int ymd);
 
   // calculating controller
-  std::vector<double> operator()(const int ymd, const int tod);
+  vod_t operator()(const int ymd, const int tod);
+
+  // control intervals
+  const std::vector<IntervalDef>& get_intervals() const { return m_intervals; }
+
+  // getting controller definitions
+  const std::vector<ControllerDef>& get_controllers() const { return m_controllers; }
+
+  // getting injection definitions
+  const vos_t get_inj_names() { return m_inj_names; }
+  const vod_t get_inj_lats() { return m_inj_lats; }
+  const vod_t get_inj_lons() { return m_inj_lons; }
+  const vod_t get_inj_alts() { return m_inj_alts; }
+  const std::vector<vod_t> get_inj_transfer_funcs() {return m_inj_transfer_funcs; }
 
   void set_context(ProfilingContext* ctx) { m_context = ctx; }
 
@@ -41,23 +81,14 @@ private:
 
   // controller definition
   TimeStamp m_start_time, m_end_time;
-  int m_ctrl_interval_months;
-  vos_t m_ctrl_names;
-  vos_t m_ctrl_types;
-  std::vector<vod_t> m_ctrl_gains;
-  vos_t m_ctrl_fields;
-  vos_t m_ctrl_stats;
-  vod_t m_ctrl_refvals;
-  vos_t m_ctrl_projs;
-  vos_t m_ff_types;
-  vod_t m_ff_vals;
-  std::vector<vos_t> m_cnstr_defs;
+  std::vector<IntervalDef>   m_intervals;
+  std::vector<ControllerDef> m_controllers;
 
   // injection definitions
-  std::vector<std::string> m_inj_names;
-  std::vector<double> m_inj_lats;
-  std::vector<double> m_inj_lons;
-  std::vector<double> m_inj_alts;
+  vos_t m_inj_names;
+  vod_t m_inj_lats;
+  vod_t m_inj_lons;
+  vod_t m_inj_alts;
   std::vector<vod_t> m_inj_transfer_funcs;
 
   // controller history

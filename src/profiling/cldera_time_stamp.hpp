@@ -30,6 +30,38 @@ inline int days_in_year (const int yy) {
   return is_leap(yy) ? 366 : 365;
 }
 
+// 365-day (no-leap) calendar helpers
+inline int days_in_month_365 (const int mm) {
+  static constexpr int dom[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+  return dom[mm-1];
+}
+
+inline int day_of_year_365 (const int mm, const int dd) {
+  int doy = dd;
+  for (int m = 1; m < mm; ++m) {
+    doy += days_in_month_365(m);
+  }
+  return doy;
+}
+
+// Compute span in days between two MMDD dates on a 365-day calendar.
+// If end is before start, wraps across year boundary.
+inline int span_days_365_mmdd (const int start_mmdd, const int end_mmdd) {
+  const int sm = start_mmdd / 100;
+  const int sd = start_mmdd % 100;
+  const int em = end_mmdd / 100;
+  const int ed = end_mmdd % 100;
+
+  const int s_doy = day_of_year_365(sm, sd);
+  const int e_doy = day_of_year_365(em, ed);
+
+  if (e_doy >= s_doy) {
+    return e_doy - s_doy + 1;
+  }
+  // wrap across year end
+  return (365 - s_doy + 1) + e_doy;
+}
+
 // An std::pair would work too, but ymd/tod convey
 // more meaning than first/second.
 // NOTE: ymd is in YYYYMMDD format, while tod is second of the day

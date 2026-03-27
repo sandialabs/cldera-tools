@@ -53,7 +53,34 @@ PYBIND11_EMBEDDED_MODULE(sctrctrl_bindings, m) {
   py::class_<cldera::Controller>(m, "Controller")
     .def("is_ctrl_time", &cldera::Controller::is_ctrl_time)
     .def("get_ctrl_hist_at", &cldera::Controller::get_ctrl_hist_at)
+    .def("get_intervals", &cldera::Controller::get_intervals, py::return_value_policy::reference_internal)
+    .def("get_controllers", &cldera::Controller::get_controllers, py::return_value_policy::reference_internal)
+    .def("get_inj_names", &cldera::Controller::get_inj_names)
+    .def("get_inj_lats", &cldera::Controller::get_inj_lats)
+    .def("get_inj_lons", &cldera::Controller::get_inj_lons)
+    .def("get_inj_alts", &cldera::Controller::get_inj_alts)
+    .def("get_inj_transfer_funcs", &cldera::Controller::get_inj_transfer_funcs)
     .def("run", &cldera::Controller::operator());
+
+  py::class_<cldera::IntervalDef>(m, "IntervalDef")
+    .def_readonly("name", &cldera::IntervalDef::name)
+    .def_readonly("start_mmdd", &cldera::IntervalDef::start_mmdd)
+    .def_readonly("end_mmdd", &cldera::IntervalDef::end_mmdd)
+    .def_readonly("span_days", &cldera::IntervalDef::span_days);
+
+  py::class_<cldera::ControllerDef>(m, "ControllerDef")
+    .def_readonly("name", &cldera::ControllerDef::name)
+    .def_readonly("interval", &cldera::ControllerDef::interval)
+    .def_readonly("type", &cldera::ControllerDef::type)
+    .def_readonly("const_val", &cldera::ControllerDef::const_val)
+    .def_readonly("gains", &cldera::ControllerDef::gains)
+    .def_readonly("field", &cldera::ControllerDef::field)
+    .def_readonly("stat", &cldera::ControllerDef::stat)
+    .def_readonly("refval", &cldera::ControllerDef::refval)
+    .def_readonly("proj", &cldera::ControllerDef::proj)
+    .def_readonly("ff_type", &cldera::ControllerDef::ff_type)
+    .def_readonly("ff_val", &cldera::ControllerDef::ff_val)
+    .def_readonly("cnstr_defs", &cldera::ControllerDef::cnstr_defs);
 
   py::class_<cldera::FieldSingleRank, std::shared_ptr<cldera::FieldSingleRank>>(m, "FieldSingleRank")
     .def("name", &cldera::FieldSingleRank::name)

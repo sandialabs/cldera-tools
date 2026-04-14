@@ -21,6 +21,7 @@ ProfilingArchive(const ekat::Comm& comm,
  : m_comm (comm)
  , m_params (params)
  , m_case_t0 (case_t0)
+ , m_num_streams (0)
 {
   using intvec_t = std::vector<int>;
   if (m_params.get<bool>("Enable Output",true)) {

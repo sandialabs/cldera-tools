@@ -82,7 +82,7 @@ private:
   std::vector<TimeStamp>                  m_time_avg_end;
   std::vector<strmap_t<strmap_t<Field>>>  m_fields_stats;
 
-  int                                     m_num_streams;
+  int                                     m_num_streams = 0;
 };
 
 } // namespace cldera

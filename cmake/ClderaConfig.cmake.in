@@ -6,4 +6,11 @@ include(CMakeFindDependencyMacro)
 # so we know exactly where they are: right next to us!
 find_dependency(Ekat PATHS @CMAKE_INSTALL_PREFIX@)
 
+# Export controller enable flag and only require Python when enabled
+set(CLDERA_ENABLE_CONTROLLER @CLDERA_ENABLE_CONTROLLER@)
+if (CLDERA_ENABLE_CONTROLLER)
+  find_dependency(Python3 COMPONENTS Development Interpreter)
+  find_dependency(pybind11 CONFIG)
+endif()
+
 include (${CMAKE_CURRENT_LIST_DIR}/ClderaTargets.cmake)

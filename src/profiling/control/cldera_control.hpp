@@ -1,5 +1,5 @@
-#ifndef CLDERA_FIELD_STAT_HPP
-#define CLDERA_FIELD_STAT_HPP
+#ifndef CLDERA_CONTROL_HPP
+#define CLDERA_CONTROL_HPP
 
 #include "profiling/cldera_field.hpp"
 
@@ -11,10 +11,10 @@
 
 namespace cldera {
 
-class FieldStat
+class Control
 {
 public:
-  FieldStat (const ekat::Comm& comm,
+  Control (const ekat::Comm& comm,
              const ekat::ParameterList& pl)
    : m_params (pl)
    , m_comm (comm)
@@ -22,9 +22,9 @@ public:
     m_name = m_params.get("name",pl.name());
   }
 
-  virtual ~FieldStat () = default;
+  virtual ~Control () = default;
 
-  // The name of this field stat
+  // The name of this control
   std::string name () const { return m_name; }
 
   // Unlike the previous, this should be the same for all instances of the same type
@@ -33,7 +33,7 @@ public:
   // Given a field, return the layout that the computed stat will have
   virtual FieldLayout stat_layout (const FieldLayout& field_layout) const = 0;
 
-  // Return a list of strings describing fields that are required by this stat
+  // If derived stats need auxiliary fields, they need to override this
   virtual std::vector<std::string> get_aux_fields_names () const { return {}; }
 
   void set_aux_fields (const std::map<std::string,Field>& fields);
@@ -88,9 +88,9 @@ protected:
 };
 
 template<typename... Fs>
-void FieldStat::set_aux_fields (const Fs&... fields) {
+void Control::set_aux_fields (const Fs&... fields) {
   EKAT_REQUIRE_MSG ((ekat::SameType<Field,Fs...>::value),
-      "Error! FieldStats::set_aux_fields needs a variadic list of of fields as input.\n");
+      "Error! Controls::set_aux_fields needs a variadic list of of fields as input.\n");
 
   std::vector<Field> v { {fields...} };
   std::map<std::string,Field> aux_fs;
@@ -100,27 +100,27 @@ void FieldStat::set_aux_fields (const Fs&... fields) {
   set_aux_fields(aux_fs);
 }
 
-// ================= FACTORY for stat creation ================== //
-using StatFactory =
-  ekat::Factory<FieldStat,
+// ================= FACTORY for control creation ================== //
+using ControlFactory =
+  ekat::Factory<Control,
                 std::string,
-                std::shared_ptr<FieldStat>,
+                std::shared_ptr<Control>,
                 const ekat::Comm&,
                 const ekat::ParameterList&>;
 
 template<typename StatType>
-inline std::shared_ptr<FieldStat>
+inline std::shared_ptr<Control>
 create_stat (const ekat::Comm& comm, const ekat::ParameterList& params) {
   return std::make_shared<StatType>(comm,params);
 }
 
-// Special case of stat, returning a scalar
-class FieldScalarStat : public FieldStat
+// Special case of control, returning a scalar
+class ScalarControl : public Control
 {
 public:
-  FieldScalarStat (const ekat::Comm& comm,
-                   const ekat::ParameterList& pl)
-   : FieldStat(comm,pl)
+  ScalarControl (const ekat::Comm& comm,
+                 const ekat::ParameterList& pl)
+   : Control(comm,pl)
   { /* Nothing to do here */ }
 
   FieldLayout stat_layout (const FieldLayout& /*field_layout*/) const override {
@@ -128,23 +128,6 @@ public:
   }
 };
 
-// Special case of stat, returning a single part field
-class FieldSinglePartStat : public FieldStat
-{
-public:
-  FieldSinglePartStat (const ekat::Comm& comm,
-                       const ekat::ParameterList& pl)
-   : FieldStat(comm,pl)
-  { /* Nothing to do here */ }
-
-  std::vector<int> compute_stat_strides(const FieldLayout& field_layout) const;
-
-  int compute_stat_index(const int ipart, const int part_index,
-                         const int field_rank, const int field_part_dim,
-                         const std::vector<int>& part_dims,
-                         const std::vector<int>& stat_strides) const;
-};
-
 } // namespace cldera
 
-#endif // CLDERA_FIELD_STAT
+#endif // CLDERA_CONTROL

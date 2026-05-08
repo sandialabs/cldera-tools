@@ -57,6 +57,11 @@ EkatCreateUnitTest (masked_integral masked_integral.cpp
   MPI_RANKS 1 ${CLDERA_TESTS_MAX_RANKS}
 )
 
+EkatCreateUnitTest (masked_write masked_write.cpp
+  LIBS cldera-profiling ekat
+  MPI_RANKS 1 ${CLDERA_TESTS_MAX_RANKS}
+)
+
 # Test Pathway
 EkatCreateUnitTest (pathway pathway.cpp
   LIBS cldera-profiling ekat)
@@ -73,3 +78,7 @@ set (CLDERA_TEST_YAMLS
 
 # Copy the yaml files to the destination
 FILE(COPY ${CLDERA_TEST_YAMLS} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
+if (CLDERA_ENABLE_CONTROL_TOOL)
+  add_subdirectory(control)
+endif()

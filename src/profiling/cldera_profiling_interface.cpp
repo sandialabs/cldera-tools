@@ -420,6 +420,83 @@ void cldera_compute_stats_c (const int ymd, const int tod)
   ++num_calls;
 }
 
+void cldera_compute_controls_c (const int ymd, const int tod)
+{
+#if defined(CLDERA_ENABLE_CONTROL_TOOL)
+  auto& c = get_curr_context();
+  // If input file was not provided, cldera does nothing
+  if (not c.inited()) { return; }
+
+  cldera::TimeStamp time = {ymd, tod};
+  if (time==c.get<TimeStamp>("run_t0")) {
+    // E3SM runs a bit of its timestep during init, to bootstrap
+    // some surface fluxes. We are not interested in the stats at
+    // that time.
+    return;
+  }
+  static std::map<std::string,int> num_calls_map;
+  auto& num_calls = num_calls_map[c.name()];
+
+  const auto& comm = c.get_comm();
+  auto& params = c.get_params();
+
+  // There is some rank that enters this call after the others,
+  // making the relative timing of internal cldera funcs harder.
+  // We can use the following to add a barrier upon entrance in
+  // this routine, so that all ranks will start together
+  if (params.get<bool>("Add Write Fields Barrier",false)) {
+    comm.barrier();
+  }
+
+  if (comm.am_i_root()) {
+    printf(" [CLDERA] Writing fields for context '%s'...\n",c.name().c_str());
+    printf(" [CLDERA]   time: %s...\n",time.to_string().c_str());
+  }
+
+  auto& ts = c.timing();
+  ts.start_timer(c.name() + "::compute_controls");
+
+  using stat_ptr_t = std::shared_ptr<FieldStat>;
+  using requests_t = std::map<std::string,std::vector<stat_ptr_t>>;
+  auto& requests = c.get<requests_t>("requests");
+
+  auto& archive = c.get<ProfilingArchive>("archive");
+
+  // for (const auto& it : requests) {
+  //   const auto& fname = it.first;
+  //   const auto& stats = it.second;
+  //   const auto& f = archive.get_field(fname);
+
+  //   for (auto& stat : stats) {
+  //     archive.update_stat(fname,stat->name(),stat->compute(time));
+  //   }
+  // }
+
+  // archive.end_timestep(time);
+  ts.stop_timer(c.name() + "::compute_controls");
+
+  if (comm.am_i_root()) {
+    printf(" [CLDERA] Writing fields for context '%s'...done!\n",c.name().c_str());
+  }
+
+  const int timings_flush_freq = params.get("Timings Flush Freq",0);
+  if (ts.is_active() and timings_flush_freq>0 and num_calls%timings_flush_freq==0) {
+    const auto timings_fname = params.get<std::string>("Timing Filename","");
+    const auto& timing = c.timing();
+    std::ofstream timings_file;
+    std::stringstream blackhole;
+    if (comm.am_i_root()) {
+      timings_file.open(timings_fname);
+    }
+    std::ostream& ofile = timings_file;
+    std::ostream& onull = blackhole;
+
+    std::ostream& out = comm.am_i_root() ? ofile : onull;
+    timing.dump(out,comm);
+  }
+#endif
+}
+
 } // namespace cldera
 
 } // extern "C"

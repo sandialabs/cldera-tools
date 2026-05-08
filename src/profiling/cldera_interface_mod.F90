@@ -26,6 +26,8 @@ module cldera_interface_mod
   end interface cldera_set_field_part_data
 contains
 
+
+
   ! Initialize cldera context and main structures
   subroutine cldera_init (context_name, comm, case_t0_ymd, case_t0_tod, run_t0_ymd, run_t0_tod, stop_ymd, stop_tod)
     use iso_c_binding, only: c_char, c_loc
@@ -39,6 +41,8 @@ contains
 
     call cldera_init_c(c_loc(context_name_c),f2c(comm),case_t0_ymd,case_t0_tod,run_t0_ymd,run_t0_tod,stop_ymd,stop_tod)
   end subroutine cldera_init
+
+
 
   ! Switches which cldera context is active
   subroutine cldera_switch_context (context_name)
@@ -64,6 +68,8 @@ contains
 
     masterproc = am_i_master
   end subroutine cldera_set_masterproc
+
+
 
   ! Add a partitioned field to cldera data base
   subroutine cldera_add_partitioned_field(fname,rank,dims,dimnames,nparts,part_dim,part_dim_alloc_size,view,dtype)
@@ -124,6 +130,8 @@ contains
                 f2c(nparts),f2c(rank-part_dim),f2c(part_dim_alloc_size), &
                 view_c,c_loc(dtype_c))
   end subroutine cldera_add_partitioned_field
+
+
 
   ! Set data of a particular field partition in the cldera data base
   subroutine cldera_set_field_part_extent (fname,part,part_extent)
@@ -198,6 +206,8 @@ contains
     call csfpd_c(c_loc(fname_c),f2c(part-1),c_loc(data(1)),c_loc(dtype_c))
   end subroutine cldera_set_field_part_data_int_1d
 
+
+
   ! Commit a single field
   subroutine cldera_commit_field (fname)
     use iso_c_binding, only: c_char, c_loc
@@ -211,12 +221,16 @@ contains
     call cldera_commit_field_c(c_loc(fname_c))
   end subroutine cldera_commit_field
 
+
+
   ! Check all parts have been set in each field
   subroutine cldera_commit_all_fields ()
     use cldera_interface_f2c_mod, only: cldera_commit_all_fields_c
 
     call cldera_commit_all_fields_c()
   end subroutine cldera_commit_all_fields
+
+
 
   ! Compute all stats
   subroutine cldera_compute_stats (ymd, tod)
@@ -225,6 +239,18 @@ contains
 
     call cldera_compute_stats_c(f2c(ymd),f2c(tod))
   end subroutine cldera_compute_stats
+
+
+
+  ! Write data to the requested fields
+  subroutine cldera_compute_controls (ymd, tod)
+    use cldera_interface_f2c_mod, only: cldera_compute_controls_c
+    integer, intent(in) :: ymd, tod
+
+    call cldera_compute_controls_c(f2c(ymd),f2c(tod))
+  end subroutine cldera_compute_controls
+
+
 
   ! Finalize any pending op (e.g., I/O) and clean up the cldera session
   subroutine cldera_clean_up ()

@@ -13,8 +13,11 @@ public:
 
   std::string type () const override { return "masked_write"; }
 
-  // Return a factor to convert Tg to molecules
-  Real get_conversion_factor () const { return 1e9 * m_avogadro_number / m_molecular_weight; }
+  // Return a factor to convert Tg/yr to molecules/s (need to multiply by volume in cm^3 after this conversion)
+  Real get_conversion_factor () const { return m_sec_per_year * m_g_per_tg / m_avogadros_number * m_molecular_weight; }
+
+  // Set the write amounts according to a vector input - must match m_write_values size
+  void set_write_values(const std::vector<Real> &write_values);
 
   std::vector<std::string> get_aux_fields_names () const override;
 
@@ -32,6 +35,8 @@ protected:
 
   void compute_impl () override;
 
+  void print_vars ();
+
   template<typename T, int N>
   void do_compute_impl ();
 
@@ -46,7 +51,10 @@ protected:
   // The area field - area
   Field         m_area_field;
 
-  // Map every mask value to an index in [0,N), with N=number_of_mask_values
+  // The number of injection sites
+  int m_num_injection_sites;
+
+  // Map every mask value to an index in [0, m_num_injection_sites)
   std::map<int,int>   m_mask_val_to_stat_entry;
   
   // m_mask_cols[imask][icol] gives the local column ids to write at the requested mask
@@ -57,6 +65,9 @@ protected:
 
   // m_mask_area[imask][icol] gives the area (not volume) of the mask column
   std::vector<std::vector<Real>> m_mask_area;
+
+  // m_mask_thickness[imask][icol] gives the thickness of the mask column at the injection height
+  std::vector<std::vector<Real>> m_mask_thickness;
 
   // m_mask_height[imask] gives the height of the write
   std::vector<Real> m_mask_height;
@@ -75,8 +86,10 @@ protected:
   std::string m_mask_field_name;
 
   // Constants for conversions
-  const Real m_avogadro_number = 6.02214076e23; 
-  const Real m_molecular_weight = 64 * 1e-3; // technically 64.066 - not sure this matters, but it's more sig figs
+  const Real m_avogadros_number = 6.02214076e23;
+  const Real m_molecular_weight = 64.066;
+  const Real m_sec_per_year = 31536000;
+  const Real m_g_per_tg = 1.0e12;
 
   // Allows to have a stat that saves the mask field
   bool          m_output_mask_field;

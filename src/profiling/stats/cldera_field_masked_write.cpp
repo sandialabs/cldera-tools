@@ -9,9 +9,23 @@
 namespace cldera {
 
 FieldMaskedWrite::
+set_write_values(const std::vector<Real> &write_values) {
+  EKAT_REQUIRE_MSG(write_values.size() == m_write_values.size(),
+  "[masked_write] set_write_values called with an array of incorrect size.\n"
+  " - m_write_values size: " + m_write_values.size() + "\n"
+  " - values size:         " + write_values.size() + "\n");
+
+  for(int i=0; i<m_write_values.size(); ++i) {
+    m_write_values[i] = write_values[i];
+  }
+}
+
+
+FieldMaskedWrite::
 FieldMaskedWrite (const ekat::Comm& comm,
                   const ekat::ParameterList& pl)
  : FieldStat(comm,pl)
+ , m_mask_filename(m_params.get<std::string>("mask_file_name"))
  , m_write_values(m_params.get<std::vector<Real>>("write_values"))
  , m_write_heights(m_params.get<std::vector<Real>>("write_heights"))
  , m_default_write(m_params.get<Real>("default_write"))
@@ -19,7 +33,8 @@ FieldMaskedWrite (const ekat::Comm& comm,
 {
   m_output_mask_field = m_params.get("output_mask_field",false); // GH: is this needed?
 
-  std::cout << "[masked_write] variables:\n"
+  std::cout << "[masked_write] constructor parameters:\n"
+            << "  m_mask_filename   = " << m_mask_filename << "\n"
             << "  m_mask_field_name = " << m_mask_field_name << "\n"
             << "  m_default_write   = " << m_default_write << "\n"
             << "  m_write_values    = [" << m_write_values << "]\n"
@@ -71,8 +86,8 @@ set_aux_fields_impl ()
   auto area_size = m_area_field.layout().size();
   auto height_data = m_height_field.data<Real>();
   auto height_size = m_height_field.layout().size();
-  std::cout << "Checkpoint 1" << std::endl;
 
+  std::cout << "Checkpoint 1" << std::endl;
   if (m_aux_fields.count(m_mask_field_name)>0) {
     m_mask_field = m_aux_fields.at(m_mask_field_name);
   } else {
@@ -149,13 +164,108 @@ set_aux_fields_impl ()
 }
 
 
-void FieldMaskedWrite::compute_write_heights() {
-  
+void FieldMaskedWrite::compute_write_thicknesses() {
+  // for each injection site, grab the index of all local columns stored in m_mask_cols
+  for(int i=0; i<m_num_injection_sites; ++i) {
+    for(int j=0; j<m_mask_cols[i].size(); ++j) {
+      int col_id = m_mask_cols[i][j];
+      
+      // TODO: loop over the zi field at the col_id until the correct zi height is passed from m_mask_height
+      
+      // store that value in m_ilev
+      m_ilev[i][j] = 20;
+    }
+  }
+}
+
+
+void FieldMaskedWrite::compute_write_volumes() {
+  // for each injection site, grab the index of all local columns stored in m_mask_cols
+
+  // for each local column, grab area and the two zi values from m_ilev
+
+  // 
+
 
 }
 
-void FieldMaskedWrite::compute_write_volumes() {
+void FieldMaskedWrite::print_vars () {
+  std::cout << "m_num_injection_sites = " << m_num_injection_sites << "\n";
+  //std::map<int,int>   m_mask_val_to_stat_entry;
 
+  // m_mask_cols
+  std::cout << "m_mask_cols = [";
+  for(int i=0; i<m_mask_cols.size(); ++i) {
+    std::cout << "[";
+    for(int j=0; j<m_mask_cols[i].size(); ++j) {
+      std::cout << m_mask_cols[i][j] << ",";
+    }
+    std::cout << "],";
+  }
+  std::cout << "]\n";
+
+  // m_ilev
+  std::cout << "m_ilev = [";
+  for(int i=0; i<m_ilev.size(); ++i) {
+    std::cout << "[";
+    for(int j=0; j<m_ilev[i].size(); ++j) {
+      std::cout << m_ilev[i][j] << ",";
+    }
+    std::cout << "],";
+  }
+  std::cout << "]\n";
+
+  // m_mask_area
+  std::cout << "m_mask_area = [";
+  for(int i=0; i<m_mask_area.size(); ++i) {
+    std::cout << "[";
+    for(int j=0; j<m_mask_area[i].size(); ++j) {
+      std::cout << m_mask_area[i][j] << ",";
+    }
+    std::cout << "],";
+  }
+  std::cout << "]\n";
+
+  // m_mask_thickness
+  std::cout << "m_mask_thickness = [";
+  for(int i=0; i<m_mask_thickness.size(); ++i) {
+    std::cout << "[";
+    for(int j=0; j<m_mask_thickness[i].size(); ++j) {
+      std::cout << m_mask_thickness[i][j] << ",";
+    }
+    std::cout << "],";
+  }
+  std::cout << "]\n";
+
+  // m_mask_height
+  std::cout << "m_mask_height = [";
+  for(int i=0; i<m_mask_height.size(); ++i) {
+    std::cout << m_mask_height[i] << ",";
+  }
+  std::cout << "]\n";
+
+  // m_write_values
+  std::cout << "m_write_values = [";
+  for(int i=0; i<m_write_values.size(); ++i) {
+    std::cout << m_write_values[i] << ",";
+  }
+  std::cout << "]\n";
+
+  // m_write_heights
+  std::cout << "m_write_heights = [";
+  for(int i=0; i<m_write_heights.size(); ++i) {
+    std::cout << m_write_heights[i] << ",";
+  }
+  std::cout << "]\n";
+
+  // m_default_write
+  std::cout << "m_default_write = " << m_default_write << "\n";
+
+  // m_mask_field_name
+  std::cout << "m_mask_field_name = " << m_mask_field_name << "\n";
+
+  // flush output
+  std::cout << std::endl;
 }
 
 

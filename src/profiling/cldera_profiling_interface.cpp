@@ -5,8 +5,14 @@
 #include "cldera_profiling_archive.hpp"
 #include "cldera_pathway_factory.hpp"
 #include "stats/cldera_register_stats.hpp"
+#include "stats/cldera_field_single_rank.hpp"
 
 #include "timing/cldera_timing_session.hpp"
+
+#ifdef CLDERA_CONTROLLER
+  #include "cldera_controller.hpp"
+  #include "cldera_controller_python.hpp"
+#endif
 
 #include <ekat/ekat_parameter_list.hpp>
 #include <ekat/io/ekat_yaml.hpp>
@@ -97,6 +103,12 @@ void cldera_init_c (const char*& context_name,
     c.create<ProfilingArchive>("archive",comm,case_t0,run_t0,profiling_output_list);
   }
 
+#ifdef CLDERA_CONTROLLER
+  if (params.isParameter("Controller")) {
+    c.create<Controller>("controller", params);
+  }
+#endif
+
   if (comm.am_i_root()) {
     printf(" [CLDERA] Initializing profiling context '%s' ... done!\n",context_name);
   }
@@ -126,6 +138,11 @@ void cldera_clean_up_c ()
     auto& pathway = c.get<std::shared_ptr<cldera::Pathway>>("pathway");
     pathway->dump_test_history_to_yaml(history_filename);
   }
+
+  // Handle Python cleanup here to avoid shutdown ordering errors
+#ifdef CLDERA_CONTROLLER
+  controller_finalize_python();
+#endif
 
   // Clean up and remove context from the session
   // If this was the last stored context, this call will also clean up the session
@@ -370,13 +387,41 @@ void cldera_compute_stats_c (const int ymd, const int tod)
 
   auto& archive = c.get<ProfilingArchive>("archive");
 
+  // Cache static SingleRank stats for gids/area once, so all ranks participate
+#ifdef CLDERA_CONTROLLER
+  if (!c.has_data("controller_static_singlerank")) {
+    auto& cached = c.create<std::vector<std::shared_ptr<FieldSingleRank>>>("controller_static_singlerank");
+    if (archive.has_field("col_gids")) {
+      ekat::ParameterList pl("col_gids");
+      auto sr = std::make_shared<FieldSingleRank>(comm, pl);
+      sr->set_field(archive.get_field("col_gids"));
+      sr->create_stat_field();
+      sr->compute(time);
+      cached.push_back(sr);
+    }
+    if (archive.has_field("area")) {
+      ekat::ParameterList pl("area");
+      auto sr = std::make_shared<FieldSingleRank>(comm, pl);
+      sr->set_field(archive.get_field("area"));
+      sr->create_stat_field();
+      sr->compute(time);
+      cached.push_back(sr);
+    }
+  }
+#endif
+
   for (const auto& it : requests) {
     const auto& fname = it.first;
     const auto& stats = it.second;
     const auto& f = archive.get_field(fname);
 
     for (auto& stat : stats) {
-      archive.update_stat(fname,stat->name(),stat->compute(time));
+      auto stat_field = stat->compute(time);
+      // Do not write singlerank stats to disk (avoid heavy I/O and rank-dim issues).
+      if (stat->type() == "singlerank") {
+        continue;
+      }
+      archive.update_stat(fname,stat->name(),stat_field);
     }
   }
 
@@ -419,6 +464,46 @@ void cldera_compute_stats_c (const int ymd, const int tod)
   }
   ++num_calls;
 }
+
+
+#ifdef CLDERA_CONTROLLER
+void cldera_compute_controller_c (const int ymd, const int tod)
+{
+  // TODO: handle starting controller at run init
+  //    Could just do it on the Python side?
+
+  auto& c = get_curr_context();
+  // If input file was not provided, cldera does nothing
+  if (not c.inited()) { return; }
+
+  const auto& comm = c.get_comm();
+  auto& params = c.get_params();
+
+  // Case is not controlled
+  if (!params.isParameter("Controller")) { return; }
+
+  auto& ctrl = c.get<Controller>("controller");
+
+  // Not time to trigger controller
+  if (!ctrl.is_ctrl_time(ymd, tod)) { return; }
+
+  cldera::TimeStamp time = {ymd, tod};
+  if (comm.am_i_root()) {
+    printf(" [CLDERA] Computing controller for context '%s'...\n",c.name().c_str());
+    printf(" [CLDERA]   time: %s...\n",time.to_string().c_str());
+  }
+
+  auto& ts = c.timing();
+  ts.start_timer(c.name() + "::compute_controller");
+
+  // Call controller
+  ctrl.set_context(&c);
+  std::vector<double> mass_inj = ctrl(ymd, tod);
+
+  ts.stop_timer(c.name() + "::compute_controller");
+
+}
+#endif
 
 } // namespace cldera
 

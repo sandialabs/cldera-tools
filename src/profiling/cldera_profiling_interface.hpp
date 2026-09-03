@@ -38,6 +38,11 @@ void cldera_set_field_part_size_c (
     const int   part,
     const int   part_size);
 
+void cldera_set_field_part_extent_c (
+    const char*& name,
+    const int   part,
+    const int   part_extent);
+
 void cldera_set_field_part_data_c (
     const char*& name,
     const int   part,
@@ -49,6 +54,8 @@ void cldera_commit_field_c (const char*& name);
 void cldera_commit_all_fields_c ();
 
 void cldera_compute_stats_c (const int ymd, const int tod);
+
+void cldera_compute_controller_c (const int ymd, const int tod);
 
 } // namespace cldera
 

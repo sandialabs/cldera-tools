@@ -58,6 +58,9 @@ public:
   // recording controller history
   // void hist_init();
   vod_t get_ctrl_hist_at(const int ymd);
+  bool has_ctrl_hist_at(const int ymd) const { return m_ctrl_hist.find(ymd)!=m_ctrl_hist.end(); }
+  // Overwrite history entry (used to store the broadcast result on ALL ranks)
+  void set_ctrl_hist_at(const int ymd, const vod_t& v) { m_ctrl_hist[ymd] = v; }
 
   // calculating controller
   vod_t operator()(const int ymd, const int tod);

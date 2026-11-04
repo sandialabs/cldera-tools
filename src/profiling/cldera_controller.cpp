@@ -105,6 +105,26 @@ Controller(const ekat::ParameterList& params)
       if (ctrl_type  == "constant") {
         cdef.const_val = ctrl_def.get<double>("Value");
 
+        // BMW: a constant controller may optionally name a feedback Field/Stat. It does not
+        //      use it to compute its output, but it is passed to (and logged by) the Python
+        //      controller, which lets us test the full feedback data path before switching
+        //      to a P/PI/PID controller.
+        if (ctrl_def.isParameter("Stat")) {
+          auto ctrl_field = ctrl_def.get<std::string>("Field");
+          EKAT_REQUIRE_MSG(
+            std::find(prof_fields.begin(), prof_fields.end(), ctrl_field) != prof_fields.end(),
+            "Controller field \"" + ctrl_field + "\" not found in tracked fields"
+          );
+          auto field_stats = params.sublist(ctrl_field).get<vos_t>("Compute Stats");
+          auto ctrl_stat = ctrl_def.get<std::string>("Stat");
+          EKAT_REQUIRE_MSG(
+            std::find(field_stats.begin(), field_stats.end(), ctrl_stat) != field_stats.end(),
+            "Invalid controller statistic \"" + ctrl_stat + "\" for tracked field \"" + ctrl_field + "\"\n"
+          );
+          cdef.field = ctrl_field;
+          cdef.stat  = ctrl_stat;
+        }
+
       // actual controller
       } else {
 

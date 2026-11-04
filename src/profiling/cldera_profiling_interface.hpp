@@ -49,13 +49,38 @@ void cldera_set_field_part_data_c (
     const void*& data,
     const char*& dtype);
 
+// Like the above, but cldera may WRITE into the host-app memory.
+// The field must have been made writable via cldera_set_field_writable_c
+// (after add_partitioned_field, before setting any data).
+void cldera_set_field_part_data_nonconst_c (
+    const char*& name,
+    const int   part,
+    void*& data,
+    const char*& dtype);
+
+void cldera_set_field_writable_c (const char*& name);
+
+// Tell the SAI writer (if any) whether the target field is stored bottom-up
+// (EAM alt_data, flipped later by extfrc_set) or top-down (model order).
+void cldera_set_sai_storage_bottom_up_c (const bool bottom_up);
+
+// Returns 1 if the context yaml requested an SAI writer, 0 otherwise.
+int cldera_has_sai_writer_c ();
+
 void cldera_commit_field_c (const char*& name);
 
 void cldera_commit_all_fields_c ();
 
 void cldera_compute_stats_c (const int ymd, const int tod);
 
+// Run the controller if it's time to (also called internally by compute_stats).
+// Result is broadcast to all ranks and stored in the context.
 void cldera_compute_controller_c (const int ymd, const int tod);
+
+// Copy the latest controller output (Tg/yr per injection site) into vals.
+// On input, *nvals is the capacity of vals; on output, the number of values.
+// *has_value is 0 if the controller has not produced any output yet.
+void cldera_get_controller_output_c (double* vals, int* nvals, int* has_value);
 
 } // namespace cldera
 

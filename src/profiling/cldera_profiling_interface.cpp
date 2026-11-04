@@ -9,6 +9,8 @@
 
 #include "timing/cldera_timing_session.hpp"
 
+#include "cldera_sai_writer.hpp"
+
 #ifdef CLDERA_CONTROLLER
   #include "cldera_controller.hpp"
   #include "cldera_controller_python.hpp"
@@ -105,7 +107,24 @@ void cldera_init_c (const char*& context_name,
 
 #ifdef CLDERA_CONTROLLER
   if (params.isParameter("Controller")) {
-    c.create<Controller>("controller", params);
+    auto& ctrl = c.create<Controller>("controller", params);
+
+    // BMW: if the context yaml has an 'SAI Writer' sublist, create the C++ writer that
+    //      applies the controller output to the (writable) EAM 'sai' forcing field.
+    //      Sites (lat/lon/alt) come from the controller yaml 'Injections', so they are
+    //      defined in ONE place only.
+    if (params.isSublist("SAI Writer")) {
+      std::vector<SAIWriter::Site> sites;
+      const auto names = ctrl.get_inj_names();
+      const auto lats  = ctrl.get_inj_lats();
+      const auto lons  = ctrl.get_inj_lons();
+      const auto alts  = ctrl.get_inj_alts();
+      for (size_t i=0; i<names.size(); ++i) {
+        // Controller yaml 'alt' is in km
+        sites.push_back(SAIWriter::Site{names[i],lats[i],lons[i],alts[i]*1000.0});
+      }
+      c.create<SAIWriter>("sai_writer",comm,params.sublist("SAI Writer"),sites);
+    }
   }
 #endif
 
@@ -265,6 +284,71 @@ void cldera_set_field_part_data_c (
     EKAT_ERROR_MSG ("Invalid/unsupported data type: " + dtype + "\n");
   }
   ts.stop_timer(c.name() + "::set_field_data");
+}
+
+void cldera_set_field_part_data_nonconst_c (
+    const char*& name,
+    const int   part,
+    void*& data_in,
+    const char*& dtype_in)
+{
+  // Like cldera_set_field_part_data_c, but hands cldera a NON-CONST pointer to
+  // host-app memory, so that cldera may write into it. Only valid for View fields
+  // registered as writable (see cldera_add_partitioned_field_c, read_only=false).
+  auto& c = get_curr_context();
+
+  // If input file was not provided, cldera does nothing
+  if (not c.inited()) { return; }
+
+  auto& ts = c.timing();
+  ts.start_timer(c.name() + "::set_field_data");
+
+  auto& archive = c.get<ProfilingArchive>("archive");
+
+  auto& f = archive.get_field(name);
+  EKAT_REQUIRE_MSG (f.data_access()==DataAccess::View and not f.is_read_only(),
+      "[cldera_set_field_part_data_nonconst_c] Error! Field must be a writable View field.\n"
+      " - field name: " + std::string(name) + "\n");
+  std::string dtype = dtype_in;
+  if (dtype=="real") {
+    f.set_part_data<Real> (part,reinterpret_cast<Real*>(data_in));
+  } else if (dtype=="int") {
+    f.set_part_data<int> (part,reinterpret_cast<int*>(data_in));
+  } else {
+    EKAT_ERROR_MSG ("Invalid/unsupported data type: " + dtype + "\n");
+  }
+  ts.stop_timer(c.name() + "::set_field_data");
+}
+
+void cldera_set_field_writable_c (const char*& name)
+{
+  auto& c = get_curr_context();
+  if (not c.inited()) { return; }
+
+  auto& archive = c.get<ProfilingArchive>("archive");
+  archive.get_field(name).set_read_only(false);
+}
+
+void cldera_set_sai_storage_bottom_up_c (const bool bottom_up)
+{
+  auto& c = get_curr_context();
+  if (not c.inited()) { return; }
+
+  // No-op if no SAI writer was requested in the yaml
+  if (c.has_data("sai_writer")) {
+    c.get<SAIWriter>("sai_writer").set_storage_bottom_up(bottom_up);
+    if (c.get_comm().am_i_root()) {
+      printf(" [CLDERA] SAIWriter: target field storage is %s\n",
+             bottom_up ? "BOTTOM-UP (EAM alt_data, will be flipped by extfrc_set)" : "TOP-DOWN (model order)");
+    }
+  }
+}
+
+int cldera_has_sai_writer_c ()
+{
+  auto& c = get_curr_context();
+  if (not c.inited()) { return 0; }
+  return c.has_data("sai_writer") ? 1 : 0;
 }
 
 void cldera_commit_field_c (const char*& name)
@@ -432,6 +516,20 @@ void cldera_compute_stats_c (const int ymd, const int tod)
     printf(" [CLDERA] Computing stats for context '%s'...done!\n",c.name().c_str());
   }
 
+  // BMW: controller + SAI writer. The controller runs (at most) once per control
+  //      interval, using the stats just computed. The SAI writer runs EVERY call,
+  //      because EAM re-fills the 'sai' forcing array from file (zeros) at every
+  //      step in interpolate_trcdata, before tphysbc; this call happens after
+  //      tphysbc and before tphysac/chemistry, which is where extfrc_set reads it.
+#ifdef CLDERA_CONTROLLER
+  cldera_compute_controller_c(ymd,tod);
+#endif
+  if (c.has_data("sai_writer")) {
+    ts.start_timer(c.name() + "::sai_writer");
+    c.get<SAIWriter>("sai_writer").apply(archive,time);
+    ts.stop_timer(c.name() + "::sai_writer");
+  }
+
   // If pathway is enabled, do it
   if (params.isSublist("Pathway")) {
     c.timing().start_timer(c.name() + "::run_pathway_tests");
@@ -469,9 +567,6 @@ void cldera_compute_stats_c (const int ymd, const int tod)
 #ifdef CLDERA_CONTROLLER
 void cldera_compute_controller_c (const int ymd, const int tod)
 {
-  // TODO: handle starting controller at run init
-  //    Could just do it on the Python side?
-
   auto& c = get_curr_context();
   // If input file was not provided, cldera does nothing
   if (not c.inited()) { return; }
@@ -484,24 +579,78 @@ void cldera_compute_controller_c (const int ymd, const int tod)
 
   auto& ctrl = c.get<Controller>("controller");
 
-  // Not time to trigger controller
-  if (!ctrl.is_ctrl_time(ymd, tod)) { return; }
+  // BMW: trigger at the start of each control interval (tod==0 on the interval's
+  //      start day), AND on the very first call of each run. The latter is needed
+  //      because (a) the first stats call of a startup run is at tod>0 (E3SM
+  //      #5904 workaround), and (b) on restarts the controller history is not
+  //      saved, so we must recompute the current rates.
+  const bool first_call = not c.has_data("ctrl_mass_inj");
+  if (not first_call and !ctrl.is_ctrl_time(ymd, tod)) { return; }
+  // Guard against double triggering on the same day (Controller::operator() errors out on that).
+  // Can happen if the first call of the run is at tod==0 of an interval start day.
+  if (ctrl.has_ctrl_hist_at(ymd)) { return; }
 
   cldera::TimeStamp time = {ymd, tod};
   if (comm.am_i_root()) {
-    printf(" [CLDERA] Computing controller for context '%s'...\n",c.name().c_str());
+    printf(" [CLDERA] Computing controller for context '%s'%s...\n",c.name().c_str(),
+           first_call ? " (first call of this run)" : "");
     printf(" [CLDERA]   time: %s...\n",time.to_string().c_str());
   }
 
   auto& ts = c.timing();
   ts.start_timer(c.name() + "::compute_controller");
 
-  // Call controller
+  // Call controller (Python runs on root only; other ranks get an empty vector)
   ctrl.set_context(&c);
   std::vector<double> mass_inj = ctrl(ymd, tod);
 
-  ts.stop_timer(c.name() + "::compute_controller");
+  // BMW: broadcast the result to all ranks. Every rank knows the number of sites
+  //      from the yaml, so the size is known everywhere. Check the size on root first,
+  //      and broadcast the check, so that all ranks abort consistently.
+  const int ninj = ctrl.get_inj_names().size();
+  int ok = comm.am_i_root() ? (static_cast<int>(mass_inj.size())==ninj ? 1 : 0) : 1;
+  comm.broadcast(&ok,1,comm.root_rank());
+  EKAT_REQUIRE_MSG (ok==1,
+      "[cldera_compute_controller_c] Error! Python controller returned the wrong number of values.\n"
+      " - expected (number of 'Injections'): " + std::to_string(ninj) + "\n");
+  mass_inj.resize(ninj);
+  comm.broadcast(mass_inj.data(),ninj,comm.root_rank());
+  // Record the broadcast value in the history on ALL ranks (operator() only has it on root),
+  // so that has_ctrl_hist_at behaves identically everywhere.
+  ctrl.set_ctrl_hist_at(ymd,mass_inj);
 
+  // Store result, so the SAI writer (and anyone else) can use it until the next trigger
+  if (first_call) {
+    c.create<std::vector<double>>("ctrl_mass_inj",mass_inj);
+  } else {
+    c.get<std::vector<double>>("ctrl_mass_inj") = mass_inj;
+  }
+  if (c.has_data("sai_writer")) {
+    c.get<SAIWriter>("sai_writer").set_rates(mass_inj,time);
+  }
+
+  ts.stop_timer(c.name() + "::compute_controller");
+}
+
+void cldera_get_controller_output_c (double* vals, int* nvals, int* has_value)
+{
+  auto& c = get_curr_context();
+  *has_value = 0;
+  if (not c.inited() or not c.has_data("ctrl_mass_inj")) { *nvals = 0; return; }
+  const auto& v = c.get<std::vector<double>>("ctrl_mass_inj");
+  EKAT_REQUIRE_MSG (*nvals >= static_cast<int>(v.size()),
+      "[cldera_get_controller_output_c] Error! Output buffer too small.\n");
+  std::copy(v.begin(),v.end(),vals);
+  *nvals = v.size();
+  *has_value = 1;
+}
+#else
+// Stubs, so that the host app can link even without the controller enabled
+void cldera_compute_controller_c (const int /* ymd */, const int /* tod */) {}
+void cldera_get_controller_output_c (double* /* vals */, int* nvals, int* has_value)
+{
+  *nvals = 0;
+  *has_value = 0;
 }
 #endif
 

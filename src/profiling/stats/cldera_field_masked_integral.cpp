@@ -124,7 +124,11 @@ set_aux_fields_impl ()
     w_int_stat.set_field(m_weight_field);
     w_int_stat.set_aux_fields (aux_fields);
     w_int_stat.create_stat_field();
-    m_weight_integral = w_int_stat.compute(m_timestamp).read_only();
+    // NOTE: do NOT mark read_only: FieldBoundedMaskedIntegral recomputes this
+    //       weight integral in place at every compute. Before writable/read-only
+    //       was enforced in Field, read_only() did not prevent that; keep the
+    //       old behavior.
+    m_weight_integral = w_int_stat.compute(m_timestamp);
     if (m_use_weight) {
       // Store in aux fields, so it gets exposed and other stats can use it
       m_aux_fields[m_weight_integral.name()] = m_weight_integral;

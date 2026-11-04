@@ -191,9 +191,48 @@ void call_python_controller_hook (ProfilingContext& c,
       singlerank_list.append(py::cast(sr));
     }
 
-    // Call controller interface, get back mass injections
-    py::object result = func(py::cast(&ctrl, py::return_value_policy::reference),
-                             singlerank_list, ymd, tod);
+    // BMW: also pass the latest values of all (non-singlerank) stats as a plain dict
+    //      {stat_name: list of floats}. Global stats such as masked integrals over the
+    //      global mask (e.g. TREFHT_glb = global-mean 2m temperature) are already
+    //      all-reduced, so they are identical on every rank and need no gather.
+    //      Real stats only; int stats are skipped.
+    py::dict stats_dict;
+    if (c.has_data("requests")) {
+      auto& requests = c.get<requests_t>("requests");
+      for (auto& it : requests) {
+        for (auto& stat : it.second) {
+          if (stat->type() == "singlerank") {
+            continue;
+          }
+          const auto& sf = stat->get_stat_field();
+          if (not sf.committed() or sf.data_type()!=RealType or sf.nparts()!=1) {
+            continue;
+          }
+          auto v = sf.view<const Real>();
+          const int n = sf.layout().size();
+          py::list vals;
+          for (int i=0; i<n; ++i) {
+            vals.append(v(i));
+          }
+          stats_dict[py::str(stat->name())] = vals;
+        }
+      }
+    }
+
+    // Call controller interface, get back mass injections.
+    // For backward compatibility, pass the stats dict as a keyword argument only if
+    // the python function accepts it.
+    py::object result;
+    py::module_ inspect = py::module_::import("inspect");
+    py::object sig = inspect.attr("signature")(func);
+    py::object params = sig.attr("parameters");
+    if (params.attr("__contains__")(py::str("stats")).cast<bool>()) {
+      result = func(py::cast(&ctrl, py::return_value_policy::reference),
+                    singlerank_list, ymd, tod, py::arg("stats")=stats_dict);
+    } else {
+      result = func(py::cast(&ctrl, py::return_value_policy::reference),
+                    singlerank_list, ymd, tod);
+    }
     if (!result.is_none()) {
       out_mass_inj = result.cast<std::vector<double>>();
     }

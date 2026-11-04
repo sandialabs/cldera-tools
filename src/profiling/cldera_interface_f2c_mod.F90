@@ -43,6 +43,40 @@ module cldera_interface_f2c_mod
       type(c_ptr), intent(in) :: data
     end subroutine cldera_set_field_part_data_c
 
+    ! Set NON-CONST pointer to host app data (cldera may write into it)
+    subroutine cldera_set_field_part_data_nonconst_c (fname, part, data, dtype) bind(c)
+      use iso_c_binding, only: c_int, c_ptr
+      integer (kind=c_int), value, intent(in) :: part
+      type(c_ptr), intent(in) :: fname, dtype
+      type(c_ptr), intent(in) :: data
+    end subroutine cldera_set_field_part_data_nonconst_c
+
+    ! Mark a (View) field as writable. Call before setting any part data.
+    subroutine cldera_set_field_writable_c (fname) bind(c)
+      use iso_c_binding, only: c_ptr
+      type(c_ptr), intent(in) :: fname
+    end subroutine cldera_set_field_writable_c
+
+    ! Tell the SAI writer the vertical storage order of its target field
+    subroutine cldera_set_sai_storage_bottom_up_c (bottom_up) bind(c)
+      use iso_c_binding, only: c_bool
+      logical (kind=c_bool), value, intent(in) :: bottom_up
+    end subroutine cldera_set_sai_storage_bottom_up_c
+
+    ! Returns 1 if an SAI writer was requested in the yaml
+    function cldera_has_sai_writer_c () result(has) bind(c)
+      use iso_c_binding, only: c_int
+      integer (kind=c_int) :: has
+    end function cldera_has_sai_writer_c
+
+    ! Get latest controller output
+    subroutine cldera_get_controller_output_c (vals, nvals, has_value) bind(c)
+      use iso_c_binding, only: c_int, c_double
+      real (kind=c_double), intent(inout) :: vals(*)
+      integer (kind=c_int), intent(inout) :: nvals
+      integer (kind=c_int), intent(out)   :: has_value
+    end subroutine cldera_get_controller_output_c
+
     ! Check all parts have been set in the field
     subroutine cldera_commit_field_c (fname) bind(c)
       use iso_c_binding, only: c_ptr

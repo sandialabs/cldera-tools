@@ -8,6 +8,11 @@ module cldera_interface_mod
 
   integer, parameter, public :: max_str_len = CLDERA_MAX_NAME_LEN
 
+  ! BMW: SAI writer / controller interface
+  public :: cldera_set_field_part_data_writable_real_2d, cldera_set_field_writable, &
+            cldera_set_sai_storage_bottom_up, cldera_has_sai_writer, &
+            cldera_get_controller_output
+
   integer :: iulog = output_unit
   logical :: masterproc = .false.
 
@@ -197,6 +202,70 @@ contains
     ! Subtract 1 to part, b/c of C-vs-Fortran index base
     call csfpd_c(c_loc(fname_c),f2c(part-1),c_loc(data(1)),c_loc(dtype_c))
   end subroutine cldera_set_field_part_data_int_1d
+
+  ! BMW: hand cldera a WRITABLE (non-const) pointer to a 2d EAM array part.
+  !      The field must have been made writable with cldera_set_field_writable,
+  !      right after cldera_add_partitioned_field (with view=.true.).
+  subroutine cldera_set_field_part_data_writable_real_2d (fname,part,data)
+    use iso_c_binding, only: c_char, c_loc
+    use cldera_interface_f2c_mod, only: csfpdnc_c => cldera_set_field_part_data_nonconst_c
+    character (len=*), intent(in) :: fname
+    integer,  intent(in) :: part
+    real(r8), intent(inout), target :: data(:,:)
+
+    character (kind=c_char, len=max_str_len), target :: fname_c, dtype_c
+
+    fname_c = f2c(fname)
+    dtype_c = f2c("real")
+    ! Subtract 1 to part, b/c of C-vs-Fortran index base
+    call csfpdnc_c(c_loc(fname_c),f2c(part-1),c_loc(data(1,1)),c_loc(dtype_c))
+  end subroutine cldera_set_field_part_data_writable_real_2d
+
+  ! BMW: mark a field as writable (call before setting any part data)
+  subroutine cldera_set_field_writable (fname)
+    use iso_c_binding, only: c_char, c_loc
+    use cldera_interface_f2c_mod, only: cldera_set_field_writable_c
+    character (len=*), intent(in) :: fname
+    character (kind=c_char, len=max_str_len), target :: fname_c
+
+    fname_c = f2c(fname)
+    call cldera_set_field_writable_c(c_loc(fname_c))
+  end subroutine cldera_set_field_writable
+
+  ! BMW: tell the cldera SAI writer whether its target array is stored bottom-up
+  !      (EAM tracer_data file%alt_data=.true.) or top-down (model order)
+  subroutine cldera_set_sai_storage_bottom_up (bottom_up)
+    use iso_c_binding, only: c_bool
+    use cldera_interface_f2c_mod, only: cldera_set_sai_storage_bottom_up_c
+    logical, intent(in) :: bottom_up
+
+    call cldera_set_sai_storage_bottom_up_c(logical(bottom_up,kind=c_bool))
+  end subroutine cldera_set_sai_storage_bottom_up
+
+  ! BMW: .true. if the cldera yaml requested an SAI writer
+  function cldera_has_sai_writer () result(has)
+    use cldera_interface_f2c_mod, only: cldera_has_sai_writer_c
+    logical :: has
+
+    has = (cldera_has_sai_writer_c() .ne. 0)
+  end function cldera_has_sai_writer
+
+  ! BMW: latest controller output [Tg/yr per site] (diagnostics only; the SAI writer
+  !      already applies it). has_value=.false. until the controller has run.
+  subroutine cldera_get_controller_output (vals, nvals, has_value)
+    use iso_c_binding, only: c_int, c_double
+    use cldera_interface_f2c_mod, only: cldera_get_controller_output_c
+    real(r8), intent(inout) :: vals(:)
+    integer,  intent(out)   :: nvals
+    logical,  intent(out)   :: has_value
+
+    integer(kind=c_int) :: n, hv
+
+    n = size(vals)
+    call cldera_get_controller_output_c(vals, n, hv)
+    nvals = n
+    has_value = (hv .ne. 0)
+  end subroutine cldera_get_controller_output
 
   ! Commit a single field
   subroutine cldera_commit_field (fname)

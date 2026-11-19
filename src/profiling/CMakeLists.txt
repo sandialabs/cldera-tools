@@ -109,8 +109,8 @@ set (CLDERA_PROFILING_HEADERS
 
 # for controller
 if (CLDERA_ENABLE_CONTROLLER)
-  target_sources (cldera-profiling PRIVATE cldera_controller.cpp cldera_controller_python.cpp)
-  set (CLDERA_PROFILING_HEADERS ${CLDERA_PROFILING_HEADERS} cldera_controller.hpp cldera_controller_python.hpp)
+  target_sources (cldera-profiling PRIVATE cldera_controller.cpp cldera_controller_python.cpp cldera_annual_mean.cpp)
+  set (CLDERA_PROFILING_HEADERS ${CLDERA_PROFILING_HEADERS} cldera_controller.hpp cldera_controller_python.hpp cldera_annual_mean.hpp)
   target_link_libraries(cldera-profiling PRIVATE Python3::Python)
   target_link_libraries(cldera-profiling PUBLIC pybind11::embed)
   target_compile_definitions( cldera-profiling PRIVATE CLDERA_CONTROLLER )

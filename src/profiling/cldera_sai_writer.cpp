@@ -4,9 +4,11 @@
 
 #include <ekat/ekat_assert.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <iomanip>
+#include <limits>
 #include <set>
 #include <sstream>
 
@@ -48,22 +50,61 @@ SAIWriter (const ekat::Comm& comm,
   // Non-const copy: ParameterList::get with a default value is non-const
   ekat::ParameterList params = params_in;
   m_field_name        = params.get<std::string>("Field","forcing_sai");
-  m_d_latlon          = params.get<double>("Box Half Width Deg");
+  // BMW: separate lat/lon half widths (G6 at +/-60 on ne4pg2 needs a wide lon box: the
+  //      nearest columns are at 61.4 deg lat, 169.5 and 190.5 deg lon). Default to the
+  //      single 'Box Half Width Deg'.
+  auto get_real = [&](const std::string& n) {
+    return params.isType<int>(n) ? static_cast<double>(params.get<int>(n)) : params.get<double>(n);
+  };
+  const bool has_hw = params.isParameter("Box Half Width Deg");
+  const double hw = has_hw ? get_real("Box Half Width Deg") : -1.0;
+  m_d_lat = params.isParameter("Box Half Width Lat Deg") ? get_real("Box Half Width Lat Deg") : hw;
+  m_d_lon = params.isParameter("Box Half Width Lon Deg") ? get_real("Box Half Width Lon Deg") : hw;
+  m_require_columns   = params.get<bool>("Require Columns Per Site",true);
   m_log_every         = params.get<int>("Log Frequency",1);
-  m_default_rate_tgyr = params.get<double>("Default Rate Tg/yr",0.0);
+  m_default_rate_tgyr = params.isParameter("Default Rate Tg/yr") ? get_real("Default Rate Tg/yr") : 0.0;
   const auto inj_log_name = params.get<std::string>("Injection Log File","sai_injection_log.csv");
+  const auto sum_log_name = params.get<std::string>("Summary Log File","sai_injection_summary.log");
   m_map_log_name      = params.get<std::string>("Column Map File","sai_injection_columns.csv");
 
   EKAT_REQUIRE_MSG (m_sites.size()>0,
       "[SAIWriter] Error! No injection sites defined (check 'Injections' in the controller yaml).\n");
-  EKAT_REQUIRE_MSG (m_d_latlon>0,
-      "[SAIWriter] Error! 'Box Half Width Deg' must be positive.\n");
+  EKAT_REQUIRE_MSG (m_d_lat>0 and m_d_lon>0,
+      "[SAIWriter] Error! Box half widths must be positive. Set 'Box Half Width Deg', or\n"
+      "  'Box Half Width Lat Deg' and 'Box Half Width Lon Deg'.\n");
   EKAT_REQUIRE_MSG (m_log_every>=1,
       "[SAIWriter] Error! 'Log Frequency' must be >= 1.\n");
 
   m_rates_tgyr.assign(m_sites.size(),m_default_rate_tgyr);
+  m_period_req_tg.assign(m_sites.size(),0.0);
+  m_period_wrt_tg.assign(m_sites.size(),0.0);
+  m_period_rate.assign(m_sites.size(),0.0);
+  m_prev_written.assign(m_sites.size(),0.0);
+  m_prev_requested.assign(m_sites.size(),0.0);
 
   if (m_comm.am_i_root()) {
+    // Append: the summary spans all runs of a case (one line per site and period)
+    const bool new_sum = not std::ifstream(sum_log_name).good();
+    m_sum_log = std::make_shared<std::ofstream>(sum_log_name,std::ios::app);
+    EKAT_REQUIRE_MSG (m_sum_log->good(),
+        "[SAIWriter] Error! Could not open summary log file '" + sum_log_name + "'.\n");
+    if (new_sum) {
+      *m_sum_log
+        << "# SAI injection mass budget, written by the cldera-tools SAIWriter (BMW).\n"
+        << "# One line per site and period. A period starts at each controller call (set_rates),\n"
+        << "# i.e. at each control interval start and at the start of each run, and ends at the\n"
+        << "# next one (or at the end of the run: run_end=1, the period continues in the next run).\n"
+        << "# Masses integrate the rate applied at each model step over that step (left Riemann\n"
+        << "# sum, noleap calendar), so for a full period: requested_Tg = rate_tgyr*days/365.\n"
+        << "#  rate_tgyr    : rate set by the controller at the period start [Tg/yr]\n"
+        << "#  requested_Tg : integral of the requested rate [Tg SO2]\n"
+        << "#  written_Tg   : integral of the rate actually written into the forcing field,\n"
+        << "#                 recomputed from the written cells and layer thicknesses [Tg SO2]\n"
+        << "#  rel_diff     : (written-requested)/requested\n"
+        << "period_start,period_end,run_end,period,days,site,rate_tgyr,requested_Tg,written_Tg,rel_diff\n";
+      m_sum_log->flush();
+    }
+
     m_inj_log = std::make_shared<std::ofstream>(inj_log_name);
     EKAT_REQUIRE_MSG (m_inj_log->good(),
         "[SAIWriter] Error! Could not open injection log file '" + inj_log_name + "'.\n");
@@ -76,8 +117,8 @@ SAIWriter (const ekat::Comm& comm,
               << "time,site,lat,lon,alt_m,ncols,rate_tgyr,volume_m3,molec_cm3_s,written_tgyr\n";
     m_inj_log->flush();
 
-    printf(" [CLDERA] SAIWriter: target field '%s', %d sites, box half width %.3f deg\n",
-           m_field_name.c_str(), (int)m_sites.size(), m_d_latlon);
+    printf(" [CLDERA] SAIWriter: target field '%s', %d sites, box half widths lat %.3f deg, lon %.3f deg\n",
+           m_field_name.c_str(), (int)m_sites.size(), m_d_lat, m_d_lon);
     for (const auto& s : m_sites) {
       printf(" [CLDERA]   site %-10s lat=%8.3f lon=%8.3f alt=%8.1f m\n",
              s.name.c_str(), s.lat, s.lon, s.alt_m);
@@ -86,7 +127,7 @@ SAIWriter (const ekat::Comm& comm,
 }
 
 void SAIWriter::
-set_rates (const std::vector<double>& rates_tgyr, const TimeStamp& t)
+set_rates (const std::vector<double>& rates_tgyr, const TimeStamp& t, const std::string& period)
 {
   EKAT_REQUIRE_MSG (rates_tgyr.size()==m_sites.size(),
       "[SAIWriter] Error! Number of rates does not match number of sites.\n"
@@ -96,13 +137,93 @@ set_rates (const std::vector<double>& rates_tgyr, const TimeStamp& t)
     EKAT_REQUIRE_MSG (std::isfinite(r) and r>=0,
         "[SAIWriter] Error! Injection rates must be finite and non-negative.\n");
   }
+
+  // BMW: close the current mass-budget period (the old rates applied until t), open a new one
+  budget_accumulate_until(t);
+  if (m_period_open) {
+    budget_close_period(t,false);
+  }
+  m_period_label   = period.empty() ? std::string("-") : period;
+  m_period_start   = t;
+  m_period_open    = true;
+  m_period_seconds = 0;
+  m_period_req_tg.assign(num_sites(),0.0);
+  m_period_wrt_tg.assign(num_sites(),0.0);
+  m_period_rate    = rates_tgyr;
+
   m_rates_tgyr = rates_tgyr;
   m_has_rates = true;
 
   if (m_comm.am_i_root()) {
-    printf(" [CLDERA] SAIWriter: new injection rates at %s [Tg/yr]:", t.to_string().c_str());
+    printf(" [CLDERA] SAIWriter: new injection rates at %s (period '%s') [Tg/yr]:",
+           t.to_string().c_str(), m_period_label.c_str());
     for (auto r : m_rates_tgyr) printf(" %g", r);
     printf("\n");
+  }
+}
+
+void SAIWriter::
+budget_accumulate_until (const TimeStamp& t)
+{
+  // Add the contribution of the last applied step, [m_prev_t, t), to the current period.
+  if (not m_has_prev) return;
+  const double ds = (days_365(t.ymd(),t.tod()) - days_365(m_prev_t.ymd(),m_prev_t.tod()))*86400.0;
+  EKAT_REQUIRE_MSG (ds>=0,
+      "[SAIWriter] Error! Time went backwards (" + m_prev_t.to_string() + " -> " + t.to_string() + ").\n");
+  if (ds>0) {
+    m_dt_min = m_dt_min<0 ? ds : std::min(m_dt_min,ds);
+  }
+  for (int s=0; s<num_sites(); ++s) {
+    m_period_req_tg[s] += m_prev_requested[s]*ds/kSecPerYear;
+    m_period_wrt_tg[s] += m_prev_written[s]*ds/kSecPerYear;
+  }
+  m_period_seconds += ds;
+  m_has_prev = false;
+}
+
+void SAIWriter::
+budget_close_period (const TimeStamp& t_end, const bool run_end)
+{
+  if (not m_period_open) return;
+  if (m_comm.am_i_root()) {
+    const double days = m_period_seconds/86400.0;
+    printf(" [CLDERA] SAIWriter: mass budget for period '%s' %s -> %s%s (%.4f days):\n",
+           m_period_label.c_str(), m_period_start.to_string().c_str(), t_end.to_string().c_str(),
+           run_end ? " [run end]" : "", days);
+    for (int s=0; s<num_sites(); ++s) {
+      const double req = m_period_req_tg[s];
+      const double wrt = m_period_wrt_tg[s];
+      const double rel = req>0 ? (wrt-req)/req : (wrt==0 ? 0.0 : std::numeric_limits<double>::infinity());
+      printf(" [CLDERA]   %-10s rate=%.6g Tg/yr requested=%.6g Tg written=%.6g Tg rel_diff=%.3e\n",
+             m_sites[s].name.c_str(), m_period_rate[s], req, wrt, rel);
+      *m_sum_log << m_period_start.to_string() << "," << t_end.to_string() << ","
+                 << (run_end ? 1 : 0) << "," << m_period_label << ","
+                 << std::setprecision(10) << days << "," << m_sites[s].name << ","
+                 << m_period_rate[s] << "," << req << "," << wrt << "," << rel << "\n";
+    }
+    m_sum_log->flush();
+  }
+  m_period_open = false;
+}
+
+void SAIWriter::
+finalize ()
+{
+  // The last applied step, [m_prev_t, m_prev_t+dt), still has to be added.
+  if (m_has_prev) {
+    TimeStamp t_end = m_prev_t;
+    if (m_dt_min>0) {
+      t_end += static_cast<int>(std::lround(m_dt_min));
+      budget_accumulate_until(t_end);
+    }
+    m_has_prev = false;
+    budget_close_period(t_end,true);
+  } else if (m_period_open) {
+    budget_close_period(m_period_start,true);
+  }
+  if (m_comm.am_i_root()) {
+    if (m_inj_log) m_inj_log->flush();
+    if (m_sum_log) m_sum_log->flush();
   }
 }
 
@@ -130,7 +251,7 @@ build_entries (ProfilingArchive& archive)
       const double la = rad2deg(lat_v(i));
       const double lo = rad2deg(lon_v(i));
       for (int s=0; s<num_sites(); ++s) {
-        if (std::fabs(la-m_sites[s].lat)<m_d_latlon and lon_dist(lo,m_sites[s].lon)<m_d_latlon) {
+        if (std::fabs(la-m_sites[s].lat)<m_d_lat and lon_dist(lo,m_sites[s].lon)<m_d_lon) {
           ColEntry e;
           e.ipart = p;
           e.icol = i;
@@ -171,7 +292,24 @@ apply (ProfilingArchive& archive, const TimeStamp& t)
 
   if (m_num_calls==0) {
     build_entries(archive);
+    // BMW: a site with no columns would silently inject nothing. Make it an error by default.
+    std::vector<int> loc_n(num_sites(),0), glb_n(num_sites(),0);
+    for (const auto& e : m_entries) ++loc_n[e.site];
+    m_comm.all_reduce(loc_n.data(),glb_n.data(),num_sites(),MPI_SUM);
+    for (int s=0; s<num_sites(); ++s) {
+      EKAT_REQUIRE_MSG (glb_n[s]>0 or not m_require_columns,
+          "[SAIWriter] Error! Injection site '" + m_sites[s].name + "' has no columns in its box.\n"
+          " - site lat/lon       : " + std::to_string(m_sites[s].lat) + ", " + std::to_string(m_sites[s].lon) + "\n"
+          " - box half width lat : " + std::to_string(m_d_lat) + " deg\n"
+          " - box half width lon : " + std::to_string(m_d_lon) + " deg\n"
+          "  Increase 'Box Half Width Lat Deg'/'Box Half Width Lon Deg' (on ne4pg2 the columns\n"
+          "  nearest to (+/-60,180) are at lat +/-61.44, lon 169.46 and 190.54), or set\n"
+          "  'Require Columns Per Site: false'.\n");
+    }
   }
+
+  // BMW: mass budget: the previous step's rates applied over [prev_t, t)
+  budget_accumulate_until(t);
 
   // 1. Zero the whole field: the controller is the only SAI source.
   tgt.deep_copy(0.0);
@@ -261,6 +399,12 @@ apply (ProfilingArchive& archive, const TimeStamp& t)
   if (m_num_calls==0) {
     write_map_log(t);
   }
+
+  // BMW: remember what was applied at this step, for the mass budget
+  m_prev_t = t;
+  m_has_prev = true;
+  m_prev_written = written;
+  m_prev_requested = m_rates_tgyr;
   if (m_comm.am_i_root() and m_num_calls%m_log_every==0) {
     write_inj_log(t,molec,written);
     double req = 0;

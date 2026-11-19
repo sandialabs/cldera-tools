@@ -31,7 +31,14 @@ class ProfilingArchive;
  *   4. converts the per-site rate [Tg/yr] (from the controller) into
  *      molec/cm3/s and writes it into the field;
  *   5. recomputes the written mass from exactly the same cells/thicknesses
- *      (mass-closure check), and logs what was injected and where.
+ *      (mass-closure check), and logs what was injected and where;
+ *   6. (BMW, G6) integrates the requested and written mass over each "period"
+ *      (from one set_rates call to the next, e.g. a control interval such as MAMJ),
+ *      and writes one line per site and period to the summary log.
+ *
+ * Box: a column belongs to a site if |lat-lat_site| < 'Box Half Width Lat Deg' and the
+ *   longitude distance < 'Box Half Width Lon Deg' (both default to 'Box Half Width Deg').
+ *   With 'Require Columns Per Site: true' (default), a site with no columns is an error.
  *
  * Vertical storage ordering (IMPORTANT):
  *   Model level index k=0 is the model TOP (zi[0] is the top interface).
@@ -66,13 +73,19 @@ public:
   int num_sites () const { return m_sites.size(); }
   const std::vector<Site>& sites () const { return m_sites; }
 
-  // Set the per-site injection rates [Tg/yr]
-  void set_rates (const std::vector<double>& rates_tgyr, const TimeStamp& t);
+  // Set the per-site injection rates [Tg/yr]. 'period' is a label for the mass budget
+  // (e.g. the control interval name); a call to set_rates closes the current budget period
+  // and opens a new one.
+  void set_rates (const std::vector<double>& rates_tgyr, const TimeStamp& t,
+                  const std::string& period = "");
   const std::vector<double>& rates () const { return m_rates_tgyr; }
   bool has_rates () const { return m_has_rates; }
 
   // Zero the target field and write the current rates into it.
   void apply (ProfilingArchive& archive, const TimeStamp& t);
+
+  // End of run: close the current budget period (adds the last step) and flush logs.
+  void finalize ();
 
 private:
   struct ColEntry {
@@ -92,10 +105,16 @@ private:
                       const std::vector<double>& molec,
                       const std::vector<double>& written_tgyr);
 
+  // Mass budget (BMW): integrate requested and written mass over each period
+  void budget_accumulate_until (const TimeStamp& t);
+  void budget_close_period (const TimeStamp& t_end, const bool run_end);
+
   ekat::Comm          m_comm;
   std::string         m_field_name;
   std::vector<Site>   m_sites;
-  double              m_d_latlon;           // box half width [deg]
+  double              m_d_lat;              // box half width in latitude [deg]
+  double              m_d_lon;              // box half width in longitude [deg]
+  bool                m_require_columns;    // error out if a site has no columns
   int                 m_log_every;          // log injection every N calls (root only)
   bool                m_storage_bottom_up = false;
   bool                m_storage_set = false;
@@ -109,9 +128,24 @@ private:
   std::vector<int>      m_glb_ncols;        // per-site global number of columns
   int                   m_num_calls = 0;
 
+  // Mass budget state (identical on all ranks; only root writes)
+  std::string           m_period_label;
+  TimeStamp             m_period_start;
+  bool                  m_period_open = false;
+  double                m_period_seconds = 0;
+  std::vector<double>   m_period_req_tg;    // integral of requested rate [Tg]
+  std::vector<double>   m_period_wrt_tg;    // integral of written (closure) rate [Tg]
+  std::vector<double>   m_period_rate;      // rate set at the period start [Tg/yr]
+  bool                  m_has_prev = false;
+  TimeStamp             m_prev_t;
+  std::vector<double>   m_prev_written;     // written rate of the last apply [Tg/yr]
+  std::vector<double>   m_prev_requested;   // requested rate of the last apply [Tg/yr]
+  double                m_dt_min = -1;      // smallest spacing between apply calls [s]
+
   // NOTE: shared_ptr (not a plain ofstream) so that SAIWriter is copyable, which is
   //       required to store it in the ProfilingContext (ekat::any).
   std::shared_ptr<std::ofstream> m_inj_log;  // root only
+  std::shared_ptr<std::ofstream> m_sum_log;  // root only
   std::string         m_map_log_name;
 };
 

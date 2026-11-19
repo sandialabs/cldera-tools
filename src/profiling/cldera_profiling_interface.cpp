@@ -14,6 +14,7 @@
 #ifdef CLDERA_CONTROLLER
   #include "cldera_controller.hpp"
   #include "cldera_controller_python.hpp"
+  #include "cldera_annual_mean.hpp"
 #endif
 
 #include <ekat/ekat_parameter_list.hpp>
@@ -107,7 +108,27 @@ void cldera_init_c (const char*& context_name,
 
 #ifdef CLDERA_CONTROLLER
   if (params.isParameter("Controller")) {
-    auto& ctrl = c.create<Controller>("controller", params);
+    // BMW: pass the case start, so that the controller yaml may use 'Start Years After Case Start'
+    auto& ctrl = c.create<Controller>("controller", params, case_t0);
+
+    if (comm.am_i_root()) {
+      printf(" [CLDERA] Controller '%s': active from %s (%s) to %s\n",
+             ctrl.get_filename().c_str(),
+             TimeStamp(ctrl.get_start_ymd(),ctrl.get_start_tod()).to_string().c_str(),
+             ctrl.get_start_mode().c_str(),
+             TimeStamp(ctrl.get_end_ymd(),ctrl.get_end_tod()).to_string().c_str());
+    }
+
+    // BMW (G6-1.5K-HiLLA): annual means of the feedback stats, for annual feedback
+    //      controllers. Accumulated at every compute_stats call; state is carried across
+    //      restarts with a small text file (see cldera_annual_mean.hpp).
+    const auto fb_stats = ctrl.get_feedback_stats();
+    if (not fb_stats.empty()) {
+      auto& p = c.get_params();
+      const auto prefix = p.get<std::string>("Annual Mean Restart File Prefix","cldera_annual_mean.rst");
+      const bool required = p.get<bool>("Annual Mean Restart Required",true);
+      c.create<AnnualMeanAccumulator>("annual_mean",comm,fb_stats,prefix,required,case_t0,run_t0);
+    }
 
     // BMW: if the context yaml has an 'SAI Writer' sublist, create the C++ writer that
     //      applies the controller output to the (writable) EAM 'sai' forcing field.
@@ -160,6 +181,14 @@ void cldera_clean_up_c ()
 
   // Handle Python cleanup here to avoid shutdown ordering errors
 #ifdef CLDERA_CONTROLLER
+  // BMW: save the annual-mean accumulator state for the next run (named by this run's stop
+  //      time, which is the next run's start time), and close the SAI writer's mass budget.
+  if (c.has_data("annual_mean")) {
+    c.get<AnnualMeanAccumulator>("annual_mean").write_restart(c.get<TimeStamp>("stop_timestamp"));
+  }
+  if (c.has_data("sai_writer")) {
+    c.get<SAIWriter>("sai_writer").finalize();
+  }
   controller_finalize_python();
 #endif
 
@@ -522,6 +551,32 @@ void cldera_compute_stats_c (const int ymd, const int tod)
   //      step in interpolate_trcdata, before tphysbc; this call happens after
   //      tphysbc and before tphysac/chemistry, which is where extfrc_set reads it.
 #ifdef CLDERA_CONTROLLER
+  // BMW (G6-1.5K-HiLLA): add this step's feedback stats to the annual means BEFORE the
+  //      controller runs. The Jan 1 00:00 sample opens the new year, which closes the
+  //      previous one, so the controller triggered at Jan 1 00:00 sees the full
+  //      previous year. Global stats are all-reduced, so root has the right values.
+  if (c.has_data("annual_mean")) {
+    auto& am = c.get<AnnualMeanAccumulator>("annual_mean");
+    std::vector<double> vals;
+    for (const auto& sname : am.stat_names()) {
+      bool found = false;
+      for (auto& it : requests) {
+        for (auto& stat : it.second) {
+          if (stat->name()!=sname) continue;
+          const auto& sf = stat->get_stat_field();
+          EKAT_REQUIRE_MSG (sf.committed() and sf.data_type()==RealType and sf.nparts()==1
+                            and sf.layout().size()==1,
+              "[CLDERA] Error! Controller feedback stat '" + sname + "' must be a committed\n"
+              "  scalar Real stat (e.g. a masked_integral over the global mask).\n");
+          vals.push_back(sf.view<const Real>()(0));
+          found = true;
+        }
+      }
+      EKAT_REQUIRE_MSG (found,
+          "[CLDERA] Error! Controller feedback stat '" + sname + "' not found in the requests.\n");
+    }
+    am.add(time,vals);
+  }
   cldera_compute_controller_c(ymd,tod);
 #endif
   if (c.has_data("sai_writer")) {
@@ -584,8 +639,11 @@ void cldera_compute_controller_c (const int ymd, const int tod)
   //      because (a) the first stats call of a startup run is at tod>0 (E3SM
   //      #5904 workaround), and (b) on restarts the controller history is not
   //      saved, so we must recompute the current rates.
+  //      Interval starts trigger the Python controller also OUTSIDE the controller
+  //      active window [Start, End]: there it returns zeros, so that injection is off
+  //      before the start and stops at the end (otherwise the last rates would be kept).
   const bool first_call = not c.has_data("ctrl_mass_inj");
-  if (not first_call and !ctrl.is_ctrl_time(ymd, tod)) { return; }
+  if (not first_call and !ctrl.is_interval_start(ymd, tod)) { return; }
   // Guard against double triggering on the same day (Controller::operator() errors out on that).
   // Can happen if the first call of the run is at tod==0 of an interval start day.
   if (ctrl.has_ctrl_hist_at(ymd)) { return; }
@@ -602,6 +660,7 @@ void cldera_compute_controller_c (const int ymd, const int tod)
 
   // Call controller (Python runs on root only; other ranks get an empty vector)
   ctrl.set_context(&c);
+  ctrl.set_call_info(first_call, c.get<TimeStamp>("run_t0"));
   std::vector<double> mass_inj = ctrl(ymd, tod);
 
   // BMW: broadcast the result to all ranks. Every rank knows the number of sites
@@ -626,7 +685,16 @@ void cldera_compute_controller_c (const int ymd, const int tod)
     c.get<std::vector<double>>("ctrl_mass_inj") = mass_inj;
   }
   if (c.has_data("sai_writer")) {
-    c.get<SAIWriter>("sai_writer").set_rates(mass_inj,time);
+    // Interval name, for the per-interval mass budget in the SAI writer
+    std::string iname;
+    const int mmdd = ymd % 10000;
+    auto doy = [](const int md) { return day_of_year_365(md/100, md%100); };
+    for (const auto& idef : ctrl.get_intervals()) {
+      const int s = doy(idef.start_mmdd), e = doy(idef.end_mmdd), d = doy(mmdd);
+      const bool in = e>=s ? (d>=s and d<=e) : (d>=s or d<=e);
+      if (in) iname = idef.name;
+    }
+    c.get<SAIWriter>("sai_writer").set_rates(mass_inj,time,iname);
   }
 
   ts.stop_timer(c.name() + "::compute_controller");

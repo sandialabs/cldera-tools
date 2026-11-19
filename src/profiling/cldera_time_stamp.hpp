@@ -62,6 +62,16 @@ inline int span_days_365_mmdd (const int start_mmdd, const int end_mmdd) {
   return (365 - s_doy + 1) + e_doy;
 }
 
+// BMW: days since 0001-01-01 on a 365-day (noleap) calendar, for a ymd (YYYYMMDD) and tod [s].
+//      EAM uses a noleap calendar, while TimeStamp::operator- uses the Gregorian one (e.g. it
+//      counts Feb 29 in 2000). Use this for time differences of EAM time stamps.
+inline double days_365 (const int ymd, const int tod) {
+  const int yy = ymd / 10000;
+  const int mm = (ymd / 100) % 100;
+  const int dd = ymd % 100;
+  return 365.0*(yy-1) + (day_of_year_365(mm,dd)-1) + tod/86400.0;
+}
+
 // An std::pair would work too, but ymd/tod convey
 // more meaning than first/second.
 // NOTE: ymd is in YYYYMMDD format, while tod is second of the day

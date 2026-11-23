@@ -40,6 +40,10 @@ Field (const std::string& n, const FieldLayout& fl,
  , m_data_access(cv)
  , m_data_type(dt)
 {
+  // By default, fields owning their memory are writable, while views of
+  // host-app memory are read-only. See comment on DataAccess in the header.
+  m_read_only = (cv==DataAccess::View);
+
   EKAT_REQUIRE_MSG (is_valid(m_data_type),
       "Error! Invalid input data type: " + e2str(dt) + "\n");
   EKAT_REQUIRE_MSG (part_dim>=0 && part_dim<(m_layout.rank()==0 ? 1 : m_layout.rank()),
@@ -134,6 +138,21 @@ set_part_extent (const int ipart, const int part_extent)
   m_part_extents[ipart] = part_extent;
 }
 
+void Field::
+set_read_only (const bool read_only)
+{
+  check_committed(false,"Field::set_read_only");
+  if (m_data_access==DataAccess::View) {
+    for (int ipart=0; ipart<m_nparts; ++ipart) {
+      EKAT_REQUIRE_MSG (m_data[ipart].data()==nullptr,
+          "[Field::set_read_only]\n"
+          "  Error! For View fields, writability must be set before setting part data.\n"
+          "    - Field name: " + m_name + "\n");
+    }
+  }
+  m_read_only = read_only;
+}
+
 void Field::commit () {
   if (m_committed) {
     // It's better to allow this, in case we commit one field, and later
@@ -174,6 +193,21 @@ void Field::commit () {
     m_part_offsets[ipart] = part_extents_sum;
     part_extents_sum += m_part_extents[ipart];
   }
+  if (not m_read_only) {
+    // Writable fields must have a non-const view of every part. For View fields
+    // this requires that the host app passed non-const pointers.
+    EKAT_REQUIRE_MSG (m_data_nonconst.size()==static_cast<size_t>(m_nparts),
+        "[Field::commit]\n"
+        "  Error! Field is writable, but non-const data was not set for all parts.\n"
+        "    - Field name: " + m_name + "\n");
+    for (int ipart=0; ipart<m_nparts; ++ipart) {
+      EKAT_REQUIRE_MSG (m_data_nonconst[ipart].data()==m_data[ipart].data(),
+          "[Field::commit]\n"
+          "  Error! Field is writable, but non-const data was not set for some part.\n"
+          "    - Field name: " + m_name + "\n"
+          "    - Part index: " + std::to_string(ipart) + "\n");
+    }
+  }
   EKAT_REQUIRE_MSG (part_extents_sum==(m_layout.rank()==0 ? 1 : m_layout.extent(m_part_dim)),
       "[Field::commit]\n"
       "  Error! Partition extents do not add up to layout dimension.\n"
@@ -194,7 +228,9 @@ Field Field::clone() const {
   // access f's members
   f.m_part_dim_alloc_size = m_part_dim_alloc_size;
   f.m_part_extents = m_part_extents;
+  f.m_part_offsets = m_part_offsets;
   f.m_committed = true;
+  f.m_read_only = false; // A clone owns its memory, and is always writable
   f.m_data_nonconst.resize(m_nparts);
   f.m_data.resize(m_nparts);
 
@@ -212,11 +248,14 @@ Field Field::read_only() const {
   Field f (*this);
   // Ensure copy_part_data cannot be called on this clone
   f.m_data_access = DataAccess::View;
+  // Ensure no non-const access is possible through this shallow copy
+  f.m_read_only = true;
   return f;
 }
 
 void Field::deep_copy (const Field& src) {
   check_committed(true,"Field::deep_copy");
+  check_writable("Field::deep_copy");
   EKAT_REQUIRE_MSG (src.m_committed,
       "Error! Cannot deep copy if src field is not yet committed.\n"
       " Source field: " + src.m_name + "\n"
@@ -282,6 +321,14 @@ check_rank (const int N) const {
       " - field name    : " + m_name + "\n"
       " - field rank    : " + std::to_string(layout().rank()) + "\n"
       " - requested rank: " + std::to_string(N) + "\n");
+}
+
+void Field::
+check_writable (const std::string& context) const {
+  EKAT_REQUIRE_MSG (not m_read_only,
+      "Error! Attempt to access read-only field data in non-const mode.\n"
+      " - field name: " + m_name + "\n"
+      " - context   : " + context + "\n");
 }
 
 } // namespace cldera

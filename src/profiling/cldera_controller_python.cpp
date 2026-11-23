@@ -9,6 +9,7 @@
 #include "cldera_data_type.hpp"
 #include "cldera_profiling_types.hpp"
 #include "cldera_time_stamp.hpp"
+#include "cldera_annual_mean.hpp"
 
 #include <ekat/ekat_assert.hpp>
 #include <ekat/ekat_parameter_list.hpp>
@@ -17,6 +18,7 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 
+#include <limits>
 #include <memory>
 #include <map>
 #include <vector>
@@ -52,6 +54,7 @@ PYBIND11_EMBEDDED_MODULE(sctrctrl_bindings, m) {
 
   py::class_<cldera::Controller>(m, "Controller")
     .def("is_ctrl_time", &cldera::Controller::is_ctrl_time)
+    .def("is_interval_start", &cldera::Controller::is_interval_start)
     .def("get_ctrl_hist_at", &cldera::Controller::get_ctrl_hist_at)
     .def("get_intervals", &cldera::Controller::get_intervals, py::return_value_policy::reference_internal)
     .def("get_controllers", &cldera::Controller::get_controllers, py::return_value_policy::reference_internal)
@@ -60,6 +63,20 @@ PYBIND11_EMBEDDED_MODULE(sctrctrl_bindings, m) {
     .def("get_inj_lons", &cldera::Controller::get_inj_lons)
     .def("get_inj_alts", &cldera::Controller::get_inj_alts)
     .def("get_inj_transfer_funcs", &cldera::Controller::get_inj_transfer_funcs)
+    .def("get_feedback_stats", &cldera::Controller::get_feedback_stats)
+    .def("get_start_ymd", &cldera::Controller::get_start_ymd)
+    .def("get_start_tod", &cldera::Controller::get_start_tod)
+    .def("get_end_ymd", &cldera::Controller::get_end_ymd)
+    .def("get_end_tod", &cldera::Controller::get_end_tod)
+    .def("get_case_start_ymd", &cldera::Controller::get_case_start_ymd)
+    .def("get_case_start_tod", &cldera::Controller::get_case_start_tod)
+    .def("has_case_start", &cldera::Controller::has_case_start)
+    .def("get_start_mode", &cldera::Controller::get_start_mode)
+    .def("get_start_years_after_case_start", &cldera::Controller::get_start_years_after_case_start)
+    .def("get_filename", &cldera::Controller::get_filename)
+    .def("is_first_call_of_run", &cldera::Controller::is_first_call_of_run)
+    .def("get_run_start_ymd", &cldera::Controller::get_run_start_ymd)
+    .def("get_run_start_tod", &cldera::Controller::get_run_start_tod)
     .def("run", &cldera::Controller::operator());
 
   py::class_<cldera::IntervalDef>(m, "IntervalDef")
@@ -80,7 +97,15 @@ PYBIND11_EMBEDDED_MODULE(sctrctrl_bindings, m) {
     .def_readonly("proj", &cldera::ControllerDef::proj)
     .def_readonly("ff_type", &cldera::ControllerDef::ff_type)
     .def_readonly("ff_val", &cldera::ControllerDef::ff_val)
-    .def_readonly("cnstr_defs", &cldera::ControllerDef::cnstr_defs);
+    .def_readonly("cnstr_defs", &cldera::ControllerDef::cnstr_defs)
+    .def_readonly("has_refval", &cldera::ControllerDef::has_refval)
+    .def_readonly("ref_offset", &cldera::ControllerDef::ref_offset)
+    .def_readonly("init_annual_mean", &cldera::ControllerDef::init_annual_mean)
+    .def_readonly("ff_start_year", &cldera::ControllerDef::ff_start_year)
+    .def_readonly("fb_start_year", &cldera::ControllerDef::fb_start_year)
+    .def_readonly("min_out", &cldera::ControllerDef::min_out)
+    .def_readonly("max_out", &cldera::ControllerDef::max_out)
+    .def_readonly("min_coverage", &cldera::ControllerDef::min_coverage);
 
   py::class_<cldera::FieldSingleRank, std::shared_ptr<cldera::FieldSingleRank>>(m, "FieldSingleRank")
     .def("name", &cldera::FieldSingleRank::name)
@@ -191,9 +216,73 @@ void call_python_controller_hook (ProfilingContext& c,
       singlerank_list.append(py::cast(sr));
     }
 
-    // Call controller interface, get back mass injections
-    py::object result = func(py::cast(&ctrl, py::return_value_policy::reference),
-                             singlerank_list, ymd, tod);
+    // BMW: also pass the latest values of all (non-singlerank) stats as a plain dict
+    //      {stat_name: list of floats}. Global stats such as masked integrals over the
+    //      global mask (e.g. TREFHT_glb = global-mean 2m temperature) are already
+    //      all-reduced, so they are identical on every rank and need no gather.
+    //      Real stats only; int stats are skipped.
+    py::dict stats_dict;
+    if (c.has_data("requests")) {
+      auto& requests = c.get<requests_t>("requests");
+      for (auto& it : requests) {
+        for (auto& stat : it.second) {
+          if (stat->type() == "singlerank") {
+            continue;
+          }
+          const auto& sf = stat->get_stat_field();
+          if (not sf.committed() or sf.data_type()!=RealType or sf.nparts()!=1) {
+            continue;
+          }
+          auto v = sf.view<const Real>();
+          const int n = sf.layout().size();
+          py::list vals;
+          for (int i=0; i<n; ++i) {
+            vals.append(v(i));
+          }
+          stats_dict[py::str(stat->name())] = vals;
+        }
+      }
+    }
+
+    // BMW (G6-1.5K-HiLLA): annual means of the controller feedback stats, keyed as
+    //   "<stat>_annmean": {year, mean, nsamples, coverage}            (last CLOSED year)
+    //   "<stat>_annmean_open": {year, nsamples, partial_mean}         (current, open year)
+    // and the accumulator's time step and restart file (if one was read this run).
+    py::dict annual;
+    if (c.has_data("annual_mean")) {
+      const auto& am = c.get<AnnualMeanAccumulator>("annual_mean");
+      for (const auto& s : am.stats()) {
+        py::dict closed;
+        closed["year"] = s.closed_year;
+        closed["mean"] = s.closed_mean;
+        closed["nsamples"] = s.closed_nsamples;
+        closed["coverage"] = s.closed_coverage;
+        annual[py::str(s.name + "_annmean")] = closed;
+        py::dict open;
+        open["year"] = s.year;
+        open["nsamples"] = s.nsamples;
+        open["partial_mean"] = s.nsamples>0 ? s.sum/s.nsamples : std::numeric_limits<double>::quiet_NaN();
+        annual[py::str(s.name + "_annmean_open")] = open;
+      }
+      annual["dt_seconds"] = am.dt_seconds();
+      annual["restart_file_read"] = am.loaded_file();
+    }
+    stats_dict["__annual__"] = annual;
+
+    // Call controller interface, get back mass injections.
+    // For backward compatibility, pass the stats dict as a keyword argument only if
+    // the python function accepts it.
+    py::object result;
+    py::module_ inspect = py::module_::import("inspect");
+    py::object sig = inspect.attr("signature")(func);
+    py::object params = sig.attr("parameters");
+    if (params.attr("__contains__")(py::str("stats")).cast<bool>()) {
+      result = func(py::cast(&ctrl, py::return_value_policy::reference),
+                    singlerank_list, ymd, tod, py::arg("stats")=stats_dict);
+    } else {
+      result = func(py::cast(&ctrl, py::return_value_policy::reference),
+                    singlerank_list, ymd, tod);
+    }
     if (!result.is_none()) {
       out_mass_inj = result.cast<std::vector<double>>();
     }

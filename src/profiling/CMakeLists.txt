@@ -29,6 +29,7 @@ add_library (cldera-profiling
     cldera_profiling_archive.cpp
     cldera_profiling_interface.cpp
     cldera_profiling_test_manager.cpp
+    cldera_sai_writer.cpp
     cldera_interface_mod.F90
     cldera_interface_f2c_mod.F90
     stats/cldera_register_stats.cpp
@@ -79,6 +80,7 @@ set (CLDERA_PROFILING_HEADERS
   cldera_profiling_session.hpp
   cldera_profiling_test_manager.hpp
   cldera_profiling_types.hpp
+  cldera_sai_writer.hpp
   cldera_time_stamp.hpp
   stats/cldera_field_avg_along_columns.hpp
   stats/cldera_field_bounded.hpp
@@ -107,8 +109,8 @@ set (CLDERA_PROFILING_HEADERS
 
 # for controller
 if (CLDERA_ENABLE_CONTROLLER)
-  target_sources (cldera-profiling PRIVATE cldera_controller.cpp cldera_controller_python.cpp)
-  set (CLDERA_PROFILING_HEADERS ${CLDERA_PROFILING_HEADERS} cldera_controller.hpp cldera_controller_python.hpp)
+  target_sources (cldera-profiling PRIVATE cldera_controller.cpp cldera_controller_python.cpp cldera_annual_mean.cpp)
+  set (CLDERA_PROFILING_HEADERS ${CLDERA_PROFILING_HEADERS} cldera_controller.hpp cldera_controller_python.hpp cldera_annual_mean.hpp)
   target_link_libraries(cldera-profiling PRIVATE Python3::Python)
   target_link_libraries(cldera-profiling PUBLIC pybind11::embed)
   target_compile_definitions( cldera-profiling PRIVATE CLDERA_CONTROLLER )

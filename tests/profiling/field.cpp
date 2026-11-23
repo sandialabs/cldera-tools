@@ -241,4 +241,70 @@ TEST_CASE ("field") {
     yr.update(xr,1,1);
     REQUIRE (check(yr,xr,3));
   }
+
+  // BMW v2: ownership (Copy/View) vs writability (read-only/writable)
+  SECTION ("writable") {
+    constexpr int ncols = 3;
+    constexpr int nlevs = 2;
+    constexpr int nparts = 2;
+    FieldLayout fl ({nlevs,ncols},{"lev","ncol"});
+
+    // 1. View fields are read-only by default, even with non-const pointers
+    std::vector<Real> d0 (nlevs*ncols,1.0), d1(nlevs*ncols,2.0);
+    Field ro ("ro",fl,nparts,1,DataAccess::View,DataType::RealType,ncols);
+    REQUIRE (ro.is_read_only());
+    ro.set_part_extent(0,2);
+    ro.set_part_extent(1,1);
+    ro.set_part_data(0,d0.data());
+    ro.set_part_data(1,d1.data());
+    ro.commit();
+    REQUIRE_THROWS (ro.part_view_nonconst<Real>(0));
+    REQUIRE_THROWS (ro.deep_copy(0.0));
+    REQUIRE (ro.part_view<Real>(1)(0)==2.0); // const access OK
+
+    // 2. Writable View field: writes go straight into host-app memory
+    Field rw ("rw",fl,nparts,1,DataAccess::View,DataType::RealType,ncols);
+    rw.set_read_only(false);
+    REQUIRE (not rw.is_read_only());
+    rw.set_part_extent(0,2);
+    rw.set_part_extent(1,1);
+    rw.set_part_data(0,d0.data());
+    rw.set_part_data(1,d1.data());
+    rw.commit();
+    REQUIRE_THROWS (rw.set_read_only(true)); // can't change after commit
+    rw.part_nd_view_nonconst<Real,2>(1)(1,0) = 42.0;
+    REQUIRE (d1[1*ncols+0]==42.0);
+    rw.deep_copy(0.0);
+    for (auto v : d0) REQUIRE (v==0.0);
+    for (auto v : d1) REQUIRE (v==0.0);
+
+    // 3. Writable View field with a const pointer: commit must fail
+    Field bad ("bad",fl,DataAccess::View,DataType::RealType);
+    bad.set_read_only(false);
+    const Real* cptr = d0.data();
+    bad.set_part_data(0,cptr);
+    REQUIRE_THROWS (bad.commit());
+
+    // 4. set_read_only must be called before setting data
+    Field late ("late",fl,DataAccess::View,DataType::RealType);
+    late.set_part_data(0,d0.data());
+    REQUIRE_THROWS (late.set_read_only(false));
+
+    // 5. read_only() shallow copy of a writable field refuses writes, but the
+    //    original is still writable. Clones are always writable.
+    auto rw_ro = rw.read_only();
+    REQUIRE (rw_ro.is_read_only());
+    REQUIRE_THROWS (rw_ro.part_view_nonconst<Real>(0));
+    REQUIRE_NOTHROW (rw.part_view_nonconst<Real>(0));
+    auto ro_clone = ro.clone();
+    REQUIRE (not ro_clone.is_read_only());
+    REQUIRE_NOTHROW (ro_clone.deep_copy(3.0));
+    REQUIRE (d0[0]==0.0); // clone is a deep copy
+
+    // 6. Copy fields are writable by default
+    Field cp ("cp",fl,DataAccess::Copy,DataType::RealType);
+    REQUIRE (not cp.is_read_only());
+    cp.commit();
+    REQUIRE_NOTHROW (cp.deep_copy(1.0));
+  }
 }

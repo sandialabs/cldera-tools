@@ -114,12 +114,16 @@ do_compute_impl ()
   for (int p=0; p<nparts; ++p) {
     const auto& part_layout = m_field.part_layout(p);
     const int part_size = part_layout.dims()[part_dim];
-    const int part_offset = m_field.part_offset(p);
     auto fpart_view = m_field.part_nd_view<const T,N>(p);
-    
-    // copy each part to local_view
-    for (int i=0; i<fpart_view.extent(0); ++i) {
-      local_data[offset+i] = fpart_view(part_offset+i);
+
+    // copy each part to local_view.
+    // NOTE: loop over part_size (the actual number of cols in this part), NOT
+    //       fpart_view.extent(0), which is the *alloc* size (e.g., pcols in E3SM),
+    //       and index the part view from 0 (it is a view of this part only).
+    //       The previous code used extent(0) and fpart_view(part_offset+i), which
+    //       over/under-runs buffers when nparts>1 or alloc size > part size.
+    for (int i=0; i<part_size; ++i) {
+      local_data[offset+i] = fpart_view(i);
     }
     offset += part_size;
   }
@@ -132,7 +136,9 @@ do_compute_impl ()
     recvcounts = (int*)malloc(m_comm.size() * sizeof(int));
     displs = (int*)malloc(m_comm.size() * sizeof(int));
   }
-  MPI_Gather(&m_local_size, 1, MPI_INT, recvcounts, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  // NOTE: use the context comm, NOT MPI_COMM_WORLD. In E3SM the atm comm is a
+  //       subset of MPI_COMM_WORLD, and using the world comm would deadlock.
+  MPI_Gather(&m_local_size, 1, MPI_INT, recvcounts, 1, MPI_INT, m_comm.root_rank(), m_comm.mpi_comm());
   if (m_comm.am_i_root()) {
     displs[0] = 0;
     for (int i=1; i<m_comm.size(); i++) {
@@ -149,14 +155,14 @@ do_compute_impl ()
   } else {
     EKAT_ERROR_MSG ("[FieldSingleRank] mpi_type must be int or double");
   }
-  MPI_Gatherv(local_data, m_local_size, mpi_type, root_data, recvcounts, displs, mpi_type, 0, MPI_COMM_WORLD);
+  MPI_Gatherv(local_data, m_local_size, mpi_type, root_data, recvcounts, displs, mpi_type, m_comm.root_rank(), m_comm.mpi_comm());
 
   // cleanup after MPI
   if (m_comm.am_i_root()) {
     free(recvcounts);
     free(displs);
-    free(local_data);
   }
+  free(local_data); // allocated on all ranks
 
   // finally, copy that information in the stat field if on root rank
   if (m_comm.am_i_root()) {

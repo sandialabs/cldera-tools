@@ -30,6 +30,21 @@ namespace cldera
  * Note: a contiguous/non-partitioned field simply has nparts=1.
  */
 
+/*
+ * DataAccess tells who OWNS the field memory:
+ *  - Copy: the Field allocates its own memory (managed). The host app can
+ *          copy data in via copy_part_data.
+ *  - View: the Field wraps memory owned by the host app (unmanaged), set
+ *          via set_part_data.
+ *
+ * Ownership is orthogonal to WRITABILITY (see Field::is_read_only):
+ *  - Copy fields are writable by default.
+ *  - View fields are read-only by default (we do not want cldera to modify
+ *    host-app memory by accident). A View field becomes writable only if the
+ *    host app explicitly hands over non-const pointers, via the non-const
+ *    overload of set_part_data (or set_read_only(false) before setting data).
+ *  - Field::read_only() returns a shallow copy that refuses non-const access.
+ */
 enum class DataAccess {
   Copy,
   View
@@ -82,10 +97,24 @@ public:
 
   // Set part specs
   void set_part_extent  (const int ipart, const int part_extent);
+
+  // Set pointer to host-app data (View fields only).
+  //  - const overload: the part is read-only from cldera's point of view.
+  //  - non-const overload: if the field is writable (see set_read_only), cldera
+  //    is also allowed to write into the host-app memory through
+  //    part_view_nonconst & co. If the field is read-only, it behaves exactly
+  //    like the const overload.
   template<typename T>
   void set_part_data  (const int ipart, const T* data);
   template<typename T>
+  void set_part_data  (const int ipart, T* data);
+  template<typename T>
   void set_data (const T* data);
+
+  // Writability (orthogonal to ownership/DataAccess). Must be called before
+  // commit, and (for View fields) before any part data is set.
+  void set_read_only (const bool read_only);
+  bool is_read_only () const { return m_read_only; }
 
   void commit ();
 
@@ -173,6 +202,7 @@ private:
   void check_part_idx (const int i) const;
   void check_committed (const bool expected, const std::string& context) const;
   void check_rank (const int N) const;
+  void check_writable (const std::string& context) const;
 
   std::string       m_name;
   FieldLayout       m_layout;
@@ -185,6 +215,8 @@ private:
   bool              m_committed = false;
   // DataAccess tells if the data is a raw pointer to E3SM data or copied over (View or Copy)
   DataAccess        m_data_access;
+  // If true, non-const access to the data is forbidden (see DataAccess comment)
+  bool              m_read_only = false;
   // DataType tells how to recast the E3SM data (int or Real)
   DataType          m_data_type;
 
@@ -253,6 +285,23 @@ set_part_data (const int ipart, const T* data)
 
 template<typename T>
 void Field::
+set_part_data (const int ipart, T* data)
+{
+  // Do all checks and set the const view first
+  set_part_data(ipart,static_cast<const T*>(data));
+
+  // If writable, also keep a non-const view of the same (host-app) memory
+  if (not m_read_only) {
+    if (m_data_nonconst.size()!=static_cast<size_t>(m_nparts)) {
+      m_data_nonconst.resize(m_nparts);
+    }
+    const auto alloc_size = size_of(m_data_type)*part_layout(ipart).alloc_size();
+    m_data_nonconst[ipart] = view_1d_host<char> (ptr2char(data),alloc_size);
+  }
+}
+
+template<typename T>
+void Field::
 copy_data (const T* data)
 {
   check_single_part("copy_data");
@@ -276,6 +325,7 @@ copy_part_data (const int ipart, const T* data)
 
   check_data_type<T>();
   check_part_idx(ipart);
+  check_writable("Field::copy_part_data");
 
   view_1d_host<const T,Kokkos::MemoryUnmanaged> v(data,part_layout(ipart).alloc_size());
   Kokkos::deep_copy(part_view_nonconst<T>(ipart),v);
@@ -325,6 +375,7 @@ Field::part_view_nonconst (const int ipart)
   check_committed(true,"Field::part_view_nonconst");
   check_data_type<T>();
   check_part_idx(ipart);
+  check_writable("Field::part_view_nonconst");
 
   const auto data = char2ptr<T>(m_data_nonconst[ipart].data());
   const auto size = part_layout(ipart).alloc_size();
@@ -368,6 +419,7 @@ Field::part_nd_view_nonconst (const int ipart)
   check_rank(N);
   check_data_type<T>();
   check_part_idx(ipart);
+  check_writable("Field::part_nd_view_nonconst");
 
   const auto data = char2ptr<T>(m_data_nonconst[ipart].data());
   return view_Nd_host<T,N>(data,part_layout(ipart).kokkos_layout());
@@ -394,6 +446,7 @@ void Field::update (const Field& x, const T alpha, const T beta)
 {
   check_committed(true,"Field::update");
   x.check_committed(true,"Field::update");
+  check_writable("Field::update");
   EKAT_REQUIRE_MSG (layout()==x.layout(),
       "Error! Field::update called with fields of different layout."
       "  - tgt field name: " + name() + "\n"
@@ -429,6 +482,7 @@ template<typename T>
 void Field::scale (const T alpha)
 {
   check_committed(true,"Field::scale");
+  check_writable("Field::scale");
 
   EKAT_REQUIRE_MSG (m_data_type==DataType::RealType or get_data_type<T>()==DataType::IntType,
       "Error! Field::scale called with bad coefficient type.\n"
@@ -452,6 +506,7 @@ template<typename T>
 void Field::
 deep_copy (const T val)
 {
+  check_writable("Field::deep_copy(val)");
   auto run = [&](const auto value) {
     using value_t = typename std::remove_cv<decltype(value)>::type;
     for (int p=0; p<m_nparts; ++p) {

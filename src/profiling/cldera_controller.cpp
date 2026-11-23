@@ -1,14 +1,57 @@
 
+#include <algorithm>
+#include <cmath>
 #include <iostream>
 
 #include "cldera_controller.hpp"
 #include "cldera_controller_python.hpp"
-#include <iostream>
 
 namespace cldera {
 
+namespace {
+// BMW: the yaml parser stores "1" as int and "1.0" as double. Accept both for real params,
+//      so that e.g. 'Value: 0' does not throw a cryptic any_cast error.
+double get_real (const ekat::ParameterList& pl, const std::string& name) {
+  EKAT_REQUIRE_MSG (pl.isParameter(name),
+      "[Controller] Error! Parameter '" + name + "' not found in '" + pl.name() + "'.\n");
+  if (pl.isType<int>(name)) {
+    return static_cast<double>(pl.get<int>(name));
+  }
+  return pl.get<double>(name);
+}
+} // anonymous namespace
+
 Controller::
 Controller(const ekat::ParameterList& params)
+{
+  init(params);
+}
+
+Controller::
+Controller(const ekat::ParameterList& params, const TimeStamp& case_t0)
+ : m_case_t0(case_t0)
+ , m_has_case_t0(true)
+{
+  init(params);
+}
+
+std::vector<std::string> Controller::
+get_feedback_stats() const
+{
+  vos_t names;
+  for (const auto& c : m_controllers) {
+    // Only P/PI/... controllers use feedback. Constant controllers may name a stat just
+    // to have it logged; that does not need annual means.
+    if (c.type=="constant" or c.stat.empty()) continue;
+    if (std::find(names.begin(),names.end(),c.stat)==names.end()) {
+      names.push_back(c.stat);
+    }
+  }
+  return names;
+}
+
+void Controller::
+init(const ekat::ParameterList& params)
 {
 
   using vos_t = std::vector<std::string>;
@@ -18,15 +61,41 @@ Controller(const ekat::ParameterList& params)
 	// load controller parameters
   const auto prof_fields = params.get<vos_t>("Fields To Track");
 	const auto ctrl_params_filename = params.get<std::string>("Controller");
-  const auto ctrl_params = ekat::parse_yaml_file(ctrl_params_filename);
+  m_filename = ctrl_params_filename;
+  auto ctrl_params = ekat::parse_yaml_file(ctrl_params_filename);
 
 	// get time stamps
-	const int start_ymd = ctrl_params.get<int>("Start Day");
-	const int start_tod = ctrl_params.get<int>("Start Time");
+  // BMW: the start can be given either as an absolute date ('Start Day', 'Start Time'),
+  //      or relative to the case start ('Start Years After Case Start: N' -> Jan 1 00:00
+  //      of case start year + N). The relative form lets the same yaml be used for any
+  //      case start date (e.g. "start the controller 1 full year after the case starts").
+  if (ctrl_params.isParameter("Start Years After Case Start")) {
+    EKAT_REQUIRE_MSG (not ctrl_params.isParameter("Start Day"),
+        "[Controller] Error! Specify only one of 'Start Day' and 'Start Years After Case Start'.\n");
+    EKAT_REQUIRE_MSG (m_has_case_t0,
+        "[Controller] Error! 'Start Years After Case Start' requires the case start time.\n");
+    m_start_years_after = ctrl_params.get<int>("Start Years After Case Start");
+    EKAT_REQUIRE_MSG (m_start_years_after>=0,
+        "[Controller] Error! 'Start Years After Case Start' must be >= 0.\n");
+    // If the case does not start on Jan 1 at 00:00, the first full year starts the next Jan 1.
+    int y0 = m_case_t0.year();
+    if (not (m_case_t0.month()==1 and m_case_t0.day()==1 and m_case_t0.tod()==0)) {
+      ++y0;
+    }
+    m_start_time = TimeStamp((y0+m_start_years_after)*10000 + 101, 0);
+    m_start_mode = "Start Years After Case Start";
+  } else {
+    const int start_ymd = ctrl_params.get<int>("Start Day");
+    const int start_tod = ctrl_params.get<int>("Start Time");
+    m_start_time = TimeStamp(start_ymd, start_tod);
+    m_start_mode = "Start Day";
+  }
 	const int end_ymd = ctrl_params.get<int>("End Day");
 	const int end_tod = ctrl_params.get<int>("End Time");
-	m_start_time = TimeStamp(start_ymd, start_tod);
 	m_end_time = TimeStamp(end_ymd, end_tod);
+  EKAT_REQUIRE_MSG (m_start_time<=m_end_time,
+      "[Controller] Error! Controller start (" + m_start_time.to_string() +
+      ") is after its end (" + m_end_time.to_string() + ").\n");
 
   // get control interval definitions
   // NOTE: assumes a 365 day calendar
@@ -103,7 +172,27 @@ Controller(const ekat::ParameterList& params)
 
       // simple constant controller for debugging
       if (ctrl_type  == "constant") {
-        cdef.const_val = ctrl_def.get<double>("Value");
+        cdef.const_val = get_real(ctrl_def,"Value");
+
+        // BMW: a constant controller may optionally name a feedback Field/Stat. It does not
+        //      use it to compute its output, but it is passed to (and logged by) the Python
+        //      controller, which lets us test the full feedback data path before switching
+        //      to a P/PI/PID controller.
+        if (ctrl_def.isParameter("Stat")) {
+          auto ctrl_field = ctrl_def.get<std::string>("Field");
+          EKAT_REQUIRE_MSG(
+            std::find(prof_fields.begin(), prof_fields.end(), ctrl_field) != prof_fields.end(),
+            "Controller field \"" + ctrl_field + "\" not found in tracked fields"
+          );
+          auto field_stats = params.sublist(ctrl_field).get<vos_t>("Compute Stats");
+          auto ctrl_stat = ctrl_def.get<std::string>("Stat");
+          EKAT_REQUIRE_MSG(
+            std::find(field_stats.begin(), field_stats.end(), ctrl_stat) != field_stats.end(),
+            "Invalid controller statistic \"" + ctrl_stat + "\" for tracked field \"" + ctrl_field + "\"\n"
+          );
+          cdef.field = ctrl_field;
+          cdef.stat  = ctrl_stat;
+        }
 
       // actual controller
       } else {
@@ -134,8 +223,33 @@ Controller(const ekat::ParameterList& params)
         cdef.stat  = ctrl_stat;
 
         // residual reference value
-        auto ctrl_refval = ctrl_def.get<double>("Reference");
-        cdef.refval = ctrl_refval;
+        // BMW: optional. If missing, the Python controller computes it from the annual
+        //      mean of the year before the controller starts, plus 'Reference Offset'.
+        if (ctrl_def.isParameter("Reference")) {
+          cdef.refval = get_real(ctrl_def,"Reference");
+          cdef.has_refval = true;
+        }
+        if (ctrl_def.isParameter("Reference Offset")) {
+          cdef.ref_offset = get_real(ctrl_def,"Reference Offset");
+        }
+        if (ctrl_def.isParameter("Initial Annual Mean")) {
+          cdef.init_annual_mean = get_real(ctrl_def,"Initial Annual Mean");
+        }
+        // BMW: feedforward-only years before 'Feedback Start Year'
+        if (ctrl_def.isParameter("Feedback Start Year")) {
+          cdef.fb_start_year = ctrl_def.get<int>("Feedback Start Year");
+        }
+        if (ctrl_def.isParameter("Minimum Output")) {
+          cdef.min_out = get_real(ctrl_def,"Minimum Output");
+        }
+        if (ctrl_def.isParameter("Maximum Output")) {
+          cdef.max_out = get_real(ctrl_def,"Maximum Output");
+        }
+        if (ctrl_def.isParameter("Minimum Annual Coverage")) {
+          cdef.min_coverage = get_real(ctrl_def,"Minimum Annual Coverage");
+          EKAT_REQUIRE_MSG (cdef.min_coverage>0 and cdef.min_coverage<=1,
+              "[Controller] Error! 'Minimum Annual Coverage' must be in (0,1].\n");
+        }
 
         // TODO: some checking on projections (constant does not need a projection)
         auto ctrl_proj = ctrl_def.get<std::string>("Projection");
@@ -143,9 +257,15 @@ Controller(const ekat::ParameterList& params)
 
         // TODO: this needs to be generalized greatly
         if (ctrl_def.isSublist("Feedforward")) {
-          auto ff_def = ctrl_def.sublist("Feedforward");
+          auto& ff_def = ctrl_def.sublist("Feedforward");
           cdef.ff_type = ff_def.get<std::string>("Type");
-          cdef.ff_val  = ff_def.get<double>("Value");
+          cdef.ff_val  = get_real(ff_def,"Value");
+          EKAT_REQUIRE_MSG (cdef.ff_type=="linear" or cdef.ff_type=="constant",
+              "[Controller] Error! Feedforward 'Type' must be 'linear' or 'constant'.\n"
+              " - controller: " + ctrl_name + "\n - type: " + cdef.ff_type + "\n");
+          if (ff_def.isParameter("Start Year")) {
+            cdef.ff_start_year = ff_def.get<int>("Start Year");
+          }
         }
 
         // constraints
@@ -276,6 +396,23 @@ is_ctrl_time(const int ymd, const int tod) {
 
   return false;
 
+}
+
+bool Controller::
+is_interval_start(const int ymd, const int tod) const {
+  // BMW: true at tod==0 on the start day of ANY interval, regardless of the controller
+  //      active window. The cldera interface triggers the (Python) controller at these
+  //      times, and the Python controller returns zeros outside the active window. This
+  //      way injection stops at 'End Day', and stays zero before the start (it would
+  //      otherwise keep the last rates until the next trigger).
+  if (tod != 0) return false;
+  const int curr_mmdd = ymd % 10000;
+  for (const auto& idef : m_intervals) {
+    if (curr_mmdd == idef.start_mmdd) {
+      return true;
+    }
+  }
+  return false;
 }
 
 std::vector<double> Controller::

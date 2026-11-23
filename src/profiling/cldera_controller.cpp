@@ -235,6 +235,10 @@ init(const ekat::ParameterList& params)
         if (ctrl_def.isParameter("Initial Annual Mean")) {
           cdef.init_annual_mean = get_real(ctrl_def,"Initial Annual Mean");
         }
+        // BMW: feedforward-only years before 'Feedback Start Year'
+        if (ctrl_def.isParameter("Feedback Start Year")) {
+          cdef.fb_start_year = ctrl_def.get<int>("Feedback Start Year");
+        }
         if (ctrl_def.isParameter("Minimum Output")) {
           cdef.min_out = get_real(ctrl_def,"Minimum Output");
         }

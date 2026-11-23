@@ -49,6 +49,10 @@ struct ControllerDef {
   //    controller starts, if it is not simulated (e.g. a branch run from a control run).
   //  - ff_start_year: 'Feedforward: Start Year'. Year with FF = 1*ff_val (linear FF).
   //    Default (-1): the controller start year.
+  //  - fb_start_year: 'Feedback Start Year'. First year whose decision uses feedback
+  //    (P/I terms, from the annual mean of the year before). In earlier years of the
+  //    controller window the output is the feedforward only, and no error is recorded.
+  //    Default (-1): the controller start year (feedback from the first decision).
   //  - min_out/max_out: 'Minimum Output'/'Maximum Output'. The controller output
   //    (requested global-mean AOD) is clipped to [min_out, max_out]. Default [0, none].
   //  - min_coverage: 'Minimum Annual Coverage'. Minimum fraction of a year that must be
@@ -57,6 +61,7 @@ struct ControllerDef {
   double ref_offset = -1.0;
   double init_annual_mean = std::numeric_limits<double>::quiet_NaN();
   int    ff_start_year = -1;
+  int    fb_start_year = -1;
   double min_out = 0.0;
   double max_out = std::numeric_limits<double>::quiet_NaN();
   double min_coverage = 0.99;

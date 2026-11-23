@@ -102,6 +102,7 @@ PYBIND11_EMBEDDED_MODULE(sctrctrl_bindings, m) {
     .def_readonly("ref_offset", &cldera::ControllerDef::ref_offset)
     .def_readonly("init_annual_mean", &cldera::ControllerDef::init_annual_mean)
     .def_readonly("ff_start_year", &cldera::ControllerDef::ff_start_year)
+    .def_readonly("fb_start_year", &cldera::ControllerDef::fb_start_year)
     .def_readonly("min_out", &cldera::ControllerDef::min_out)
     .def_readonly("max_out", &cldera::ControllerDef::max_out)
     .def_readonly("min_coverage", &cldera::ControllerDef::min_coverage);
